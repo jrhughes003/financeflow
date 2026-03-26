@@ -1,0 +1,146 @@
+import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import { sampleData } from '../utils/sampleData';
+import { getCategoryById } from '../utils/categorization';
+
+const STORAGE_KEY = 'financeflow_data';
+
+const FinancialContext = createContext(null);
+
+function loadInitialState() {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      // Ensure customCategories field always exists (backwards compat)
+      return { customCategories: [], ...parsed };
+    }
+  } catch {}
+  return { ...sampleData };
+}
+
+function reducer(state, action) {
+  switch (action.type) {
+    case 'ADD_TRANSACTION':
+      return { ...state, transactions: [...state.transactions, action.payload] };
+
+    case 'DELETE_TRANSACTION':
+      return { ...state, transactions: state.transactions.filter(t => t.id !== action.payload) };
+
+    case 'UPDATE_TRANSACTION':
+      return { ...state, transactions: state.transactions.map(t => t.id === action.payload.id ? action.payload : t) };
+
+    case 'MARK_EXCEPTION':
+      return { ...state, transactions: state.transactions.map(t => t.id === action.payload ? { ...t, isException: !t.isException } : t) };
+
+    case 'SET_BUDGET': {
+      const exists = state.budgets.find(b => b.id === action.payload.id);
+      if (exists) {
+        return { ...state, budgets: state.budgets.map(b => b.id === action.payload.id ? action.payload : b) };
+      }
+      return { ...state, budgets: [...state.budgets, action.payload] };
+    }
+
+    case 'DELETE_BUDGET':
+      return { ...state, budgets: state.budgets.filter(b => b.id !== action.payload) };
+
+    case 'ADD_INCOME':
+      return { ...state, incomes: [...state.incomes, action.payload] };
+
+    case 'UPDATE_INCOME':
+      return { ...state, incomes: state.incomes.map(i => i.id === action.payload.id ? action.payload : i) };
+
+    case 'DELETE_INCOME':
+      return { ...state, incomes: state.incomes.filter(i => i.id !== action.payload) };
+
+    case 'ADD_GOAL':
+      return { ...state, savings_goals: [...state.savings_goals, action.payload] };
+
+    case 'UPDATE_GOAL':
+      return { ...state, savings_goals: state.savings_goals.map(g => g.id === action.payload.id ? action.payload : g) };
+
+    case 'DELETE_GOAL':
+      return { ...state, savings_goals: state.savings_goals.filter(g => g.id !== action.payload) };
+
+    case 'ADD_INVESTMENT':
+      return { ...state, investments: [...state.investments, action.payload] };
+
+    case 'UPDATE_INVESTMENT':
+      return { ...state, investments: state.investments.map(i => i.id === action.payload.id ? action.payload : i) };
+
+    case 'DELETE_INVESTMENT':
+      return { ...state, investments: state.investments.filter(i => i.id !== action.payload) };
+
+    case 'ADD_DEBT':
+      return { ...state, debts: [...state.debts, action.payload] };
+
+    case 'UPDATE_DEBT':
+      return { ...state, debts: state.debts.map(d => d.id === action.payload.id ? action.payload : d) };
+
+    case 'DELETE_DEBT':
+      return { ...state, debts: state.debts.filter(d => d.id !== action.payload) };
+
+    case 'ADD_RECURRING_TEMPLATE':
+      return { ...state, recurringTemplates: [...state.recurringTemplates, action.payload] };
+
+    case 'DELETE_RECURRING_TEMPLATE':
+      return { ...state, recurringTemplates: state.recurringTemplates.filter(r => r.id !== action.payload) };
+
+    case 'IMPORT_TRANSACTIONS':
+      return { ...state, transactions: [...state.transactions, ...action.payload] };
+
+    // Add a user-created category
+    case 'ADD_CATEGORY': {
+      const already = (state.customCategories || []).find(c => c.id === action.payload.id);
+      if (already) return state;
+      return { ...state, customCategories: [...(state.customCategories || []), action.payload] };
+    }
+
+    // Delete a user-created category
+    case 'DELETE_CATEGORY':
+      return { ...state, customCategories: (state.customCategories || []).filter(c => c.id !== action.payload) };
+
+    case 'LOAD_DATA':
+      return { customCategories: [], ...action.payload };
+
+    case 'RESET_DATA':
+      return { ...sampleData };
+
+    case 'UPDATE_SETTINGS':
+      return { ...state, settings: { ...state.settings, ...action.payload } };
+
+    default:
+      return state;
+  }
+}
+
+export function FinancialProvider({ children }) {
+  const [state, dispatch] = useReducer(reducer, null, loadInitialState);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch {}
+  }, [state]);
+
+  return (
+    <FinancialContext.Provider value={{ state, dispatch }}>
+      {children}
+    </FinancialContext.Provider>
+  );
+}
+
+export function useFinancial() {
+  const ctx = useContext(FinancialContext);
+  if (!ctx) throw new Error('useFinancial must be used within FinancialProvider');
+  return ctx;
+}
+
+/**
+ * Convenience hook — returns a getCategoryById function pre-loaded with
+ * the user's custom categories, so callers don't need to pass customCategories manually.
+ */
+export function useGetCategory() {
+  const { state } = useFinancial();
+  const customCategories = state.customCategories || [];
+  return (id) => getCategoryById(id, customCategories);
+}

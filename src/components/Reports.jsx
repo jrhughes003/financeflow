@@ -11,6 +11,8 @@ import {
 import { getCategoryById } from '../utils/categorization';
 import { useGetCategory } from '../context/FinancialContext';
 import { exportToCSV, exportToJSON } from '../utils/exportUtils';
+import { runAi, buildSummary, aiSupported } from '../ai/ai';
+import { Sparkles } from 'lucide-react';
 
 export default function Reports() {
   const { state } = useFinancial();
@@ -21,6 +23,31 @@ export default function Reports() {
   const [year, setYear] = useState(now.getFullYear());
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
+
+  // AI insights & Q&A (desktop + AI enabled only).
+  const aiEnabled = aiSupported && state.settings?.aiEnabled;
+  const [aiBusy, setAiBusy] = useState(false);
+  const [narrative, setNarrative] = useState('');
+  const [question, setQuestion] = useState('');
+  const [answer, setAnswer] = useState('');
+  const [aiErr, setAiErr] = useState('');
+
+  const generateInsights = async () => {
+    setAiBusy(true); setAiErr(''); setNarrative('');
+    const res = await runAi('insights', { summary: buildSummary(state, month, year) });
+    setAiBusy(false);
+    if (res.ok) setNarrative(res.data.narrative);
+    else setAiErr(res.error === 'no_key' ? 'Add an API key in Settings first.' : 'Insights unavailable right now.');
+  };
+
+  const askQuestion = async () => {
+    if (!question.trim()) return;
+    setAiBusy(true); setAiErr(''); setAnswer('');
+    const res = await runAi('query', { question: question.trim(), summary: buildSummary(state, month, year) });
+    setAiBusy(false);
+    if (res.ok) setAnswer(res.data.answer);
+    else setAiErr(res.error === 'no_key' ? 'Add an API key in Settings first.' : 'Could not answer right now.');
+  };
 
   const income = getTotalIncome(incomes);
   const expenses = getTotalExpenses(transactions, month, year);
@@ -140,6 +167,36 @@ export default function Reports() {
           </div>
         )}
       </div>
+
+      {/* AI insights & Q&A */}
+      {aiEnabled && (
+        <div className="bg-white rounded-2xl shadow-sm border border-purple-100 p-5">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-purple-500" />
+              <h2 className="text-base font-semibold text-gray-900">AI Insights</h2>
+            </div>
+            <button onClick={generateInsights} disabled={aiBusy} className="px-3 py-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white text-sm rounded-lg font-medium">
+              {aiBusy ? 'Thinking…' : 'Generate summary'}
+            </button>
+          </div>
+          {narrative && <p className="text-sm text-gray-700 whitespace-pre-line bg-purple-50 rounded-xl p-3 mb-3">{narrative}</p>}
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={question}
+              onChange={e => setQuestion(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); askQuestion(); } }}
+              placeholder="Ask about this month's spending…"
+              className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-purple-500"
+            />
+            <button onClick={askQuestion} disabled={aiBusy || !question.trim()} className="px-3 py-2 border border-purple-200 text-purple-600 hover:bg-purple-50 disabled:opacity-50 text-sm rounded-lg font-medium">Ask</button>
+          </div>
+          {answer && <p className="text-sm text-gray-700 mt-3 bg-gray-50 rounded-xl p-3">{answer}</p>}
+          {aiErr && <p className="text-xs text-red-500 mt-2">{aiErr}</p>}
+          <p className="text-[11px] text-gray-400 mt-3">Grounded only on aggregate totals for {format(new Date(year, month, 1), 'MMMM yyyy')} — your raw transactions are not sent.</p>
+        </div>
+      )}
 
       {/* Biggest Variance */}
       {biggestVariance.length > 0 && (

@@ -1,4 +1,10 @@
 import { endOfMonth, parseISO, format, addMonths, subMonths, getDay } from 'date-fns';
+import {
+  ANOMALY_MIN_AVERAGE,
+  ANOMALY_MULTIPLIER,
+  ANOMALY_LOOKBACK_MONTHS,
+  DEFAULT_TREND_MONTHS,
+} from './constants';
 
 // Format currency consistently
 export function formatCurrency(amount) {
@@ -33,7 +39,9 @@ export function getTransactionsForPeriod(transactions, month, year) {
   const endStr = format(endOfMonth(new Date(year, month, 1)), 'yyyy-MM-dd');
   return transactions.filter(t => {
     const d = (t.date || '').slice(0, 10); // take only YYYY-MM-DD portion
-    return d >= startStr && d <= endStr && !t.isException;
+    // Exclude exceptions and savings transfers — savings isn't a category expense
+    // and is accounted for separately via goal contributions.
+    return d >= startStr && d <= endStr && !t.isException && t.kind !== 'savings';
   });
 }
 
@@ -59,29 +67,64 @@ export function getSpendingByCategory(transactions, month, year) {
   return map;
 }
 
-// Budget status for each category
+// Rollover carry for a budget: the previous month's unused (positive) or
+// overspent (negative) amount, which folds into this month's effective limit.
+// Budgets in FinanceFlow are not per-month, so the previous month's limit is the
+// same base amount; we carry a single month (predictable and bounded) rather than
+// compounding indefinitely. Returns 0 when rollover is off.
+export function getRolloverCarry(budget, transactions, month, year) {
+  if (!budget || !budget.rollover) return 0;
+  const prev = subMonths(new Date(year, month, 1), 1);
+  const prevSpending = getSpendingByCategory(transactions, prev.getMonth(), prev.getFullYear());
+  const prevActual = prevSpending[budget.category] || 0;
+  return roundCents(budget.amount - prevActual);
+}
+
+// Budget status for each category. When a budget has rollover enabled, the prior
+// month's leftover/overage is folded into an `effectiveBudget` against which
+// usage, flex, and status are measured.
 export function getBudgetStatus(budgets, transactions, month, year) {
   const spending = getSpendingByCategory(transactions, month, year);
   return budgets.map(b => {
     const actual = spending[b.category] || 0;
     const flex = b.flex || 0; // percentage of acceptable overage
-    const flexLimit = b.amount * (1 + flex / 100);
-    const percentUsed = b.amount > 0 ? (actual / b.amount) * 100 : 0;
+    const carry = getRolloverCarry(b, transactions, month, year);
+    // Effective limit can't go below zero (a large prior overage zeroes it out).
+    const effectiveBudget = roundCents(Math.max(0, b.amount + carry));
+    const flexLimit = effectiveBudget * (1 + flex / 100);
+    const percentUsed = effectiveBudget > 0 ? (actual / effectiveBudget) * 100 : 0;
     let status = 'good';
     if (actual > flexLimit) status = 'danger';
     else if (percentUsed >= 80) status = 'warning';
     return {
       category: b.category,
       budget: b.amount,
+      carry,
+      effectiveBudget,
       actual,
       flex: b.flex || 0,
       flexLimit,
-      variance: b.amount - actual,
+      variance: effectiveBudget - actual,
       percentUsed,
       status,
       rollover: b.rollover || false,
     };
   });
+}
+
+// Categories that were over budget (danger) in at least `minOverMonths` of the
+// trailing `monthsBack` months. Computes each month's statuses once (monthsBack
+// calls total) instead of re-running getBudgetStatus per-budget-per-month.
+export function getConsistentlyOverBudget(budgets, transactions, month, year, monthsBack = 3, minOverMonths = 2) {
+  const overCounts = {};
+  for (let i = 1; i <= monthsBack; i++) {
+    const d = subMonths(new Date(year, month, 1), i);
+    const statuses = getBudgetStatus(budgets, transactions, d.getMonth(), d.getFullYear());
+    statuses.forEach(s => {
+      if (s.status === 'danger') overCounts[s.category] = (overCounts[s.category] || 0) + 1;
+    });
+  }
+  return budgets.filter(b => (overCounts[b.category] || 0) >= minOverMonths);
 }
 
 // Savings rate: (income - expenses) / income * 100
@@ -101,7 +144,7 @@ export function getNetWorth(investments, debts, savingsGoals) {
 }
 
 // Monthly trend: returns array of {month, year, label, [categoryId]: amount, total}
-export function getMonthlyTrend(transactions, numMonths = 6) {
+export function getMonthlyTrend(transactions, numMonths = DEFAULT_TREND_MONTHS) {
   const now = new Date();
   const result = [];
   for (let i = numMonths - 1; i >= 0; i--) {
@@ -130,24 +173,52 @@ export function getBudgetHealthScore(budgets, transactions, month, year) {
   return { grade, percent, color };
 }
 
-// Detect anomalies: categories spending 2x more than rolling 3-month average
-export function detectAnomalies(transactions, month, year) {
+// Sum of savings contributions logged against a specific goal. A contribution is
+// any transaction tagged kind === 'savings' whose goalId matches.
+export function getGoalContributions(transactions, goalId) {
+  if (!goalId) return 0;
+  const total = (transactions || [])
+    .filter(t => t.kind === 'savings' && t.goalId === goalId)
+    .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+  return roundCents(total);
+}
+
+// Derived progress for a savings goal: the manually-entered opening balance
+// (currentAmount) plus everything contributed via savings transactions.
+export function getGoalProgress(goal, transactions) {
+  const opening = Number(goal.currentAmount) || 0;
+  const contributed = getGoalContributions(transactions, goal.id);
+  const total = roundCents(opening + contributed);
+  const target = Number(goal.targetAmount) || 0;
+  return {
+    opening,
+    contributed,
+    currentAmount: total,
+    percent: target > 0 ? Math.min(100, (total / target) * 100) : 0,
+  };
+}
+
+// Detect anomalies: categories spending well above their rolling average.
+// Thresholds come from constants but may be overridden via settings.
+export function detectAnomalies(transactions, month, year, options = {}) {
+  const minAverage = options.minAverage ?? ANOMALY_MIN_AVERAGE;
+  const multiplier = options.multiplier ?? ANOMALY_MULTIPLIER;
   const now = new Date(year, month, 1);
   const currentSpending = getSpendingByCategory(transactions, month, year);
   const alerts = [];
 
-  // Build 3-month average
-  const months = [1, 2, 3].map(i => {
-    const d = subMonths(now, i);
+  // Build rolling average over the lookback window
+  const months = Array.from({ length: ANOMALY_LOOKBACK_MONTHS }, (_, i) => {
+    const d = subMonths(now, i + 1);
     return getSpendingByCategory(transactions, d.getMonth(), d.getFullYear());
   });
 
   const categories = [...new Set(transactions.map(t => t.category))];
   categories.forEach(cat => {
     const monthlyAverages = months.map(m => m[cat] || 0);
-    const avg = monthlyAverages.reduce((s, v) => s + v, 0) / 3;
+    const avg = monthlyAverages.reduce((s, v) => s + v, 0) / ANOMALY_LOOKBACK_MONTHS;
     const current = currentSpending[cat] || 0;
-    if (avg > 10 && current > avg * 2) {
+    if (avg > minAverage && current > avg * multiplier) {
       alerts.push({
         category: cat,
         current,

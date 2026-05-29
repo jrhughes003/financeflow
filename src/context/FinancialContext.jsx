@@ -1,20 +1,27 @@
-import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useRef } from 'react';
 import { sampleData } from '../utils/sampleData';
 import { getCategoryById } from '../utils/categorization';
-
-const STORAGE_KEY = 'financeflow_data';
+import {
+  isElectron,
+  loadState,
+  saveState,
+  isInitialized,
+  markInitialized,
+  readLegacyLocalStorage,
+} from '../storage/storage';
 
 const FinancialContext = createContext(null);
 
+// Ensure customCategories field always exists (backwards compat).
+function withDefaults(parsed) {
+  return { customCategories: [], ...parsed };
+}
+
 function loadInitialState() {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      // Ensure customCategories field always exists (backwards compat)
-      return { customCategories: [], ...parsed };
-    }
-  } catch {}
+  // Synchronous best-effort: in web mode this is the real load; in Electron it's
+  // an immediate placeholder that the async SQLite load (below) replaces.
+  const legacy = readLegacyLocalStorage();
+  if (legacy) return withDefaults(legacy);
   return { ...sampleData };
 }
 
@@ -82,6 +89,9 @@ function reducer(state, action) {
     case 'ADD_RECURRING_TEMPLATE':
       return { ...state, recurringTemplates: [...state.recurringTemplates, action.payload] };
 
+    case 'UPDATE_RECURRING_TEMPLATE':
+      return { ...state, recurringTemplates: state.recurringTemplates.map(r => r.id === action.payload.id ? action.payload : r) };
+
     case 'DELETE_RECURRING_TEMPLATE':
       return { ...state, recurringTemplates: state.recurringTemplates.filter(r => r.id !== action.payload) };
 
@@ -116,10 +126,39 @@ function reducer(state, action) {
 export function FinancialProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, null, loadInitialState);
 
+  // In Electron we must finish the async SQLite load before persisting, or the
+  // placeholder state would clobber the database. Web mode is ready immediately.
+  const readyToPersist = useRef(!isElectron);
+
+  // Electron-only: load from SQLite, seeding sample data (or migrating a legacy
+  // localStorage blob) exactly once on first launch.
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    } catch {}
+    if (!isElectron) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        if (await isInitialized()) {
+          const loaded = await loadState();
+          if (!cancelled && loaded) dispatch({ type: 'LOAD_DATA', payload: loaded });
+        } else {
+          const legacy = readLegacyLocalStorage();
+          const seed = legacy ? withDefaults(legacy) : { ...sampleData };
+          await saveState(seed);
+          await markInitialized();
+          if (!cancelled) dispatch({ type: 'LOAD_DATA', payload: seed });
+        }
+      } finally {
+        readyToPersist.current = true;
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Persist the whole state on every change (matches the prior localStorage
+  // semantics; the adapter routes it to SQLite or localStorage as appropriate).
+  useEffect(() => {
+    if (!readyToPersist.current) return;
+    saveState(state);
   }, [state]);
 
   return (

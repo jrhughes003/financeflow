@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Zap, Plus } from 'lucide-react';
+import { X, Zap, Plus, Sparkles } from 'lucide-react';
 import { format } from 'date-fns';
 import { useFinancial, useGetCategory } from '../context/FinancialContext';
 import { CATEGORIES, getAllCategories, autoCategorize } from '../utils/categorization';
+import { runAi, taxonomy, aiSupported } from '../ai/ai';
 
 const EMPTY_FORM = {
   date: format(new Date(), 'yyyy-MM-dd'),
@@ -13,6 +14,8 @@ const EMPTY_FORM = {
   notes: '',
   tags: '',
   isException: false,
+  kind: 'expense',
+  goalId: '',
 };
 
 const PRESET_COLORS = ['#f97316','#22c55e','#3b82f6','#8b5cf6','#f59e0b','#ec4899','#10b981','#0ea5e9','#ef4444','#84cc16'];
@@ -20,15 +23,48 @@ const PRESET_COLORS = ['#f97316','#22c55e','#3b82f6','#8b5cf6','#f59e0b','#ec489
 export default function TransactionEntry({ isModal = false, onClose, editTransaction = null }) {
   const { state, dispatch } = useFinancial();
   const customCategories = state.customCategories || [];
+  const savingsGoals = state.savings_goals || [];
   const allCategories = getAllCategories(customCategories);
 
   const [form, setForm] = useState(editTransaction
-    ? { ...editTransaction, tags: (editTransaction.tags || []).join(', '), amount: String(editTransaction.amount) }
+    ? { ...EMPTY_FORM, ...editTransaction, tags: (editTransaction.tags || []).join(', '), amount: String(editTransaction.amount) }
     : EMPTY_FORM
   );
+  const isSavings = form.kind === 'savings';
   const [suggestion, setSuggestion] = useState('');
   const [showNotes, setShowNotes] = useState(false);
   const [errors, setErrors] = useState({});
+
+  // Natural-language entry (AI). Off unless the desktop app has AI enabled.
+  const aiEnabled = aiSupported && (state.settings?.aiEnabled);
+  const [nlText, setNlText] = useState('');
+  const [nlBusy, setNlBusy] = useState(false);
+  const [nlError, setNlError] = useState('');
+
+  const parseNaturalLanguage = async () => {
+    if (!nlText.trim()) return;
+    setNlBusy(true); setNlError('');
+    const res = await runAi('parse_entry', {
+      text: nlText.trim(),
+      today: format(new Date(), 'yyyy-MM-dd'),
+      categories: taxonomy(customCategories),
+    });
+    setNlBusy(false);
+    if (res.ok && res.data) {
+      const d = res.data;
+      setForm(f => ({
+        ...f,
+        kind: 'expense',
+        date: d.date || f.date,
+        merchant: d.merchant || f.merchant,
+        amount: d.amount != null ? String(d.amount) : f.amount,
+        category: d.category || f.category,
+      }));
+      setNlText('');
+    } else {
+      setNlError(res.error === 'no_key' ? 'Add an API key in Settings first.' : 'Could not parse that — enter manually.');
+    }
+  };
 
   // New category creation state
   const [showNewCat, setShowNewCat] = useState(false);
@@ -38,13 +74,30 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
   const amountRef = useRef(null);
   useEffect(() => { if (amountRef.current) amountRef.current.focus(); }, []);
 
+  // Learned merchant→category memory (from past user choices), kept in settings.
+  const hints = state.settings?.merchantCategoryHints || {};
+  const hintKey = (m) => (m || '').toLowerCase().trim();
+
   const handleMerchantChange = (val) => {
     setForm(f => ({ ...f, merchant: val }));
     if (val.length >= 3) {
-      const suggested = autoCategorize(val, customCategories);
-      setSuggestion(suggested !== 'products' ? suggested : '');
+      // 1) a learned correction wins, 2) then the keyword matcher.
+      const learned = hints[hintKey(val)];
+      const suggested = learned || autoCategorize(val, customCategories);
+      setSuggestion(suggested && suggested !== 'products' ? suggested : '');
     } else {
       setSuggestion('');
+    }
+  };
+
+  // On blur, if nothing matched and AI is on, ask the model (the smart fallback).
+  const aiCategorizeOnBlur = async () => {
+    if (!aiEnabled || isSavings) return;
+    if (form.category || suggestion || form.merchant.trim().length < 3) return;
+    if (autoCategorize(form.merchant, customCategories) !== 'products') return; // keywords handled it
+    const res = await runAi('categorize', { merchant: form.merchant.trim(), categories: taxonomy(customCategories) });
+    if (res.ok && res.data?.category && res.data.category !== 'products') {
+      setSuggestion(res.data.category);
     }
   };
 
@@ -73,8 +126,12 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
   const validate = () => {
     const e = {};
     if (!form.amount || isNaN(parseFloat(form.amount)) || parseFloat(form.amount) <= 0) e.amount = 'Enter a valid amount';
-    if (!form.merchant.trim()) e.merchant = 'Merchant is required';
-    if (!form.category) e.category = 'Select a category';
+    if (isSavings) {
+      if (!form.goalId) e.goalId = 'Choose a goal to contribute to';
+    } else {
+      if (!form.merchant.trim()) e.merchant = 'Merchant is required';
+      if (!form.category) e.category = 'Select a category';
+    }
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -82,13 +139,26 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
   const handleSubmit = (ev) => {
     ev.preventDefault();
     if (!validate()) return;
+    const goal = savingsGoals.find(g => g.id === form.goalId);
     const txData = {
       ...form,
       id: editTransaction ? editTransaction.id : `tx_${Date.now()}_${Math.random().toString(36).slice(2)}`,
       amount: parseFloat(form.amount),
       tags: form.tags ? form.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
+      // Savings contributions get a fixed category + a merchant fallback so they
+      // read sensibly in the ledger; goalId links them to a goal for progress.
+      ...(isSavings ? {
+        category: 'savings',
+        subcategory: '',
+        merchant: form.merchant.trim() || (goal ? `Savings → ${goal.name}` : 'Savings'),
+      } : { goalId: '' }),
     };
     dispatch({ type: editTransaction ? 'UPDATE_TRANSACTION' : 'ADD_TRANSACTION', payload: txData });
+    // Learn the merchant→category mapping so future entries (and the AI fallback)
+    // benefit from this correction. Local only — never sent anywhere.
+    if (!isSavings && txData.merchant && txData.category) {
+      dispatch({ type: 'UPDATE_SETTINGS', payload: { merchantCategoryHints: { ...hints, [hintKey(txData.merchant)]: txData.category } } });
+    }
     if (isModal && onClose) onClose();
     else setForm(EMPTY_FORM);
   };
@@ -97,6 +167,46 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
 
   const content = (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Natural-language entry (AI) */}
+      {aiEnabled && !editTransaction && (
+        <div className="bg-purple-50 border border-purple-200 rounded-xl p-3">
+          <label className="flex items-center gap-1.5 text-xs font-semibold text-purple-700 mb-1.5">
+            <Sparkles className="w-3.5 h-3.5" /> Describe it in words
+          </label>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={nlText}
+              onChange={e => setNlText(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); parseNaturalLanguage(); } }}
+              placeholder="e.g. spent $40 on gas at Esso yesterday"
+              className="flex-1 px-3 py-2 border border-purple-200 rounded-lg text-sm bg-white focus:outline-none focus:border-purple-500"
+            />
+            <button type="button" onClick={parseNaturalLanguage} disabled={nlBusy || !nlText.trim()}
+              className="px-3 py-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white text-sm rounded-lg font-medium">
+              {nlBusy ? '…' : 'Fill'}
+            </button>
+          </div>
+          {nlError && <p className="text-xs text-red-500 mt-1">{nlError}</p>}
+        </div>
+      )}
+
+      {/* Type toggle: expense vs savings contribution */}
+      {savingsGoals.length > 0 && (
+        <div className="flex gap-2 p-1 bg-gray-100 rounded-xl">
+          {[['expense', 'Expense'], ['savings', 'Savings']].map(([val, label]) => (
+            <button
+              key={val}
+              type="button"
+              onClick={() => { setForm(f => ({ ...f, kind: val })); setErrors({}); }}
+              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${form.kind === val ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Amount */}
       <div>
         <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Amount</label>
@@ -116,7 +226,25 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
         {errors.amount && <p className="text-xs text-red-500 mt-1">{errors.amount}</p>}
       </div>
 
+      {/* Savings goal selector (savings mode only) */}
+      {isSavings && (
+        <div>
+          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Contribute to Goal</label>
+          <select
+            value={form.goalId}
+            onChange={e => setForm(f => ({ ...f, goalId: e.target.value }))}
+            className={`w-full px-3 py-3 border-2 rounded-xl focus:outline-none focus:border-blue-500 transition-colors bg-white ${errors.goalId ? 'border-red-400' : 'border-gray-200'}`}
+          >
+            <option value="">Select a goal...</option>
+            {savingsGoals.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+          </select>
+          {errors.goalId && <p className="text-xs text-red-500 mt-1">{errors.goalId}</p>}
+          <p className="text-[11px] text-gray-400 mt-1">Adds to the goal's progress; excluded from category spending.</p>
+        </div>
+      )}
+
       {/* Merchant */}
+      {!isSavings && (
       <div>
         <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Merchant / Description</label>
         <input
@@ -124,6 +252,7 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
           placeholder="e.g. Uber Eats, Metro, Esso..."
           value={form.merchant}
           onChange={e => handleMerchantChange(e.target.value)}
+          onBlur={aiCategorizeOnBlur}
           className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:border-blue-500 transition-colors ${errors.merchant ? 'border-red-400' : 'border-gray-200'}`}
         />
         {errors.merchant && <p className="text-xs text-red-500 mt-1">{errors.merchant}</p>}
@@ -134,6 +263,7 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
           </button>
         )}
       </div>
+      )}
 
       {/* Date */}
       <div>
@@ -147,6 +277,7 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
       </div>
 
       {/* Category */}
+      {!isSavings && (
       <div>
         <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Category</label>
         <div className="flex gap-2">
@@ -198,9 +329,10 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
           </div>
         )}
       </div>
+      )}
 
       {/* Subcategory */}
-      {selectedCat && selectedCat.subcategories?.length > 0 && (
+      {!isSavings && selectedCat && selectedCat.subcategories?.length > 0 && (
         <div>
           <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Subcategory</label>
           <select

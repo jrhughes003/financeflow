@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { format, subMonths } from 'date-fns';
+import { format } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useFinancial } from '../context/FinancialContext';
-import { getBudgetStatus, getMonthlyTrend, formatCurrency } from '../utils/calculations';
+import { getBudgetStatus, getMonthlyTrend, getConsistentlyOverBudget, formatCurrency } from '../utils/calculations';
 import { getCategoryById } from '../utils/categorization';
 import { useGetCategory } from '../context/FinancialContext';
 
@@ -49,16 +49,9 @@ export default function BudgetComparison() {
   const totalActual = statuses.reduce((s, b) => s + b.actual, 0);
   const totalVariance = totalBudget - totalActual;
 
-  // Identify consistently overspent categories (over budget last 3 months)
-  const consistentlyOver = budgets.filter(b => {
-    let overCount = 0;
-    for (let i = 1; i <= 3; i++) {
-      const d = subMonths(new Date(year, month, 1), i);
-      const st = getBudgetStatus([b], transactions, d.getMonth(), d.getFullYear());
-      if (st[0]?.status === 'danger') overCount++;
-    }
-    return overCount >= 2;
-  });
+  // Identify consistently overspent categories (over budget 2+ of the last 3
+  // months). Batched: computes each month's statuses once instead of 3× per budget.
+  const consistentlyOver = getConsistentlyOverBudget(budgets, transactions, month, year);
 
   const changeMonth = (delta) => {
     const d = new Date(year, month + delta, 1);

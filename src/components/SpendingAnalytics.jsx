@@ -18,7 +18,7 @@ const COLORS = CATEGORIES.map(c => c.color);
 
 export default function SpendingAnalytics() {
   const { state } = useFinancial();
-  const { transactions, budgets, customCategories = [] } = state;
+  const { transactions, budgets, customCategories = [], settings = {} } = state;
   const getCategory = useGetCategory();
   const allCategories = getAllCategories(customCategories);
   const now = new Date();
@@ -29,7 +29,10 @@ export default function SpendingAnalytics() {
 
   const spending = getSpendingByCategory(transactions, month, year);
   const trend = getMonthlyTrend(transactions, 6);
-  const anomalies = detectAnomalies(transactions, month, year);
+  const anomalies = detectAnomalies(transactions, month, year, {
+    minAverage: settings.anomalyMinAverage,
+    multiplier: settings.anomalyMultiplier,
+  });
   const health = getBudgetHealthScore(budgets, transactions, month, year);
   const dow = getSpendingByDayOfWeek(transactions.filter(t => {
     const d = new Date(t.date);

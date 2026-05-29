@@ -2,16 +2,18 @@ import React, { useState } from 'react';
 import { Plus, Trash2, Edit2, Check, X, Lightbulb, Tag } from 'lucide-react';
 import { useFinancial, useGetCategory } from '../context/FinancialContext';
 import { CATEGORIES, getAllCategories } from '../utils/categorization';
-import { getSpendingByCategory, getMonthlyTrend, formatCurrency } from '../utils/calculations';
+import { getSpendingByCategory, getMonthlyTrend, getBudgetStatus, formatCurrency } from '../utils/calculations';
 import { format } from 'date-fns';
 
 const PRESET_COLORS = ['#f97316','#22c55e','#3b82f6','#8b5cf6','#f59e0b','#ec4899','#10b981','#0ea5e9','#ef4444','#84cc16'];
 
-function BudgetRow({ budget, spending, onEdit, onDelete, getCategory }) {
+function BudgetRow({ budget, spending, carry = 0, effectiveBudget, onEdit, onDelete, getCategory }) {
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ amount: budget.amount, flex: budget.flex || 0, rollover: budget.rollover || false });
   const cat = getCategory(budget.category);
-  const pct = budget.amount > 0 ? Math.min((spending / budget.amount) * 100, 120) : 0;
+  // Measure usage against the rollover-adjusted limit when rollover is on.
+  const limit = budget.rollover ? (effectiveBudget ?? budget.amount) : budget.amount;
+  const pct = limit > 0 ? Math.min((spending / limit) * 100, 120) : 0;
   const status = pct > 100 + (budget.flex || 0) ? 'danger' : pct >= 80 ? 'warning' : 'good';
   const barColor = status === 'danger' ? '#ef4444' : status === 'warning' ? '#f59e0b' : '#22c55e';
 
@@ -69,7 +71,11 @@ function BudgetRow({ budget, spending, onEdit, onDelete, getCategory }) {
           )}
           <div className="flex justify-between mt-1">
             <span className="text-xs text-gray-400">{budget.amount > 0 ? `${pct.toFixed(0)}% used` : 'Track only'}{budget.flex ? ` · ${budget.flex}% flex` : ''}</span>
-            {budget.rollover && <span className="text-xs text-blue-500">Rollover ✓</span>}
+            {budget.rollover && (
+              <span className="text-xs text-blue-500" title={`Effective limit ${formatCurrency(limit)} this month`}>
+                {carry >= 0 ? `+${formatCurrency(carry)} rolled over` : `${formatCurrency(carry)} carried`}
+              </span>
+            )}
           </div>
         </>
       )}
@@ -88,6 +94,10 @@ export default function BudgetManager() {
   const year = now.getFullYear();
   const spending = getSpendingByCategory(transactions, month, year);
   const trend = getMonthlyTrend(transactions, 3);
+  // Rollover-aware status per category (carry + effective limit for this month).
+  const statusByCategory = Object.fromEntries(
+    getBudgetStatus(budgets, transactions, month, year).map(s => [s.category, s]),
+  );
 
   // Smart suggestions from 3-month average
   const suggestions = {};
@@ -273,6 +283,8 @@ export default function BudgetManager() {
               key={b.id}
               budget={b}
               spending={spending[b.category] || 0}
+              carry={statusByCategory[b.category]?.carry || 0}
+              effectiveBudget={statusByCategory[b.category]?.effectiveBudget}
               getCategory={getCategory}
               onEdit={payload => dispatch({ type: 'SET_BUDGET', payload })}
               onDelete={id => dispatch({ type: 'DELETE_BUDGET', payload: id })}

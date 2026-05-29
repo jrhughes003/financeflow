@@ -2,21 +2,26 @@ import React, { useState } from 'react';
 import { Plus, Edit2, Trash2, Target, Plane, Car, Shield, Home, Star } from 'lucide-react';
 import { format, addMonths, parseISO, differenceInMonths } from 'date-fns';
 import { useFinancial } from '../context/FinancialContext';
-import { projectGoalCompletion, formatCurrency } from '../utils/calculations';
+import { projectGoalCompletion, getGoalProgress, formatCurrency } from '../utils/calculations';
 
 const ICONS = { Shield, Plane, Car, Home, Star, Target };
 const ICON_LIST = ['Target', 'Plane', 'Car', 'Shield', 'Home', 'Star'];
 const COLORS = ['#3b82f6', '#22c55e', '#f59e0b', '#ec4899', '#8b5cf6', '#10b981', '#f97316', '#0ea5e9'];
 
-function GoalCard({ goal, onEdit, onDelete }) {
-  const pct = goal.targetAmount > 0 ? Math.min((goal.currentAmount / goal.targetAmount) * 100, 100) : 0;
-  const remaining = goal.targetAmount - goal.currentAmount;
+function GoalCard({ goal, transactions, onEdit, onDelete }) {
+  // Progress is derived: the opening balance plus every savings transaction
+  // logged against this goal (kind: 'savings', goalId === goal.id).
+  const progress = getGoalProgress(goal, transactions);
+  const currentAmount = progress.currentAmount;
+  const derivedGoal = { ...goal, currentAmount };
+  const pct = progress.percent;
+  const remaining = goal.targetAmount - currentAmount;
   const Icon = ICONS[goal.icon] || Target;
-  const projection = projectGoalCompletion(goal, goal.monthlyContribution);
+  const projection = projectGoalCompletion(derivedGoal, goal.monthlyContribution);
   const targetDate = parseISO(goal.targetDate);
   const monthsLeft = differenceInMonths(targetDate, new Date());
   const onTrack = projection && differenceInMonths(projection.completionDate, targetDate) <= 0;
-  const completed = goal.currentAmount >= goal.targetAmount;
+  const completed = currentAmount >= goal.targetAmount;
 
   return (
     <div className={`bg-white rounded-2xl shadow-sm border p-5 ${completed ? 'border-green-300' : 'border-gray-100'}`}>
@@ -43,7 +48,7 @@ function GoalCard({ goal, onEdit, onDelete }) {
 
       <div className="mb-3">
         <div className="flex justify-between text-sm mb-1.5">
-          <span className="font-bold text-gray-900">{formatCurrency(goal.currentAmount)}</span>
+          <span className="font-bold text-gray-900">{formatCurrency(currentAmount)}</span>
           <span className="text-gray-500">of {formatCurrency(goal.targetAmount)}</span>
         </div>
         <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
@@ -56,6 +61,11 @@ function GoalCard({ goal, onEdit, onDelete }) {
           <span className="text-xs text-gray-400">{pct.toFixed(1)}% complete</span>
           <span className="text-xs text-gray-400">{formatCurrency(remaining)} remaining</span>
         </div>
+        {progress.contributed > 0 && (
+          <p className="text-[11px] text-gray-400 mt-1">
+            {formatCurrency(progress.opening)} opening + {formatCurrency(progress.contributed)} from savings transactions
+          </p>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-3 text-xs">
@@ -92,7 +102,7 @@ const EMPTY_FORM = { name: '', targetAmount: '', currentAmount: '', monthlyContr
 
 export default function GoalsManager() {
   const { state, dispatch } = useFinancial();
-  const { savings_goals } = state;
+  const { savings_goals, transactions } = state;
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [editId, setEditId] = useState(null);
@@ -150,8 +160,9 @@ export default function GoalsManager() {
               <input type="number" value={form.targetAmount} onChange={e => setForm(f => ({ ...f, targetAmount: e.target.value }))} placeholder="$0" className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 bg-white" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Current Amount</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Opening Balance</label>
               <input type="number" value={form.currentAmount} onChange={e => setForm(f => ({ ...f, currentAmount: e.target.value }))} placeholder="$0" className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 bg-white" />
+              <p className="text-[11px] text-gray-400 mt-1">Starting amount. Log savings transactions to add more.</p>
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">Monthly Contribution</label>
@@ -188,7 +199,7 @@ export default function GoalsManager() {
         ? <div className="text-center py-12 text-gray-400"><p className="font-medium">No goals yet</p><p className="text-sm mt-1">Create your first savings goal to get started.</p></div>
         : <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {savings_goals.map(g => (
-              <GoalCard key={g.id} goal={g} onEdit={openEdit} onDelete={id => dispatch({ type: 'DELETE_GOAL', payload: id })} />
+              <GoalCard key={g.id} goal={g} transactions={transactions} onEdit={openEdit} onDelete={id => dispatch({ type: 'DELETE_GOAL', payload: id })} />
             ))}
           </div>
       }
@@ -211,6 +222,15 @@ export default function GoalsManager() {
                 If you save <strong>{formatCurrency(parseFloat(scenarioAmt))}/month</strong> toward <strong>{scenarioGoal.name}</strong>,
                 you'll reach your goal in <strong>{scenarioProjection.months} months</strong> — by <strong>{format(scenarioProjection.completionDate, 'MMMM yyyy')}</strong>.
               </p>
+              <button
+                onClick={() => {
+                  dispatch({ type: 'UPDATE_GOAL', payload: { ...scenarioGoal, monthlyContribution: parseFloat(scenarioAmt) } });
+                  setScenarioGoal({ ...scenarioGoal, monthlyContribution: parseFloat(scenarioAmt) });
+                }}
+                className="mt-3 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg font-medium"
+              >
+                Apply as monthly contribution
+              </button>
             </div>
           )}
         </div>

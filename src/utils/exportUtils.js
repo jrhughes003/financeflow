@@ -1,5 +1,9 @@
 import { format } from 'date-fns';
 import { autoCategorize } from './categorization.js';
+import {
+  getTotalIncome, getTotalExpenses, getSpendingByCategory, getBudgetStatus,
+  getSavingsRate, getNetWorth, getBudgetHealthScore,
+} from './calculations.js';
 
 // Download any string as a file
 function downloadFile(content, filename, mimeType) {
@@ -35,6 +39,52 @@ export function exportToCSV(transactions, filename = 'transactions.csv') {
 export function exportToJSON(data, filename = 'financeflow_backup.json') {
   const json = JSON.stringify(data, null, 2);
   downloadFile(json, filename, 'application/json');
+}
+
+// The collections we expect in a full backup. customCategories/settings are
+// optional for backwards-compatibility with older exports.
+const BACKUP_COLLECTIONS = [
+  'transactions', 'budgets', 'incomes', 'savings_goals',
+  'investments', 'debts', 'recurringTemplates',
+];
+
+/**
+ * Import a full data backup previously produced by exportToJSON.
+ * Resolves with a normalized state object suitable for the LOAD_DATA action;
+ * rejects if the file isn't valid JSON or doesn't look like a FinanceFlow backup.
+ * This is the reliable cross-environment restore path (e.g. browser → desktop).
+ */
+export function importFromJSON(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const parsed = JSON.parse(e.target.result);
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+          reject(new Error('Not a valid FinanceFlow backup file.'));
+          return;
+        }
+        // Must contain at least one known collection as an array.
+        const looksValid = BACKUP_COLLECTIONS.some(k => Array.isArray(parsed[k]));
+        if (!looksValid) {
+          reject(new Error('This JSON does not contain FinanceFlow data.'));
+          return;
+        }
+        // Normalize: guarantee every collection exists as an array, and that
+        // customCategories/settings are present.
+        const normalized = { customCategories: [], settings: {}, ...parsed };
+        for (const k of BACKUP_COLLECTIONS) {
+          if (!Array.isArray(normalized[k])) normalized[k] = [];
+        }
+        if (!Array.isArray(normalized.customCategories)) normalized.customCategories = [];
+        resolve(normalized);
+      } catch {
+        reject(new Error('Could not parse JSON file.'));
+      }
+    };
+    reader.onerror = () => reject(new Error('Could not read file'));
+    reader.readAsText(file);
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -200,7 +250,6 @@ export function importFromCSV(file) {
 // Generate a monthly report object
 export function generateMonthlyReport(data, month, year) {
   const { transactions, budgets, incomes, savings_goals, investments, debts } = data;
-  const { getTotalIncome, getTotalExpenses, getSpendingByCategory, getBudgetStatus, getSavingsRate, getNetWorth, getBudgetHealthScore } = require('./calculations');
 
   const income = getTotalIncome(incomes);
   const expenses = getTotalExpenses(transactions, month, year);

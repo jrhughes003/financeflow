@@ -93,8 +93,18 @@ export default function DebtTracker() {
                 <input type="number" value={form.minimumPayment} onChange={e => setForm(f => ({ ...f, minimumPayment: e.target.value }))} placeholder="$0" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:border-blue-500" />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Original Balance</label>
-                <input type="number" value={form.originalBalance} onChange={e => setForm(f => ({ ...f, originalBalance: e.target.value }))} placeholder="$0" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:border-blue-500" />
+                <label className="block text-xs font-medium text-gray-500 mb-1">
+                  Original Balance {editId && <span className="text-gray-400">(locked)</span>}
+                </label>
+                {editId ? (
+                  <>
+                    <input type="number" value={form.originalBalance} disabled
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-100 text-gray-500 cursor-not-allowed" />
+                    <p className="text-[11px] text-gray-400 mt-1">Set at creation — locked so payoff progress stays stable.</p>
+                  </>
+                ) : (
+                  <input type="number" value={form.originalBalance} onChange={e => setForm(f => ({ ...f, originalBalance: e.target.value }))} placeholder="defaults to current balance" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:border-blue-500" />
+                )}
               </div>
             </div>
             <div className="flex gap-2">
@@ -108,7 +118,11 @@ export default function DebtTracker() {
           {debts.length === 0
             ? <p className="text-sm text-gray-400 text-center py-4">No debts tracked. Great!</p>
             : debts.map(d => {
-                const paidOff = d.originalBalance > 0 ? ((d.originalBalance - d.balance) / d.originalBalance) * 100 : 0;
+                // Clamp to 0–100: a balance above the original (or a missing
+                // original) shouldn't produce a negative or >100% bar.
+                const paidOff = d.originalBalance > 0
+                  ? Math.max(0, Math.min(100, ((d.originalBalance - d.balance) / d.originalBalance) * 100))
+                  : 0;
                 const payoff = calculateDebtPayoff(d.balance, d.interestRate, d.minimumPayment);
                 const extra = parseFloat(extraPayment[d.id]) || 0;
                 const payoffExtra = extra > 0 ? calculateDebtPayoff(d.balance, d.interestRate, d.minimumPayment + extra) : null;

@@ -11,7 +11,9 @@ import GoalsManager from './components/GoalsManager';
 import IncomeManager from './components/IncomeManager';
 import InvestmentTracker from './components/InvestmentTracker';
 import DebtTracker from './components/DebtTracker';
+import RecurringManager from './components/RecurringManager';
 import Reports from './components/Reports';
+import Settings from './components/Settings';
 
 function Toast({ toasts, removeToast }) {
   return (
@@ -62,7 +64,9 @@ function AppContent() {
     income:       <IncomeManager />,
     investments:  <InvestmentTracker />,
     debts:        <DebtTracker />,
+    recurring:    <RecurringManager />,
     reports:      <Reports />,
+    settings:     <Settings />,
   };
 
   return (

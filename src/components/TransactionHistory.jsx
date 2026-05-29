@@ -1,20 +1,21 @@
 import React, { useState, useMemo } from 'react';
-import { Search, Filter, Download, Upload, Trash2, Edit2, ChevronUp, ChevronDown } from 'lucide-react';
+import { Search, Filter, Download, Upload, Trash2, Edit2, ChevronUp, ChevronDown, Sparkles } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { useFinancial } from '../context/FinancialContext';
 import { CATEGORIES, getAllCategories, getCategoryById } from '../utils/categorization';
 import { useGetCategory } from '../context/FinancialContext';
 import { exportToCSV, importFromCSV } from '../utils/exportUtils';
 import { formatCurrency } from '../utils/calculations';
+import { PAGE_SIZE } from '../utils/constants';
+import { runAi, taxonomy, aiSupported } from '../ai/ai';
 import TransactionEntry from './TransactionEntry';
-
-const PAGE_SIZE = 25;
 
 export default function TransactionHistory() {
   const { state, dispatch } = useFinancial();
   const { transactions, customCategories = [] } = state;
   const getCategory = useGetCategory();
   const allCategories = getAllCategories(customCategories);
+  const aiEnabled = aiSupported && state.settings?.aiEnabled;
 
   const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
@@ -28,6 +29,12 @@ export default function TransactionHistory() {
   const [page, setPage] = useState(1);
   const [editTx, setEditTx] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
+
+  // AI receipt / statement paste
+  const [showPaste, setShowPaste] = useState(false);
+  const [pasteText, setPasteText] = useState('');
+  const [pasteBusy, setPasteBusy] = useState(false);
+  const [pasteMsg, setPasteMsg] = useState('');
 
   const filtered = useMemo(() => {
     let list = [...transactions];
@@ -79,6 +86,32 @@ export default function TransactionHistory() {
     e.target.value = '';
   };
 
+  // AI: parse pasted receipt / statement text into transactions.
+  const handleParsePaste = async () => {
+    if (!pasteText.trim()) return;
+    setPasteBusy(true); setPasteMsg('');
+    const res = await runAi('extract', { text: pasteText.trim(), categories: taxonomy(customCategories) });
+    setPasteBusy(false);
+    if (!res.ok) {
+      setPasteMsg(res.error === 'no_key' ? 'Add an API key in Settings first.' : 'Could not parse that text.');
+      return;
+    }
+    const parsed = (res.data?.transactions || []).filter(t => t && t.amount > 0).map((t, i) => ({
+      id: `ai_${Date.now()}_${i}_${Math.random().toString(36).slice(2, 6)}`,
+      date: t.date || new Date().toISOString().slice(0, 10),
+      merchant: t.merchant || 'Unknown',
+      amount: Math.abs(Number(t.amount) || 0),
+      category: t.category || 'products',
+      subcategory: '',
+      notes: 'Parsed by AI',
+      tags: ['ai-imported'],
+      isException: false,
+    }));
+    if (parsed.length === 0) { setPasteMsg('No transactions found in that text.'); return; }
+    dispatch({ type: 'IMPORT_TRANSACTIONS', payload: parsed });
+    setPasteText(''); setShowPaste(false);
+  };
+
   const SortIcon = ({ field }) => sortField === field
     ? (sortDir === 'asc' ? <ChevronUp className="w-3 h-3 inline ml-1" /> : <ChevronDown className="w-3 h-3 inline ml-1" />)
     : null;
@@ -123,7 +156,33 @@ export default function TransactionHistory() {
           <Upload className="w-4 h-4" /> Import CSV
           <input type="file" accept=".csv" className="hidden" onChange={handleImport} />
         </label>
+        {aiEnabled && (
+          <button onClick={() => setShowPaste(s => !s)} className="flex items-center gap-2 px-3 py-2.5 border border-purple-200 text-purple-600 rounded-xl text-sm font-medium hover:bg-purple-50">
+            <Sparkles className="w-4 h-4" /> Paste receipt
+          </button>
+        )}
       </div>
+
+      {/* AI receipt / statement paste panel */}
+      {aiEnabled && showPaste && (
+        <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 space-y-2">
+          <p className="text-sm font-semibold text-purple-800">Paste receipt or bank-statement text</p>
+          <textarea
+            rows={5}
+            value={pasteText}
+            onChange={e => setPasteText(e.target.value)}
+            placeholder="Paste messy text here — line items, amounts, dates…"
+            className="w-full px-3 py-2 border border-purple-200 rounded-lg text-sm bg-white focus:outline-none focus:border-purple-500 resize-y"
+          />
+          <div className="flex items-center gap-2">
+            <button onClick={handleParsePaste} disabled={pasteBusy || !pasteText.trim()} className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white text-sm rounded-lg font-medium">
+              {pasteBusy ? 'Parsing…' : 'Extract transactions'}
+            </button>
+            {pasteMsg && <span className="text-xs text-red-500">{pasteMsg}</span>}
+          </div>
+          <p className="text-[11px] text-purple-400">The pasted text is sent to Anthropic to extract line items. Review imported items afterward.</p>
+        </div>
+      )}
 
       {/* Filters panel */}
       {showFilters && (

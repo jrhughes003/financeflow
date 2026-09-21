@@ -12,7 +12,16 @@ import {
 } from '../utils/calculations';
 import { CATEGORIES, getAllCategories, getCategoryById } from '../utils/categorization';
 import { useGetCategory } from '../context/FinancialContext';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, LayoutGrid, CalendarClock, PiggyBank } from 'lucide-react';
+import WhatChangedPanel from './analytics/WhatChangedPanel';
+import ForecastPanel from './analytics/ForecastPanel';
+import SavingsPanel from './analytics/SavingsPanel';
+
+const TABS = [
+  { id: 'overview', label: 'Overview', icon: LayoutGrid },
+  { id: 'forecast', label: 'Forecast', icon: CalendarClock },
+  { id: 'save', label: 'Save Money', icon: PiggyBank },
+];
 
 const COLORS = CATEGORIES.map(c => c.color);
 
@@ -26,6 +35,7 @@ export default function SpendingAnalytics() {
   const [year, setYear] = useState(now.getFullYear());
   const [drillCat, setDrillCat] = useState(null);
   const [hiddenLines, setHiddenLines] = useState({});
+  const [tab, setTab] = useState('overview');
 
   const spending = getSpendingByCategory(transactions, month, year);
   const trend = getMonthlyTrend(transactions, 6);
@@ -69,6 +79,23 @@ export default function SpendingAnalytics() {
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {/* Section tabs */}
+      <div className="flex bg-gray-100 rounded-xl p-1 w-fit">
+        {TABS.map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            onClick={() => setTab(id)}
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tab === id ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            <Icon className="w-4 h-4" />{label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'forecast' && <ForecastPanel />}
+      {tab === 'save' && <SavingsPanel />}
+
+      {tab === 'overview' && <>
       {/* Month selector */}
       <div className="flex items-center gap-3">
         <button onClick={() => changeMonth(-1)} className="p-2 rounded-lg hover:bg-gray-200 text-gray-600">‹</button>
@@ -87,6 +114,8 @@ export default function SpendingAnalytics() {
           ))}
         </div>
       )}
+
+      <WhatChangedPanel transactions={transactions} month={month} year={year} />
 
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Pie chart */}
@@ -235,6 +264,7 @@ export default function SpendingAnalytics() {
           </div>
         </div>
       </div>
+      </>}
     </div>
   );
 }

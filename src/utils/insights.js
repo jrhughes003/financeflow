@@ -10,16 +10,19 @@
 // project fixed spend from the templates' schedules and discretionary spend from
 // pace + history, so recurring bills are never double-counted.
 
-import { addMonths, subMonths, format, getDaysInMonth } from 'date-fns';
+import { addMonths, addDays, subMonths, format, getDaysInMonth, parseISO, differenceInCalendarMonths } from 'date-fns';
 import {
   getTransactionsForPeriod, getBudgetStatus, getConsistentlyOverBudget,
   getTotalIncome, getGoalProgress, toMonthlyAmount,
 } from './calculations';
 import { advanceDate, detectRecurringCandidates } from './recurring';
+import { effectiveAmount } from './reimbursements';
 import {
   INSIGHT_LOOKBACK_MONTHS, FORECAST_HISTORY_MONTHS, FORECAST_MONTHS,
   TREND_UP_THRESHOLD, TREND_UP_MIN_DELTA, SMALL_PURCHASE_MAX,
   SMALL_PURCHASE_MIN_PER_MONTH, PRICE_INCREASE_MIN_PCT, PRICE_INCREASE_MIN_AMOUNT,
+  IRREGULAR_MIN_AMOUNT, SEASONAL_SPIKE_RATIO, SEASONAL_SPIKE_MIN_EXTRA,
+  DUPLICATE_WINDOW_DAYS, DUPLICATE_LOOKBACK_DAYS,
 } from './constants';
 
 const roundCents = n => Math.round(n * 100) / 100;
@@ -27,6 +30,13 @@ const ymd = d => format(d, 'yyyy-MM-dd');
 const dayOf = t => Number((t.date || '').slice(8, 10));
 const merchantKey = m => (m || '').trim().toLowerCase();
 const sum = arr => arr.reduce((s, v) => s + v, 0);
+
+export function median(values) {
+  if (!values.length) return 0;
+  const s = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(s.length / 2);
+  return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+}
 
 function monthBounds(month, year) {
   const first = new Date(year, month, 1);
@@ -56,8 +66,12 @@ function activeTemplates(templates) {
   return (templates || []).filter(t => t.active !== false);
 }
 
-export function isFixedTransaction(t, templates) {
+// `fixedIds` optionally marks extra transactions as fixed — used for detected
+// periodic bills (see detectIrregularExpenses) so forecasts schedule them
+// explicitly instead of smearing them into the discretionary average.
+export function isFixedTransaction(t, templates, fixedIds) {
   if (t.recurringTemplateId) return true;
+  if (fixedIds && fixedIds.has(t.id)) return true;
   const key = merchantKey(t.merchant);
   return activeTemplates(templates).some(tpl => merchantKey(tpl.merchant) === key);
 }
@@ -81,10 +95,10 @@ export function templateOccurrences(template, startStr, endStr) {
 // Per-category discretionary spend for each of the given months, plus how many
 // of those months had any spending at all (months with no data don't dilute
 // averages for users with short histories).
-function discretionaryHistory(transactions, templates, months) {
+function discretionaryHistory(transactions, templates, months, fixedIds) {
   const perMonth = months.map(({ month, year }) => {
     const all = getTransactionsForPeriod(transactions, month, year);
-    const disc = all.filter(t => !isFixedTransaction(t, templates));
+    const disc = all.filter(t => !isFixedTransaction(t, templates, fixedIds));
     return { hasData: all.length > 0, byCategory: groupByCategory(disc), total: roundCents(sum(disc.map(t => t.amount))) };
   });
   const active = perMonth.filter(m => m.hasData);
@@ -155,6 +169,192 @@ export function getCategoryDeltas(transactions, month, year, { lookback = INSIGH
 }
 
 // ---------------------------------------------------------------------------
+// Irregular & periodic expenses
+// ---------------------------------------------------------------------------
+
+const PERIODS = [
+  { frequency: 'quarterly', months: 3, days: 91, tolerance: 20 },
+  { frequency: 'semiannual', months: 6, days: 182, tolerance: 30 },
+  { frequency: 'annual', months: 12, days: 365, tolerance: 45 },
+];
+
+const daysBetween = (a, b) => Math.round((parseISO(b) - parseISO(a)) / 86400000);
+
+// Classify a list of day gaps into one period, or null if they don't all agree.
+function classifyPeriod(gaps) {
+  return PERIODS.find(p => gaps.every(g => Math.abs(g - p.days) <= p.tolerance)) || null;
+}
+
+// Dates (YYYY-MM-DD) an item with `nextDate` and `periodMonths` falls on in [start, end].
+export function periodicOccurrences(item, startStr, endStr) {
+  const out = [];
+  let d = parseISO(item.nextDate);
+  for (let i = 0; i < 200; i++) {
+    const s = ymd(d);
+    if (s > endStr) break;
+    if (s >= startStr) out.push(s);
+    d = addMonths(d, item.periodMonths);
+  }
+  return out;
+}
+
+/**
+ * Find big expenses that come back every quarter / half-year / year (insurance,
+ * memberships, registrations) and category spikes that recur in the same
+ * calendar month each year (holidays, back-to-school).
+ *
+ * Returns:
+ *   bills:     [{ id, merchant, category, frequency, periodMonths, amount,
+ *                 lastDate, nextDate, monthsUntil, setAsidePerMonth,
+ *                 steadyMonthly, occurrences }]
+ *   seasonal:  [{ id, category, month, year, label, expectedExtra, typical, lastYearTotal }]
+ *   billTransactionIds: Set of transaction ids belonging to detected bills
+ *   calendar:  next 12 months [{ label, month, year, bills, seasonal, total }]
+ *   monthlySetAside: steady-state monthly amount covering all bills
+ */
+export function detectIrregularExpenses(transactions, { recurringTemplates = [], today = new Date(), minAmount = IRREGULAR_MIN_AMOUNT } = {}) {
+  const todayStr = ymd(today);
+  const eligible = (transactions || []).filter(t =>
+    !t.isException && t.kind !== 'savings' && t.date && !isFixedTransaction(t, recurringTemplates));
+
+  // --- Periodic bills: same merchant, similar amount, quarterly+ cadence ---
+  const groups = new Map();
+  eligible.filter(t => t.amount >= minAmount).forEach(t => {
+    const key = merchantKey(t.merchant);
+    if (!key) return;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(t);
+  });
+
+  const bills = [];
+  const billTransactionIds = new Set();
+  groups.forEach((items, key) => {
+    if (items.length < 2) return;
+    const sorted = [...items].sort((a, b) => a.date.localeCompare(b.date));
+    const gaps = sorted.slice(1).map((t, i) => daysBetween(sorted[i].date.slice(0, 10), t.date.slice(0, 10)));
+    const period = classifyPeriod(gaps);
+    // Two big charges 3 months apart is often coincidence; quarterly needs 3+.
+    if (!period || (period.frequency === 'quarterly' && sorted.length < 3)) return;
+    const amounts = sorted.map(t => t.amount);
+    const mean = sum(amounts) / amounts.length;
+    if (amounts.some(a => Math.abs(a - mean) > mean * 0.25)) return;
+
+    const last = sorted[sorted.length - 1];
+    let next = addMonths(parseISO(last.date.slice(0, 10)), period.months);
+    // Overdue by more than the tolerance → it probably stopped; skip it.
+    if (ymd(next) < ymd(addDays(today, -period.tolerance))) return;
+    const nextDate = ymd(next);
+    const monthsUntil = Math.max(0, differenceInCalendarMonths(next, today));
+    const amount = roundCents(last.amount);
+    sorted.forEach(t => billTransactionIds.add(t.id));
+    bills.push({
+      id: `bill_${key}`,
+      merchant: last.merchant,
+      category: last.category,
+      frequency: period.frequency,
+      periodMonths: period.months,
+      amount,
+      lastDate: last.date.slice(0, 10),
+      nextDate,
+      overdue: nextDate < todayStr,
+      monthsUntil,
+      // To be ready by the due date, starting now.
+      setAsidePerMonth: roundCents(amount / Math.max(1, monthsUntil)),
+      // Long-run equivalent once the fund is up and running.
+      steadyMonthly: roundCents(amount / period.months),
+      occurrences: sorted.length,
+    });
+  });
+  bills.sort((a, b) => a.nextDate.localeCompare(b.nextDate));
+
+  // --- Seasonal category spikes ---
+  // A spike is measured against the surrounding months (not the all-time
+  // median), so a lasting step up in spending isn't mistaken for a spike. It
+  // only counts as seasonal when the same calendar month spiked in at least two
+  // different years — a single big month (a trip, a one-off purchase) is not a
+  // pattern.
+  const seasonal = [];
+  const firstDate = eligible.reduce((m, t) => (t.date < m ? t.date : m), todayStr);
+  const historyMonths = differenceInCalendarMonths(today, parseISO(firstDate.slice(0, 10)));
+  if (historyMonths >= 13) {
+    const nonBill = eligible.filter(t => !billTransactionIds.has(t.id));
+    const series = priorMonths(today.getMonth(), today.getFullYear(), Math.min(36, historyMonths))
+      .reverse()
+      .map(({ month, year }) => {
+        const txns = getTransactionsForPeriod(nonBill, month, year);
+        return { month, year, hasData: txns.length > 0, byCategory: groupByCategory(txns) };
+      })
+      .filter(m => m.hasData);
+
+    const categories = new Set(series.flatMap(m => Object.keys(m.byCategory)));
+    categories.forEach(category => {
+      const values = series.map(m => m.byCategory[category] || 0);
+      const spikesByMonth = new Map();
+      values.forEach((v, i) => {
+        const neighbors = values.slice(Math.max(0, i - 3), i).concat(values.slice(i + 1, i + 4));
+        if (neighbors.length < 3) return;
+        const baseline = median(neighbors);
+        if (v < Math.max(baseline * SEASONAL_SPIKE_RATIO, baseline + SEASONAL_SPIKE_MIN_EXTRA)) return;
+        const m = series[i];
+        if (!spikesByMonth.has(m.month)) spikesByMonth.set(m.month, []);
+        spikesByMonth.get(m.month).push({ year: m.year, total: v, baseline });
+      });
+
+      spikesByMonth.forEach((spikes, calMonth) => {
+        if (new Set(spikes.map(sp => sp.year)).size < 2) return;
+        const upcoming = new Date(today.getFullYear(), calMonth, 1);
+        if (upcoming < new Date(today.getFullYear(), today.getMonth(), 1)) upcoming.setFullYear(upcoming.getFullYear() + 1);
+        const latest = spikes[spikes.length - 1];
+        seasonal.push({
+          id: `season_${category}_${calMonth}`,
+          category,
+          month: upcoming.getMonth(),
+          year: upcoming.getFullYear(),
+          label: format(upcoming, 'MMMM yyyy'),
+          years: spikes.length,
+          expectedExtra: roundCents(sum(spikes.map(sp => sp.total - sp.baseline)) / spikes.length),
+          typical: roundCents(sum(spikes.map(sp => sp.baseline)) / spikes.length),
+          lastYearTotal: roundCents(latest.total),
+          monthsUntil: differenceInCalendarMonths(upcoming, today),
+        });
+      });
+    });
+    seasonal.sort((a, b) => (a.year - b.year) || (a.month - b.month));
+  }
+
+  // --- 12-month calendar ---
+  const startOfThisMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+  const calendar = Array.from({ length: 12 }, (_, i) => {
+    const d = addMonths(startOfThisMonth, i);
+    const { start, end } = monthBounds(d.getMonth(), d.getFullYear());
+    const monthBills = bills.flatMap(b => periodicOccurrences(b, start, end).map(date => ({ ...b, date })));
+    const monthSeasonal = seasonal.filter(s => s.month === d.getMonth() && s.year === d.getFullYear());
+    return {
+      label: format(d, 'MMM yyyy'),
+      month: d.getMonth(),
+      year: d.getFullYear(),
+      bills: monthBills,
+      seasonal: monthSeasonal,
+      billTotal: roundCents(sum(monthBills.map(b => b.amount))),
+      seasonalTotal: roundCents(sum(monthSeasonal.map(s => s.expectedExtra))),
+    };
+  });
+
+  return {
+    bills,
+    seasonal,
+    billTransactionIds,
+    calendar,
+    monthlySetAside: roundCents(sum(bills.map(b => b.steadyMonthly))),
+  };
+}
+
+// Total of detected bills falling in [start, end].
+function billsInRange(bills, start, end) {
+  return roundCents(sum(bills.map(b => periodicOccurrences(b, start, end).length * b.amount)));
+}
+
+// ---------------------------------------------------------------------------
 // 5. Forecasting
 // ---------------------------------------------------------------------------
 
@@ -173,17 +373,25 @@ export function projectMonthEnd({ transactions, budgets = [], recurringTemplates
   const remainingDays = days - elapsed;
   const weight = elapsed / days;
 
+  const irregular = detectIrregularExpenses(transactions, { recurringTemplates, today });
+  const fixedIds = irregular.billTransactionIds;
+
   const monthTx = getTransactionsForPeriod(transactions, month, year);
   const actual = groupByCategory(monthTx);
-  const discActual = groupByCategory(monthTx.filter(t => !isFixedTransaction(t, recurringTemplates)));
+  const discActual = groupByCategory(monthTx.filter(t => !isFixedTransaction(t, recurringTemplates, fixedIds)));
 
+  // Scheduled = recurring templates still to post + detected periodic bills due
+  // later this month (a bill already paid this month has its nextDate pushed out).
   const recurring = {};
+  const addScheduled = (category, amount) => {
+    if (category && amount) recurring[category] = roundCents((recurring[category] || 0) + amount);
+  };
   activeTemplates(recurringTemplates).forEach(tpl => {
-    const n = templateOccurrences(tpl, start, end).length;
-    if (n && tpl.category) recurring[tpl.category] = roundCents((recurring[tpl.category] || 0) + n * (Number(tpl.amount) || 0));
+    addScheduled(tpl.category, templateOccurrences(tpl, start, end).length * (Number(tpl.amount) || 0));
   });
+  irregular.bills.forEach(b => addScheduled(b.category, billsInRange([b], start, end)));
 
-  const hist = discretionaryHistory(transactions, recurringTemplates, priorMonths(month, year, lookback));
+  const hist = discretionaryHistory(transactions, recurringTemplates, priorMonths(month, year, lookback), fixedIds);
 
   const statusByCat = {};
   getBudgetStatus(budgets, transactions, month, year).forEach(s => { statusByCat[s.category] = s; });
@@ -241,13 +449,16 @@ export function projectMonthEnd({ transactions, budgets = [], recurringTemplates
 
 /**
  * Month-by-month cash-flow outlook for the next `months` months:
- *   net = monthly income − scheduled recurring charges − typical discretionary.
- * The discretionary range (±1 standard deviation of recent months) produces a
- * best/worst band around the cumulative savings line.
+ *   net = monthly income − scheduled recurring charges − detected periodic
+ *         bills due that month − typical discretionary.
+ * Periodic bills are excluded from the discretionary history so they're counted
+ * once, in the month they're due. The discretionary range (±1 standard deviation
+ * of recent months) produces a best/worst band around the cumulative line.
  */
 export function forecastCashFlow({ transactions, incomes = [], recurringTemplates = [], today = new Date(), months = FORECAST_MONTHS, historyMonths = FORECAST_HISTORY_MONTHS }) {
   const income = roundCents(getTotalIncome(incomes));
-  const hist = discretionaryHistory(transactions, recurringTemplates, priorMonths(today.getMonth(), today.getFullYear(), historyMonths));
+  const { bills, billTransactionIds } = detectIrregularExpenses(transactions, { recurringTemplates, today });
+  const hist = discretionaryHistory(transactions, recurringTemplates, priorMonths(today.getMonth(), today.getFullYear(), historyMonths), billTransactionIds);
   const mean = hist.months ? sum(hist.totals) / hist.months : 0;
   const std = hist.months > 1 ? Math.sqrt(sum(hist.totals.map(v => (v - mean) ** 2)) / hist.months) : 0;
   const low = Math.max(0, mean - std);
@@ -260,16 +471,18 @@ export function forecastCashFlow({ transactions, incomes = [], recurringTemplate
     const { start, end } = monthBounds(d.getMonth(), d.getFullYear());
     const fixed = roundCents(sum(activeTemplates(recurringTemplates).map(tpl =>
       templateOccurrences(tpl, start, end).length * (Number(tpl.amount) || 0))));
-    const net = income - fixed - mean;
+    const irregular = billsInRange(bills, start, end);
+    const net = income - fixed - irregular - mean;
     cum += net;
-    cumBest += income - fixed - low;
-    cumWorst += income - fixed - high;
+    cumBest += income - fixed - irregular - low;
+    cumWorst += income - fixed - irregular - high;
     return {
       label: format(d, 'MMM yyyy'),
       month: d.getMonth(),
       year: d.getFullYear(),
       income,
       fixed,
+      irregular,
       discretionary: roundCents(mean),
       net: roundCents(net),
       cumulative: roundCents(cum),
@@ -427,7 +640,7 @@ export function getSavingsOpportunities({ transactions, budgets = [], recurringT
     const key = merchantKey(t.merchant);
     if (!key) return;
     const g = small.get(key) || { merchant: t.merchant, category: t.category, count: 0, total: 0 };
-    g.count++; g.total += t.amount;
+    g.count++; g.total += effectiveAmount(t);
     small.set(key, g);
   });
   [...small.values()]
@@ -463,6 +676,43 @@ export function getSavingsOpportunities({ transactions, budgets = [], recurringT
 }
 
 /**
+ * Likely double charges: the same merchant and exact amount within a couple of
+ * days. Same-day repeats are always flagged; next-day(s) repeats are skipped for
+ * merchants where that exact amount is a habit (e.g. the same coffee order), so
+ * routine purchases don't drown out real duplicates.
+ * @param dismissed  pair keys the user marked "not a duplicate"
+ * @returns [{ key, merchant, amount, first, second, daysApart }] newest first
+ */
+export function detectDuplicateCharges(transactions, { today = new Date(), dismissed = [], windowDays = DUPLICATE_WINDOW_DAYS, lookbackDays = DUPLICATE_LOOKBACK_DAYS } = {}) {
+  const since = ymd(addDays(today, -lookbackDays));
+  const dismissedSet = new Set(dismissed);
+  const groups = new Map();
+  (transactions || []).forEach(t => {
+    const d = (t.date || '').slice(0, 10);
+    if (!d || d < since || t.isException || t.kind === 'savings' || !(t.amount > 0)) return;
+    const key = `${merchantKey(t.merchant)}|${Math.round(t.amount * 100)}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(t);
+  });
+
+  const out = [];
+  groups.forEach(items => {
+    if (items.length < 2) return;
+    const habitual = items.length >= 4;
+    const sorted = [...items].sort((a, b) => a.date.localeCompare(b.date));
+    for (let i = 1; i < sorted.length; i++) {
+      const a = sorted[i - 1], b = sorted[i];
+      const daysApart = daysBetween(a.date.slice(0, 10), b.date.slice(0, 10));
+      if (daysApart > windowDays || (habitual && daysApart > 0)) continue;
+      const key = [a.id, b.id].sort().join('|');
+      if (dismissedSet.has(key)) continue;
+      out.push({ key, merchant: b.merchant, amount: b.amount, category: b.category, first: a, second: b, daysApart });
+    }
+  });
+  return out.sort((x, y) => y.second.date.localeCompare(x.second.date));
+}
+
+/**
  * What-if: apply percentage cuts to category averages.
  * @param averages  { [category]: monthly average }
  * @param cuts      { [category]: percent 0-100 }
@@ -486,11 +736,15 @@ export function simulateCuts(averages, cuts, income) {
 // Average monthly contribution to a goal over the trailing window (current
 // month included, since contributions are often made mid-month).
 export function getGoalMonthlyContribution(transactions, goalId, { today = new Date(), lookback = INSIGHT_LOOKBACK_MONTHS } = {}) {
+  const contributions = (transactions || []).filter(t => t.kind === 'savings' && t.goalId === goalId && t.date);
+  if (!contributions.length) return 0;
   const since = ymd(subMonths(new Date(today.getFullYear(), today.getMonth(), 1), lookback - 1));
-  const total = sum((transactions || [])
-    .filter(t => t.kind === 'savings' && t.goalId === goalId && (t.date || '') >= since)
-    .map(t => Number(t.amount) || 0));
-  return roundCents(total / lookback);
+  const total = sum(contributions.filter(t => t.date >= since).map(t => Number(t.amount) || 0));
+  // A goal started last month shouldn't have its pace diluted by months before
+  // its first contribution.
+  const first = contributions.reduce((m, t) => (t.date < m ? t.date : m), contributions[0].date);
+  const monthsActive = differenceInCalendarMonths(today, parseISO(first.slice(0, 10))) + 1;
+  return roundCents(total / Math.max(1, Math.min(lookback, monthsActive)));
 }
 
 /**

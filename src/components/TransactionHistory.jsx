@@ -9,6 +9,18 @@ import { formatCurrency } from '../utils/calculations';
 import { PAGE_SIZE } from '../utils/constants';
 import { runAi, taxonomy, aiSupported } from '../ai/ai';
 import TransactionEntry from './TransactionEntry';
+import { getOwedStatus } from '../utils/reimbursements';
+
+// Small status pill for fronted purchases.
+function OwedBadge({ t }) {
+  const s = getOwedStatus(t);
+  if (!s) return null;
+  const label = s.status === 'settled' ? 'Paid back'
+    : s.status === 'forgiven' ? 'Owed · forgiven'
+    : `Owed ${formatCurrency(s.remaining)}`;
+  const cls = s.isOpen ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500';
+  return <span className={`inline-block mt-0.5 text-xs font-medium px-1.5 py-0.5 rounded ${cls}`}>{label}</span>;
+}
 
 export default function TransactionHistory() {
   const { state, dispatch } = useFinancial();
@@ -244,6 +256,7 @@ export default function TransactionHistory() {
                       <p className="font-medium text-gray-800">{t.merchant}</p>
                       {t.subcategory && <p className="text-xs text-gray-400">{t.subcategory}</p>}
                       {t.isException && <span className="text-xs text-purple-500 font-medium">Exception</span>}
+                      <OwedBadge t={t} />
                     </td>
                     <td className="px-4 py-3">
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium" style={{ backgroundColor: cat.color + '20', color: cat.color }}>

@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import {
   LayoutDashboard, CreditCard, PieChart, Target, TrendingUp, Wallet,
-  BarChart3, FileText, Menu, X, Plus, DollarSign, Landmark, RefreshCw, Settings as SettingsIcon
+  BarChart3, FileText, Menu, X, Plus, DollarSign, Landmark, RefreshCw, Settings as SettingsIcon, HandCoins
 } from 'lucide-react';
 
 const NAV_ITEMS = [
   { id: 'dashboard',    label: 'Dashboard',    icon: LayoutDashboard },
   { id: 'transactions', label: 'Transactions', icon: CreditCard },
+  { id: 'owed',         label: 'Owed to Me',   icon: HandCoins },
   { id: 'budget',       label: 'Budget',       icon: Wallet },
   { id: 'comparison',  label: 'Comparison',   icon: BarChart3 },
   { id: 'analytics',   label: 'Analytics',    icon: PieChart },

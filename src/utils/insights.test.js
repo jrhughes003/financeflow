@@ -11,6 +11,10 @@ import {
   simulateCuts,
   getGoalMonthlyContribution,
   goalTimelineImpact,
+  detectIrregularExpenses,
+  periodicOccurrences,
+  detectDuplicateCharges,
+  median,
 } from './insights';
 
 const tx = (over = {}) => ({
@@ -261,5 +265,135 @@ describe('goal timeline', () => {
     expect(r.currentMonths).toBe(6);
     expect(r.newMonths).toBe(3);
     expect(goalTimelineImpact({ id: 'g2', targetAmount: 500, currentAmount: 0 }, [], 0, opts).currentMonths).toBeNull();
+  });
+
+  it("doesn't dilute a new goal's pace by months before its first contribution", () => {
+    const fresh = [tx({ kind: 'savings', goalId: 'g1', date: '2026-07-02', amount: 300 })];
+    expect(getGoalMonthlyContribution(fresh, 'g1', opts)).toBe(300);
+    expect(getGoalMonthlyContribution([], 'g1', opts)).toBe(0);
+  });
+});
+
+describe('median', () => {
+  it('handles odd, even, and empty inputs', () => {
+    expect(median([3, 1, 2])).toBe(2);
+    expect(median([4, 1, 2, 3])).toBe(2.5);
+    expect(median([])).toBe(0);
+  });
+});
+
+describe('detectIrregularExpenses', () => {
+  const today = day(2026, 6, 10); // Jul 10 2026
+
+  it('finds an annual bill and schedules the next one with a set-aside amount', () => {
+    const txns = [
+      tx({ date: '2025-03-12', merchant: 'State Farm', amount: 600, category: 'transportation' }),
+      tx({ date: '2026-03-10', merchant: 'State Farm', amount: 640, category: 'transportation' }),
+    ];
+    const r = detectIrregularExpenses(txns, { today });
+    expect(r.bills).toHaveLength(1);
+    expect(r.bills[0]).toMatchObject({
+      merchant: 'State Farm', frequency: 'annual', amount: 640, nextDate: '2027-03-10',
+      monthsUntil: 8, setAsidePerMonth: 80, steadyMonthly: 53.33,
+    });
+    expect(r.monthlySetAside).toBe(53.33);
+    expect(r.billTransactionIds.size).toBe(2);
+    expect(r.calendar.find(m => m.label === 'Mar 2027').billTotal).toBe(640);
+  });
+
+  it('needs 3+ charges for quarterly and ignores irregular or small charges', () => {
+    const q = d => tx({ date: d, merchant: 'Water Co', amount: 120 });
+    expect(detectIrregularExpenses([q('2026-01-05'), q('2026-04-05')], { today }).bills).toHaveLength(0);
+    const r = detectIrregularExpenses([q('2026-01-05'), q('2026-04-05'), q('2026-07-05')], { today });
+    expect(r.bills[0]).toMatchObject({ frequency: 'quarterly', nextDate: '2026-10-05' });
+    expect(periodicOccurrences(r.bills[0], '2026-07-01', '2027-06-30')).toEqual(['2026-10-05', '2027-01-05', '2027-04-05']);
+
+    const random = ['2026-01-03', '2026-02-20', '2026-06-01'].map(d => tx({ date: d, merchant: 'Best Buy', amount: 200 }));
+    const small = ['2025-07-01', '2026-07-01'].map(d => tx({ date: d, merchant: 'Domain', amount: 15 }));
+    expect(detectIrregularExpenses([...random, ...small], { today }).bills).toHaveLength(0);
+  });
+
+  it('drops bills that look cancelled and skips recurring-template merchants', () => {
+    const old = ['2024-01-10', '2025-01-10'].map(d => tx({ date: d, merchant: 'Old Gym', amount: 300 }));
+    expect(detectIrregularExpenses(old, { today }).bills).toHaveLength(0);
+    const tpl = ['2025-05-01', '2026-05-01'].map(d => tx({ date: d, merchant: 'Prime', amount: 139 }));
+    const templates = [{ id: 'r', merchant: 'Prime', amount: 139, frequency: 'annual', nextDate: '2027-05-01' }];
+    expect(detectIrregularExpenses(tpl, { today, recurringTemplates: templates }).bills).toHaveLength(0);
+  });
+
+  // One purchase per month from Jan 2024 through Jun 2026, amount chosen per month.
+  const history = amountFor => Array.from({ length: 30 }, (_, i) => {
+    const d = new Date(2024, i, 15);
+    const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-15`;
+    return tx({ date, merchant: `Shop ${i}`, category: 'products', amount: amountFor(d, i) });
+  });
+
+  it('flags a category that spikes in the same month every year', () => {
+    const r = detectIrregularExpenses(history(d => (d.getMonth() === 11 ? 600 : 150)), { today });
+    expect(r.seasonal).toHaveLength(1);
+    expect(r.seasonal[0]).toMatchObject({ category: 'products', label: 'December 2026', years: 2, expectedExtra: 450, typical: 150 });
+  });
+
+  it('ignores one-off spikes and lasting step changes', () => {
+    // A single big July (a trip) and a permanent jump from $150 to $300.
+    const oneOff = history((d, i) => (i === 18 ? 900 : 150));
+    const stepUp = history((d, i) => (i >= 20 ? 300 : 150));
+    expect(detectIrregularExpenses(oneOff, { today }).seasonal).toEqual([]);
+    expect(detectIrregularExpenses(stepUp, { today }).seasonal).toEqual([]);
+  });
+});
+
+describe('forecasts with periodic bills', () => {
+  const today = day(2026, 6, 10);
+  const everyday = ['2026-01-10', '2026-02-10', '2026-03-10', '2026-04-10', '2026-05-10', '2026-06-10']
+    .map(date => tx({ date, amount: 500 }));
+
+  it('cash flow keeps bills out of the average and adds them in their month', () => {
+    const bills = [
+      tx({ date: '2025-08-20', merchant: 'State Farm', amount: 600, category: 'insurance' }),
+      tx({ date: '2026-02-18', merchant: 'State Farm', amount: 600, category: 'insurance' }),
+    ];
+    const f = forecastCashFlow({ transactions: [...bills, ...everyday], incomes: [{ amount: 2000, frequency: 'monthly' }], today, months: 3 });
+    expect(f.discretionaryAverage).toBe(500); // the Feb bill isn't in the average
+    expect(f.rows.map(r => r.irregular)).toEqual([600, 0, 0]); // next due Aug 18
+    expect(f.rows[0].net).toBe(900);
+  });
+
+  it('month-end projection schedules a bill due later this month', () => {
+    const due = [
+      tx({ date: '2025-07-25', merchant: 'State Farm', amount: 600, category: 'insurance' }),
+      tx({ date: '2026-01-22', merchant: 'State Farm', amount: 600, category: 'insurance' }),
+    ];
+    const p = projectMonthEnd({ transactions: [...due, ...everyday], today });
+    expect(p.categories.find(c => c.category === 'insurance')).toMatchObject({ recurringRemaining: 600, projected: 600 });
+  });
+});
+
+describe('detectDuplicateCharges', () => {
+  const today = day(2026, 6, 10);
+
+  it('flags same merchant + amount within the window', () => {
+    const a = tx({ id: 'a', date: '2026-07-01', merchant: 'Amazon', amount: 42.18 });
+    const b = tx({ id: 'b', date: '2026-07-02', merchant: 'amazon ', amount: 42.18 });
+    const c = tx({ id: 'c', date: '2026-07-06', merchant: 'Amazon', amount: 42.18 }); // 4 days later
+    const r = detectDuplicateCharges([a, b, c], { today });
+    expect(r).toHaveLength(1);
+    expect(r[0]).toMatchObject({ key: 'a|b', daysApart: 1, amount: 42.18 });
+  });
+
+  it('respects dismissals, exceptions, savings, and the lookback', () => {
+    const pair = [tx({ id: 'a', date: '2026-07-01', merchant: 'X', amount: 20 }), tx({ id: 'b', date: '2026-07-01', merchant: 'X', amount: 20 })];
+    expect(detectDuplicateCharges(pair, { today, dismissed: ['a|b'] })).toHaveLength(0);
+    expect(detectDuplicateCharges([pair[0], { ...pair[1], isException: true }], { today })).toHaveLength(0);
+    expect(detectDuplicateCharges(pair.map(t => ({ ...t, kind: 'savings' })), { today })).toHaveLength(0);
+    expect(detectDuplicateCharges(pair.map(t => ({ ...t, date: '2026-01-01' })), { today })).toHaveLength(0);
+  });
+
+  it('skips habitual next-day repeats but still flags same-day ones', () => {
+    const coffee = ['2026-07-01', '2026-07-02', '2026-07-03', '2026-07-05']
+      .map((date, i) => tx({ id: `c${i}`, date, merchant: 'Starbucks', amount: 5.75 }));
+    expect(detectDuplicateCharges(coffee, { today })).toHaveLength(0);
+    const sameDay = [...coffee, tx({ id: 'c9', date: '2026-07-05', merchant: 'Starbucks', amount: 5.75 })];
+    expect(detectDuplicateCharges(sameDay, { today }).map(d => d.key)).toEqual(['c3|c9']);
   });
 });

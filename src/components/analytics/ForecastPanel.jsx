@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { format } from 'date-fns';
 import {
   ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
@@ -7,6 +7,7 @@ import { AlertTriangle, AlertCircle, CheckCircle2, Info } from 'lucide-react';
 import { useFinancial, useGetCategory } from '../../context/FinancialContext';
 import { formatCurrency } from '../../utils/calculations';
 import { projectMonthEnd, forecastCashFlow } from '../../utils/insights';
+import IrregularExpensesPanel from './IrregularExpensesPanel';
 
 const CONFIDENCE = {
   high:   { label: 'High confidence',   cls: 'bg-green-50 text-green-700' },
@@ -48,6 +49,7 @@ function CashFlowTooltip({ active, payload }) {
       <p className="font-semibold text-gray-800 mb-1">{r.label}</p>
       <p className="text-gray-600">Income: {formatCurrency(r.income)}</p>
       <p className="text-gray-600">Scheduled bills: −{formatCurrency(r.fixed)}</p>
+      {r.irregular > 0 && <p className="text-gray-600">Periodic bills due: −{formatCurrency(r.irregular)}</p>}
       <p className="text-gray-600">Typical spending: −{formatCurrency(r.discretionary)}</p>
       <p className="text-gray-800 font-medium pt-1">Month net: {formatCurrency(r.net)}</p>
       <p className="text-gray-800 font-medium">Running total: {formatCurrency(r.cumulative)}</p>
@@ -61,8 +63,8 @@ export default function ForecastPanel() {
   const { transactions, budgets, incomes, recurringTemplates = [] } = state;
   const getCategory = useGetCategory();
 
-  const p = projectMonthEnd({ transactions, budgets, recurringTemplates });
-  const cf = forecastCashFlow({ transactions, incomes, recurringTemplates });
+  const p = useMemo(() => projectMonthEnd({ transactions, budgets, recurringTemplates }), [transactions, budgets, recurringTemplates]);
+  const cf = useMemo(() => forecastCashFlow({ transactions, incomes, recurringTemplates }), [transactions, incomes, recurringTemplates]);
   const conf = CONFIDENCE[p.confidence];
   const monthLabel = format(new Date(p.year, p.month, 1), 'MMMM');
   const t = p.totals;
@@ -84,7 +86,7 @@ export default function ForecastPanel() {
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
           <Stat label="Spent so far" value={formatCurrency(t.actual)} />
-          <Stat label="Bills still scheduled" value={formatCurrency(t.recurringRemaining)} sub="From recurring templates" />
+          <Stat label="Bills still scheduled" value={formatCurrency(t.recurringRemaining)} sub="Recurring & periodic bills" />
           <Stat label="Projected month-end" value={formatCurrency(t.projected)} />
           <Stat
             label="Budgeted"
@@ -179,11 +181,13 @@ export default function ForecastPanel() {
         {p.categories.length === 0 && <p className="text-sm text-gray-400 text-center py-6">No spending recorded yet this month.</p>}
       </div>
 
+      <IrregularExpensesPanel />
+
       {/* Cash-flow outlook */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
         <h2 className="text-base font-semibold text-gray-900">Cash-Flow Outlook — Next {cf.rows.length} Months</h2>
         <p className="text-xs text-gray-400 mt-0.5 mb-4">
-          Projected savings built up over time: income minus scheduled bills minus your typical spending
+          Projected savings built up over time: income minus scheduled and periodic bills minus your typical spending
           ({formatCurrency(cf.discretionaryAverage)}/mo, usually {formatCurrency(cf.discretionaryRange[0])}–{formatCurrency(cf.discretionaryRange[1])}).
         </p>
 

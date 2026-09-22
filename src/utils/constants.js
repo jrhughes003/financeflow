@@ -40,3 +40,30 @@ export const SMALL_PURCHASE_MIN_PER_MONTH = 4;
 // Minimum jump (percent and dollars) for a recurring charge to count as a price increase.
 export const PRICE_INCREASE_MIN_PCT = 5;
 export const PRICE_INCREASE_MIN_AMOUNT = 1;
+
+// --- Duplicate charge detection ---
+// Same merchant + exact amount within this many days (looking back this far).
+export const DUPLICATE_WINDOW_DAYS = 2;
+export const DUPLICATE_LOOKBACK_DAYS = 90;
+
+// --- Irregular / periodic expenses ---
+// Charges at or above this amount are candidates for quarterly/semiannual/annual bills.
+export const IRREGULAR_MIN_AMOUNT = 50;
+// A category-month is a seasonal spike when it's at least RATIO × its median
+// month AND at least MIN_EXTRA dollars above it.
+export const SEASONAL_SPIKE_RATIO = 1.75;
+export const SEASONAL_SPIKE_MIN_EXTRA = 100;
+
+// --- Budget tune-up (planning.js) ---
+// Months of history considered, and the minimum needed before suggesting.
+export const BUDGET_TUNE_LOOKBACK = 6;
+export const BUDGET_TUNE_MIN_MONTHS = 3;
+// Suggest adding a budget for categories spent on in most months averaging at least this.
+export const BUDGET_TUNE_MIN_AVERAGE = 25;
+// Suggest lowering when even the highest month stayed under this share of the budget.
+export const BUDGET_UNDERUSE_RATIO = 0.75;
+
+// --- Purchase-size buckets (habits.js) ---
+export const PURCHASE_SIZE_BUCKETS = [10, 25, 50, 100, 250];
+// Tags the app adds itself; excluded from tag analytics.
+export const SYSTEM_TAGS = ['recurring', 'ai-imported'];

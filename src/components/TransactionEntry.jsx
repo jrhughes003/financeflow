@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Zap, Plus, Sparkles } from 'lucide-react';
+import { X, Zap, Plus, Sparkles, HandCoins } from 'lucide-react';
 import { format } from 'date-fns';
 import { useFinancial, useGetCategory } from '../context/FinancialContext';
 import { CATEGORIES, getAllCategories, autoCategorize } from '../utils/categorization';
 import { runAi, taxonomy, aiSupported } from '../ai/ai';
+import { owedFromSplit, getOwedStatus, buildOwed } from '../utils/reimbursements';
+import { formatCurrency } from '../utils/calculations';
 
 const EMPTY_FORM = {
   date: format(new Date(), 'yyyy-MM-dd'),
@@ -34,6 +36,18 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
   const [suggestion, setSuggestion] = useState('');
   const [showNotes, setShowNotes] = useState(false);
   const [errors, setErrors] = useState({});
+
+  // "They owe me" — fronted purchases. Kept out of `form` so these UI fields
+  // never leak onto the saved transaction; the saved shape is `owed` only.
+  const existingOwed = editTransaction?.owed;
+  const existingStatus = editTransaction ? getOwedStatus(editTransaction) : null;
+  const [owedEnabled, setOwedEnabled] = useState(!!existingStatus);
+  const [owedMode, setOwedMode] = useState(existingOwed && !existingOwed.people ? 'exact' : 'split');
+  const [owedPeople, setOwedPeople] = useState(String(existingOwed?.people || 2));
+  const [owedExact, setOwedExact] = useState(existingOwed && !existingOwed.people ? String(existingOwed.amount) : '');
+  const owedValue = owedMode === 'split'
+    ? owedFromSplit(parseFloat(form.amount), parseInt(owedPeople, 10))
+    : Math.round((parseFloat(owedExact) || 0) * 100) / 100;
 
   // Natural-language entry (AI). Off unless the desktop app has AI enabled.
   const aiEnabled = aiSupported && (state.settings?.aiEnabled);
@@ -131,6 +145,12 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
     } else {
       if (!form.merchant.trim()) e.merchant = 'Merchant is required';
       if (!form.category) e.category = 'Select a category';
+      if (owedEnabled) {
+        if (owedMode === 'split' && !(parseInt(owedPeople, 10) >= 2)) e.owed = 'Split between at least 2 people';
+        else if (owedValue <= 0) e.owed = 'Enter how much you are owed';
+        else if (owedValue > parseFloat(form.amount)) e.owed = "Can't be owed more than the purchase amount";
+        else if (existingStatus && owedValue < existingStatus.repaid) e.owed = `${formatCurrency(existingStatus.repaid)} has already been paid back — owed can't be less`;
+      }
     }
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -153,6 +173,13 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
         merchant: form.merchant.trim() || (goal ? `Savings → ${goal.name}` : 'Savings'),
       } : { goalId: '' }),
     };
+    const owed = isSavings ? undefined : buildOwed(existingOwed, {
+      enabled: owedEnabled,
+      amount: owedValue,
+      people: owedMode === 'split' ? owedPeople : null,
+    });
+    if (owed) txData.owed = owed;
+    else delete txData.owed;
     dispatch({ type: editTransaction ? 'UPDATE_TRANSACTION' : 'ADD_TRANSACTION', payload: txData });
     // Learn the merchant→category mapping so future entries (and the AI fallback)
     // benefit from this correction. Local only — never sent anywhere.
@@ -160,7 +187,12 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
       dispatch({ type: 'UPDATE_SETTINGS', payload: { merchantCategoryHints: { ...hints, [hintKey(txData.merchant)]: txData.category } } });
     }
     if (isModal && onClose) onClose();
-    else setForm(EMPTY_FORM);
+    else {
+      setForm(EMPTY_FORM);
+      setOwedEnabled(false);
+      setOwedExact('');
+      setOwedPeople('2');
+    }
   };
 
   const selectedCat = allCategories.find(c => c.id === form.category);
@@ -225,6 +257,59 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
         </div>
         {errors.amount && <p className="text-xs text-red-500 mt-1">{errors.amount}</p>}
       </div>
+
+      {/* Fronted for others */}
+      {!isSavings && (
+        <div className={`rounded-xl border-2 transition-colors ${owedEnabled ? 'border-emerald-200 bg-emerald-50/50' : 'border-gray-100'}`}>
+          <label className="flex items-center gap-2 px-3 py-2.5 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={owedEnabled}
+              onChange={e => { setOwedEnabled(e.target.checked); setErrors(er => ({ ...er, owed: undefined })); }}
+              className="w-4 h-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+            />
+            <HandCoins className="w-4 h-4 text-emerald-600" />
+            <span className="text-sm text-gray-700 font-medium">I paid for others — they owe me back</span>
+          </label>
+          {owedEnabled && (
+            <div className="px-3 pb-3 space-y-2">
+              <div className="flex gap-1 p-1 bg-white rounded-lg border border-gray-200 text-xs font-medium">
+                {[['split', 'Split evenly'], ['exact', 'Exact amount']].map(([val, label]) => (
+                  <button key={val} type="button" onClick={() => setOwedMode(val)}
+                    className={`flex-1 py-1.5 rounded-md transition-colors ${owedMode === val ? 'bg-emerald-600 text-white' : 'text-gray-500 hover:text-gray-700'}`}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {owedMode === 'split' ? (
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <span>Split between</span>
+                  <input type="number" min="2" step="1" value={owedPeople} onChange={e => setOwedPeople(e.target.value)}
+                    className="w-16 px-2 py-1.5 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:border-emerald-500" />
+                  <span>people, including you</span>
+                </div>
+              ) : (
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
+                  <input type="number" min="0" step="0.01" placeholder="Amount owed to you" value={owedExact} onChange={e => setOwedExact(e.target.value)}
+                    className="w-full pl-7 pr-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:border-emerald-500" />
+                </div>
+              )}
+              {owedValue > 0 && parseFloat(form.amount) > 0 && (
+                <p className="text-xs text-gray-600">
+                  You're owed <span className="font-semibold text-emerald-700">{formatCurrency(owedValue)}</span>
+                  {' '}· your share {formatCurrency(Math.max(0, parseFloat(form.amount) - owedValue))}.
+                  {' '}The full amount counts as spending until you're paid back.
+                </p>
+              )}
+              {existingStatus && existingStatus.repaid > 0 && (
+                <p className="text-xs text-gray-500">{formatCurrency(existingStatus.repaid)} already paid back — record more on the Owed to Me page.</p>
+              )}
+              {errors.owed && <p className="text-xs text-red-500">{errors.owed}</p>}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Savings goal selector (savings mode only) */}
       {isSavings && (

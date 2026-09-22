@@ -5,6 +5,7 @@ import {
   ANOMALY_LOOKBACK_MONTHS,
   DEFAULT_TREND_MONTHS,
 } from './constants';
+import { withEffectiveAmount } from './reimbursements';
 
 // Format currency consistently
 export function formatCurrency(amount) {
@@ -42,7 +43,9 @@ export function getTransactionsForPeriod(transactions, month, year) {
     // Exclude exceptions and savings transfers — savings isn't a category expense
     // and is accounted for separately via goal contributions.
     return d >= startStr && d <= endStr && !t.isException && t.kind !== 'savings';
-  });
+  })
+    // Fronted purchases count net of what's been paid back (see reimbursements.js).
+    .map(withEffectiveAmount);
 }
 
 // Round to cents to avoid floating-point drift (0.1 + 0.2 = 0.30000000000000004)

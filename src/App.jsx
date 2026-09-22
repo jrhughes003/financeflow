@@ -14,6 +14,7 @@ import DebtTracker from './components/DebtTracker';
 import RecurringManager from './components/RecurringManager';
 import Reports from './components/Reports';
 import Settings from './components/Settings';
+import OwedManager from './components/OwedManager';
 
 function Toast({ toasts, removeToast }) {
   return (
@@ -55,8 +56,9 @@ function AppContent() {
   }, []);
 
   const pages = {
-    dashboard:    <Dashboard onQuickAdd={() => setShowQuickAdd(true)} />,
+    dashboard:    <Dashboard onQuickAdd={() => setShowQuickAdd(true)} onNavigate={setCurrentPage} />,
     transactions: <TransactionHistory />,
+    owed:         <OwedManager />,
     budget:       <BudgetManager />,
     comparison:   <BudgetComparison />,
     analytics:    <SpendingAnalytics />,

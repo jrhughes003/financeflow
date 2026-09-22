@@ -12,15 +12,21 @@ import {
 } from '../utils/calculations';
 import { CATEGORIES, getAllCategories, getCategoryById } from '../utils/categorization';
 import { useGetCategory } from '../context/FinancialContext';
-import { AlertTriangle, LayoutGrid, CalendarClock, PiggyBank } from 'lucide-react';
+import { AlertTriangle, LayoutGrid, CalendarClock, PiggyBank, CalendarDays, ClipboardList } from 'lucide-react';
 import WhatChangedPanel from './analytics/WhatChangedPanel';
 import ForecastPanel from './analytics/ForecastPanel';
 import SavingsPanel from './analytics/SavingsPanel';
+import HabitsPanel from './analytics/HabitsPanel';
+import PlanPanel from './analytics/PlanPanel';
+import TagsPanel from './analytics/TagsPanel';
+import { getSubcategoryBreakdown } from '../utils/habits';
 
 const TABS = [
   { id: 'overview', label: 'Overview', icon: LayoutGrid },
+  { id: 'habits', label: 'Habits', icon: CalendarDays },
   { id: 'forecast', label: 'Forecast', icon: CalendarClock },
   { id: 'save', label: 'Save Money', icon: PiggyBank },
+  { id: 'plan', label: 'Plan', icon: ClipboardList },
 ];
 
 const COLORS = CATEGORIES.map(c => c.color);
@@ -44,10 +50,9 @@ export default function SpendingAnalytics() {
     multiplier: settings.anomalyMultiplier,
   });
   const health = getBudgetHealthScore(budgets, transactions, month, year);
-  const dow = getSpendingByDayOfWeek(transactions.filter(t => {
-    const d = new Date(t.date);
-    return d.getMonth() === month && d.getFullYear() === year;
-  }));
+  // Same month filter as everything else: timezone-safe, excludes exceptions and
+  // savings transfers, and nets out repaid amounts on fronted purchases.
+  const dow = getSpendingByDayOfWeek(getTransactionsForPeriod(transactions, month, year));
 
   // Pie data
   const pieData = Object.entries(spending)
@@ -73,6 +78,7 @@ export default function SpendingAnalytics() {
       transactions: catTx.sort((a, b) => new Date(b.date) - new Date(a.date)),
       merchants: Object.entries(merchants).sort((a, b) => b[1] - a[1]).slice(0, 6),
       total: catTx.reduce((s, t) => s + t.amount, 0),
+      subcategories: getSubcategoryBreakdown(catTx),
       avg: catTx.length ? catTx.reduce((s, t) => s + t.amount, 0) / catTx.length : 0,
     };
   })() : null;
@@ -80,7 +86,7 @@ export default function SpendingAnalytics() {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Section tabs */}
-      <div className="flex bg-gray-100 rounded-xl p-1 w-fit">
+      <div className="flex flex-wrap bg-gray-100 rounded-xl p-1 w-fit max-w-full">
         {TABS.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
@@ -92,8 +98,10 @@ export default function SpendingAnalytics() {
         ))}
       </div>
 
+      {tab === 'habits' && <HabitsPanel />}
       {tab === 'forecast' && <ForecastPanel />}
       {tab === 'save' && <SavingsPanel />}
+      {tab === 'plan' && <PlanPanel />}
 
       {tab === 'overview' && <>
       {/* Month selector */}
@@ -186,6 +194,24 @@ export default function SpendingAnalytics() {
               <p className="text-lg font-bold text-gray-900">{formatCurrency(drillData.avg)}</p>
             </div>
           </div>
+          {/* Only worth showing when at least one transaction has a subcategory. */}
+          {drillData.subcategories.some(sc => sc.name !== 'Unspecified') && (
+            <div className="mb-4">
+              <p className="text-sm font-semibold text-gray-700 mb-2">By Subcategory</p>
+              <div className="space-y-2">
+                {drillData.subcategories.map(sc => (
+                  <div key={sc.name} className="flex items-center gap-3">
+                    <span className={`text-sm w-36 shrink-0 truncate ${sc.name === 'Unspecified' ? 'text-gray-400 italic' : 'text-gray-700'}`}>{sc.name}</span>
+                    <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div className="h-full rounded-full" style={{ width: `${sc.pct}%`, backgroundColor: getCategory(drillCat).color }} />
+                    </div>
+                    <span className="text-sm font-semibold text-gray-800 w-24 text-right">{formatCurrency(sc.total)}</span>
+                    <span className="text-xs text-gray-400 w-20 text-right">{sc.count} tx · {sc.pct}%</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="grid lg:grid-cols-2 gap-4">
             <div>
               <p className="text-sm font-semibold text-gray-700 mb-2">Top Merchants</p>
@@ -211,6 +237,8 @@ export default function SpendingAnalytics() {
           </div>
         </div>
       )}
+
+      <TagsPanel transactions={transactions} month={month} year={year} />
 
       {/* Monthly trend line chart */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">

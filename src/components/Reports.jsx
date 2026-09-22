@@ -11,6 +11,7 @@ import {
 import { getCategoryById } from '../utils/categorization';
 import { useGetCategory } from '../context/FinancialContext';
 import { exportToCSV, exportToJSON } from '../utils/exportUtils';
+import { withEffectiveAmount } from '../utils/reimbursements';
 import { runAi, buildSummary, aiSupported } from '../ai/ai';
 import { Sparkles } from 'lucide-react';
 
@@ -76,7 +77,9 @@ export default function Reports() {
 
   // Custom range report
   const customTx = customFrom && customTo
-    ? transactions.filter(t => t.date >= customFrom && t.date <= customTo && !t.isException)
+    ? transactions
+      .filter(t => t.date >= customFrom && t.date <= customTo && !t.isException && t.kind !== 'savings')
+      .map(withEffectiveAmount)
     : [];
   const customTotal = customTx.reduce((s, t) => s + t.amount, 0);
   const customByCategory = {};

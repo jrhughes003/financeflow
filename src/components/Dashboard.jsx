@@ -8,6 +8,9 @@ import {
 } from '../utils/calculations';
 import { getAllCategories } from '../utils/categorization';
 import { useGetCategory } from '../context/FinancialContext';
+import FinancialHealthCard from './FinancialHealthCard';
+import { getOwedSummary } from '../utils/reimbursements';
+import { HandCoins } from 'lucide-react';
 
 function SummaryCard({ title, value, subtitle, icon: Icon, color, trend }) {
   return (
@@ -75,7 +78,7 @@ function HealthGrade({ grade, percent, color }) {
   );
 }
 
-export default function Dashboard({ onQuickAdd }) {
+export default function Dashboard({ onQuickAdd, onNavigate }) {
   const { state } = useFinancial();
   const now = new Date();
   const [month, setMonth] = useState(now.getMonth());
@@ -91,6 +94,7 @@ export default function Dashboard({ onQuickAdd }) {
   const budgetStatuses = getBudgetStatus(budgets, transactions, month, year).filter(b => b.budget > 0);
   const health = getBudgetHealthScore(budgets, transactions, month, year);
   const anomalies = detectAnomalies(transactions, month, year);
+  const owedSummary = getOwedSummary(transactions);
   const recent = [...transactions]
     .sort((a, b) => new Date(b.date) - new Date(a.date))
     .slice(0, 5);
@@ -121,7 +125,23 @@ export default function Dashboard({ onQuickAdd }) {
         <SummaryCard title="Net Worth"        value={formatCurrency(netWorth)}      subtitle="Assets minus liabilities" icon={TrendingUp} color="bg-purple-500" />
       </div>
 
-      {/* Health Score */}
+      {/* Reminder: money others still owe for purchases the user fronted */}
+      {owedSummary.outstanding > 0 && (
+        <div className="flex flex-wrap items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+          <HandCoins className="w-5 h-5 text-emerald-600 shrink-0" />
+          <p className="flex-1 text-sm text-emerald-900">
+            You're owed <span className="font-semibold">{formatCurrency(owedSummary.outstanding)}</span> for {owedSummary.openCount} purchase{owedSummary.openCount > 1 ? 's' : ''} you fronted
+            {owedSummary.open[0].ageDays >= 30 && <> — the oldest is from {format(new Date(owedSummary.oldestOpenDate + 'T00:00:00'), 'MMM d')}</>}.
+          </p>
+          {onNavigate && (
+            <button onClick={() => onNavigate('owed')} className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium rounded-lg">Record repayments</button>
+          )}
+        </div>
+      )}
+
+      <FinancialHealthCard />
+
+      {/* Budget health grade */}
       <HealthGrade {...health} />
 
       {/* Anomaly Alerts */}

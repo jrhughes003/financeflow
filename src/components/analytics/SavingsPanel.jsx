@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { addMonths, format } from 'date-fns';
 import { AlertTriangle, TrendingUp, Coffee, BadgeDollarSign, Repeat, SlidersHorizontal, RotateCcw, Lightbulb } from 'lucide-react';
 import { useFinancial, useGetCategory } from '../../context/FinancialContext';
@@ -6,6 +6,7 @@ import { formatCurrency, getTotalIncome, getGoalProgress } from '../../utils/cal
 import {
   getSavingsOpportunities, getCategoryAverages, simulateCuts, goalTimelineImpact,
 } from '../../utils/insights';
+import DuplicatesPanel from './DuplicatesPanel';
 
 const TYPE_ICON = {
   over_budget: AlertTriangle,
@@ -52,13 +53,17 @@ export default function SavingsPanel() {
   const getCategory = useGetCategory();
   const catName = id => getCategory(id).name;
 
-  const opportunities = getSavingsOpportunities({ transactions, budgets, recurringTemplates });
+  // Heavy scans — only recompute when the data changes, not on every slider move.
+  const opportunities = useMemo(
+    () => getSavingsOpportunities({ transactions, budgets, recurringTemplates }),
+    [transactions, budgets, recurringTemplates],
+  );
   const actionable = opportunities.filter(o => o.monthlySaving !== null);
   const review = opportunities.find(o => o.type === 'recurring_review');
   const totalPotential = actionable.reduce((s, o) => s + o.annualSaving, 0);
 
   // Simulator inputs
-  const averages = getCategoryAverages(transactions);
+  const averages = useMemo(() => getCategoryAverages(transactions), [transactions]);
   const income = getTotalIncome(incomes);
   const simCats = Object.entries(averages.byCategory)
     .sort((a, b) => b[1] - a[1])
@@ -82,15 +87,20 @@ export default function SavingsPanel() {
 
   if (!averages.months) {
     return (
+      <div className="space-y-6">
+      <DuplicatesPanel />
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
         <h2 className="text-base font-semibold text-gray-900 mb-1">Savings Opportunities</h2>
         <p className="text-sm text-gray-400">Savings suggestions appear once you have at least one full month of transactions.</p>
+      </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
+      <DuplicatesPanel />
+
       {/* Opportunities */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
         <div className="flex flex-wrap items-start justify-between gap-3 mb-4">

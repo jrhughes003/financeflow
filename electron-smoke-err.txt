@@ -1,2 +1,0 @@
-(node:15724) electron: Failed to load URL: http://localhost:5173/ with error: ERR_CONNECTION_REFUSED
-(Use `electron --trace-warnings ...` to show where the warning was created)

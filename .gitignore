@@ -7,3 +7,10 @@ release/
 .env.*
 .DS_Store
 Thumbs.db
+
+# Local smoke-test output
+*smoke*.txt
+
+# Local assistant config (machine-specific paths, not useful to others)
+CLAUDE.md
+.claude/

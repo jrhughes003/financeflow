@@ -42,7 +42,7 @@ plaintext only in memory at call time.
 **The financial logic is real, and tested.** Budget rollover, recurring-charge detection,
 duplicate detection, reimbursement-aware spending, goal pacing, debt avalanche/snowball, a
 long-range life plan with Canadian tax treatment (RRSP/TFSA/FHSA, CPP/OAS, first-time-buyer
-rules) and a Monte Carlo simulation. Roughly 9k lines of source and **231 unit tests**.
+rules) and a Monte Carlo simulation. Roughly 9k lines of source and **244 unit tests**.
 Functions that depend on "now" take an explicit date, so they're deterministic under test.
 
 ## Features
@@ -155,6 +155,12 @@ Routine calls use Sonnet and the heavier reasoning pass uses Opus, both through 
 for structured output, with cacheable system prompts. Every AI path has a deterministic fallback,
 so the app is fully functional with AI off or offline.
 
+**No key required to develop against them.** `npm run electron:dev:mock` points the SDK at a
+local stand-in for the API ([`electron/ai/mockServer.cjs`](electron/ai/mockServer.cjs)) that
+answers from the real request, and can be told to return a 401, a 429, a malformed body or an
+invalid category on demand — so the failure paths get exercised, not just the happy one. See
+[DEVELOPMENT.md](DEVELOPMENT.md#testing-the-ai-features-without-an-api-key).
+
 ## Privacy
 
 - **Your data stays local.** SQLite (desktop) and `localStorage` (browser) never leave your machine.
@@ -176,7 +182,8 @@ so the app is fully functional with AI off or offline.
 |---|---|
 | `npm run dev` | Browser app at `http://localhost:5173` (localStorage) |
 | `npm run electron:dev` | Desktop app in development (SQLite) |
-| `npm test` | Unit tests (231) |
+| `npm run electron:dev:mock` | Desktop app with AI wired to the local mock (no key, no spend) |
+| `npm test` | Unit tests (244) |
 | `npm run build` | Production web bundle |
 | `npm run dist` | Windows installer into `release/` |
 

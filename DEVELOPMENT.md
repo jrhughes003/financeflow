@@ -19,6 +19,41 @@ FinanceFlow runs in two modes from one codebase:
 | `npm run electron:dev` | Vite + Electron together (desktop dev, SQLite).                            |
 | `npm run electron`     | Electron against an already-running dev server / built `dist/`.            |
 | `npm run dist`         | Build the web bundle and package a desktop installer via electron-builder. |
+| `npm run ai:mock`      | Local stand-in for the Anthropic API (see below).                          |
+| `npm run electron:dev:mock` | Desktop dev wired to the mock — AI features with no key and no spend. |
+
+## Testing the AI features without an API key
+
+`electron/ai/mockServer.cjs` implements enough of `POST /v1/messages` to serve
+this app, and `createClient` honours `FINANCEFLOW_AI_BASE_URL`, so the real
+Anthropic SDK talks to it over real HTTP. Request serialization, `tool_use`
+parsing and the SDK's typed errors are all exercised — only the model is fake.
+
+```bash
+npm run electron:dev:mock
+```
+
+Then in **Settings**, paste any non-empty string as the API key (it is encrypted
+and stored exactly as a real one, but never leaves your machine) and turn AI on.
+Replies are derived from the request — the merchant you actually typed, the
+amounts actually in the text you pasted — so results look plausible.
+
+**Failure modes are the more valuable half.** Every scenario below makes all
+subsequent calls fail a specific way, so you can confirm the UI degrades
+gracefully rather than hanging or crashing:
+
+```bash
+MOCK_SCENARIO=rate_limit npm run ai:mock            # start in a scenario
+curl -X POST 127.0.0.1:8787/__scenario -d auth_error  # or switch at runtime
+curl 127.0.0.1:8787/__scenario                        # read the current one
+```
+
+`ok`, `auth_error` (401), `rate_limit` (429), `server_error` (500),
+`overloaded` (529), `malformed` (unparseable content), `empty` (no content
+blocks), `bad_category` (a category id that doesn't exist), `slow` (delayed).
+
+`electron/ai/mockServer.test.js` runs the whole feature set plus every failure
+mode against it in CI-friendly fashion; no network and no key required.
 
 ## ⚠️ Native module ABI: `better-sqlite3`
 

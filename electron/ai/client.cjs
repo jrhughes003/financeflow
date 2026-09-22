@@ -8,12 +8,18 @@
 const Anthropic = require('@anthropic-ai/sdk');
 
 const MODELS = {
-  routine: 'claude-sonnet-4-6',
-  reasoning: 'claude-opus-4-8',
+  routine: 'claude-sonnet-5',
+  reasoning: 'claude-opus-5',
 };
 
+// Pointing FINANCEFLOW_AI_BASE_URL at the local mock server (npm run ai:mock)
+// exercises this entire path — SDK serialization, tool_use parsing, error
+// handling — with no API key and no spend. Unset in a packaged build.
 function createClient(apiKey) {
-  return new Anthropic({ apiKey });
+  const baseURL = process.env.FINANCEFLOW_AI_BASE_URL;
+  if (!baseURL) return new Anthropic({ apiKey });
+  // No retries against the mock, so simulated 429/500s surface immediately.
+  return new Anthropic({ apiKey, baseURL, maxRetries: 0 });
 }
 
 // Pull the first tool_use input out of a response, or null.

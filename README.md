@@ -1,95 +1,170 @@
-# FinanceFlow — Personal Financial Planner
+# FinanceFlow
 
-A comprehensive personal-finance tool built with React. It runs two ways from the
-same codebase:
+A local-first personal finance app that runs as a **desktop app** (Electron + SQLite) or
+**in the browser** (localStorage) from one React codebase — with optional AI features that
+are restricted, in code, to the minimum data each feature needs.
 
-- **Web** (`npm run dev`) — data lives entirely in your browser's `localStorage`.
-- **Desktop** (Electron) — data lives in a local **SQLite** database on your
-  machine, and optional **AI features** are available using your own Anthropic API key.
-
-Both keep your financial data on your device. See **Privacy** below for exactly
-what the optional AI features send off-device.
-
-## Quick Start
+Your ledger never leaves your machine. With AI switched on, a per-feature allow-list decides
+exactly what may be sent to the Anthropic API — insights and Q&A send **aggregate totals only**,
+never individual transactions. See [Privacy](#privacy).
 
 ```bash
-# Requires Node.js (use fnm/nvm if not installed)
 npm install
-npm run dev          # web app at http://localhost:5173
+npm run dev          # browser at http://localhost:5173
 ```
 
-Desktop app and tests: see [DEVELOPMENT.md](./DEVELOPMENT.md) (notably the
-`better-sqlite3` rebuild step when switching between running tests and the desktop app).
+Then open **Settings → Load demo data** for ~8 months of generated history, so every chart and
+insight has something to show.
 
-```bash
-npm test             # unit tests (calculations, reducer, DB layer, AI payload/client)
-npm run electron:dev # desktop app (SQLite) in development
-npm run dist         # package a desktop installer
-```
+---
+
+## Why it's interesting
+
+**Two runtimes, one codebase.** The same React app persists to SQLite when it runs in Electron
+and to `localStorage` when it runs in a browser. The renderer calls one storage module; that
+module picks its backend at runtime from whether the preload bridge is present
+([`src/storage/storage.js`](src/storage/storage.js)). No forks, no build flags.
+
+**Privacy enforced by construction, not by convention.** Every outbound AI request is assembled
+in [`electron/ai/payload.cjs`](electron/ai/payload.cjs) from an explicit per-feature allow-list.
+A field that isn't listed cannot be sent, and an unrecognized feature name throws rather than
+falling through to an unfiltered object. The privacy promise in this README is a property of the
+code path, not a policy.
+
+**The Electron surface is deliberately small.** `contextIsolation` is on, `nodeIntegration` is
+off, and the renderer reaches the main process only through the explicit API in
+[`electron/preload.cjs`](electron/preload.cjs). The API key is encrypted with OS-backed storage
+(DPAPI/Keychain via Electron `safeStorage`), lives only in the main process, and exists in
+plaintext only in memory at call time.
+
+**The financial logic is real, and tested.** Budget rollover, recurring-charge detection,
+duplicate detection, reimbursement-aware spending, goal pacing, debt avalanche/snowball, a
+long-range life plan with Canadian tax treatment (RRSP/TFSA/FHSA, CPP/OAS, first-time-buyer
+rules) and a Monte Carlo simulation. Roughly 9k lines of source and **231 unit tests**.
+Functions that depend on "now" take an explicit date, so they're deterministic under test.
 
 ## Features
 
 | Page | What it does |
 |------|-------------|
-| Dashboard | Budget progress, savings goals, anomaly alerts, net worth, health score |
-| Transactions | Full ledger with search/filter, CSV import/export, inline edit/delete, AI receipt paste |
-| Budget | Monthly limits per category with flex rules and **real rollover** (prior month's unused/overage carries forward) |
-| Comparison | Side-by-side budget vs actual with grouped bar chart, 6-month trend table |
-| Analytics | Pie chart, line trends, day-of-week patterns, category deep-dive |
-| Goals | Goal cards with progress **derived from savings transactions**, scenario calculator (one-click apply) |
-| Income | Income sources, frequency normalization, income vs expense chart |
-| Investments | Portfolio allocation, gain/loss tracking, compound growth projection |
-| Debts | Payoff calculator, avalanche/snowball strategies; original balance locked after creation |
-| Recurring | Detects recurring charges and lets you create templates that post on schedule |
-| Reports | Monthly summary, YTD, custom date range, CSV/JSON export, AI insights & Q&A |
-| Settings | API key management, AI on/off toggle, JSON backup/restore, reset |
+| **Dashboard** | Budget progress, savings goals, anomaly alerts, net worth, financial health score |
+| **Transactions** | Full ledger with search/filter, CSV import/export, inline edit, AI receipt paste |
+| **Owed to Me** | Purchases fronted for other people: split evenly or by amount, track partial repayments, forgive the remainder |
+| **Budget** | Monthly limits per category, flex thresholds, and real rollover (prior month's unused or overage carries forward) |
+| **Comparison** | Budget vs actual side by side, grouped bar chart, 6-month trend table |
+| **Analytics** | What changed, cash-flow forecast, savings opportunities, duplicate charges, irregular/seasonal bills, budget tune-up, goal check, spending habits, tags |
+| **Goals** | Progress derived from actual savings transactions, scenario calculator, pace vs. required contribution |
+| **Income** | Multiple sources, frequency normalization, income vs expense chart |
+| **Investments** | Allocation, gain/loss, compound projection, and tracked "advisor" accounts that grow from a statement balance with logged deposits/withdrawals |
+| **Debts** | Payoff calculator, avalanche vs snowball comparison, interest-free and deferred loans (accrue nothing / pay nothing until repayment starts) |
+| **Recurring** | Detects recurring charges from history, then posts them on schedule from confirmed templates |
+| **Plan Ahead** | Long-range monthly projection to retirement: house purchase (CMHC, land transfer tax, FHSA/HBP), car financing, one-off and recurring life events, Canadian tax, saved scenarios, and a Monte Carlo success rate |
+| **Reports** | Monthly, YTD and custom-range summaries, CSV/JSON export, AI insights and Q&A |
+| **Settings** | API key management, AI toggle, demo data, JSON backup/restore |
 
-## Savings & recurring
+## Architecture
 
-- **Savings goals** update automatically: log a transaction of type *Savings* against
-  a goal (in the add-transaction form) and it feeds that goal's progress. Savings
-  transfers are excluded from category spending so they don't distort budgets.
-- **Recurring** charges are detected from history; confirm them as templates and post
-  due items with one click.
+```mermaid
+flowchart TD
+    subgraph renderer["Renderer — React + Vite (sandboxed)"]
+        UI["Pages &amp; charts<br/>(Recharts)"]
+        CALC["Pure logic modules<br/>calculations · insights · planning<br/>lifeplan engine · Monte Carlo"]
+        STORE["storage.js<br/>picks a backend at runtime"]
+        UI --> CALC
+        UI --> STORE
+    end
 
-## AI features (desktop only, opt-in)
+    subgraph main["Electron main process (Node)"]
+        IPC["IPC handlers"]
+        REPO["repository.cjs"]
+        GATE["payload.cjs<br/>per-feature allow-list"]
+        KEY["secureStore.cjs<br/>OS-encrypted API key"]
+    end
 
-Off by default. Enable in **Settings** by entering an Anthropic API key (stored
-encrypted via your OS keychain through Electron `safeStorage` — never bundled or
-committed) and turning on the toggle. Four features:
+    DB[("SQLite<br/>%APPDATA%/FinanceFlow")]
+    LS[("Browser localStorage")]
+    API(["Anthropic API"])
 
-1. **Smart auto-categorization** — keyword matching first; on a miss, the model
-   suggests a category. Your manual corrections are remembered locally and applied first.
-2. **Natural-language entry** — type "spent $40 on gas at Esso yesterday" and it fills
-   the transaction form.
-3. **Insights & Q&A** — a narrative monthly summary and grounded answers about your spending.
-4. **Receipt / statement parsing** — paste messy text and extract structured transactions.
+    STORE -->|"desktop: window.api<br/>preload bridge, contextIsolation"| IPC
+    STORE -->|"browser: no bridge present"| LS
+    IPC --> REPO --> DB
+    IPC --> GATE
+    KEY --> GATE
+    GATE -->|"only allow-listed fields"| API
 
-## Privacy — what is and isn't sent off-device
+    classDef store fill:#0ea5e9,stroke:#0369a1,color:#fff
+    classDef ext fill:#8b5cf6,stroke:#6d28d9,color:#fff
+    class DB,LS store
+    class API ext
+```
 
-- **Your data stays local.** localStorage (web) and SQLite (desktop) never leave your machine.
-- **No AI = nothing sent.** With AI off (the default), or with no API key, no data is
-  ever transmitted. Every AI path falls back to deterministic behavior if AI is off or offline.
-- **With AI on, only the minimum per feature is sent to Anthropic** (enforced by an
-  explicit allow-list in `electron/ai/payload.cjs`):
-  - *Categorization*: the merchant name + the category list. Not amounts or other transactions.
-  - *Natural-language entry*: your typed note + today's date + the category list.
-  - *Insights & Q&A*: **aggregate totals only** (monthly/category sums, budget status,
-    anomalies) — **not** your individual transactions.
-  - *Receipt parsing*: the text you paste (unavoidable) + the category list.
+The renderer has no filesystem, database or network access of its own. Everything crosses one
+narrow, explicit bridge.
 
-## Keyboard Shortcuts
-- `Ctrl+N` — Open quick-add transaction modal
-- `Escape` — Close modal
+## AI features (desktop only, opt-in, off by default)
 
-## Data & migration
-- Web: `localStorage` key `financeflow_data`. Desktop: SQLite at the app's user-data dir.
-- On first desktop launch, an existing localStorage blob is migrated automatically;
-  otherwise the reliable cross-environment path is **Settings → Export backup** (web)
-  then **Settings → Restore backup** (desktop).
+Enable in **Settings** by entering your own Anthropic API key and turning on the toggle.
 
-## Tech Stack
-- React 18 + Vite, Tailwind CSS, Recharts, date-fns, lucide-react
-- Electron + better-sqlite3 (desktop persistence)
-- @anthropic-ai/sdk (optional AI features)
-- Vitest + Testing Library (tests)
+1. **Smart auto-categorization** — keyword matching first; only on a miss does the model decide. Your manual corrections are remembered locally and win next time.
+2. **Natural-language entry** — "spent $40 on gas at Esso yesterday" fills the transaction form.
+3. **Insights & Q&A** — a narrative monthly summary and grounded answers, computed from aggregates.
+4. **Receipt / statement parsing** — paste messy text, get structured transactions.
+
+Routine calls use Sonnet and the heavier reasoning pass uses Opus, both through forced tool-use
+for structured output, with cacheable system prompts. Every AI path has a deterministic fallback,
+so the app is fully functional with AI off or offline.
+
+## Privacy
+
+- **Your data stays local.** SQLite (desktop) and `localStorage` (browser) never leave your machine.
+- **No AI, nothing sent.** With AI off — the default — or with no API key, nothing is transmitted.
+- **With AI on, only the allow-listed fields per feature are sent:**
+
+  | Feature | What is sent |
+  |---|---|
+  | Categorization | The merchant name + the category list. No amounts, no other transactions. |
+  | Natural-language entry | Your typed text + today's date + the category list. |
+  | Insights & Q&A | **Aggregates only** — monthly/category totals, budget status, anomalies. Never individual transactions. |
+  | Receipt parsing | The text you paste (unavoidable) + the category list. |
+
+- **The key** is encrypted through the OS keychain, never bundled and never committed.
+
+## Running it
+
+| Command | What it does |
+|---|---|
+| `npm run dev` | Browser app at `http://localhost:5173` (localStorage) |
+| `npm run electron:dev` | Desktop app in development (SQLite) |
+| `npm test` | Unit tests (231) |
+| `npm run build` | Production web bundle |
+| `npm run dist` | Windows installer into `release/` |
+
+⚠️ `better-sqlite3` is a native module, and Node and Electron use different ABIs, so the binary
+matches only one at a time: `npm rebuild better-sqlite3 --build-from-source` before `npm test`,
+`npx electron-builder install-app-deps` before running the desktop app. `npm run dist` handles it
+itself. Details in [DEVELOPMENT.md](DEVELOPMENT.md).
+
+## Design decisions
+
+**Electron over Tauri.** Tauri produces much smaller binaries, but the whole codebase is
+JavaScript and the app needed an embedded database plus OS-level key encryption on day one.
+Electron's `better-sqlite3` and `safeStorage` cover both with no Rust toolchain in the loop.
+
+**A hybrid SQLite schema.** `transactions` promotes the queryable fields (date, amount, category,
+…) into real columns for indexed aggregates, while every table also keeps the complete original
+object in a `data` JSON column. Nothing is lost on a round-trip when the JS object shape evolves,
+and columns can be promoted later when a feature needs to query them.
+
+**State is saved as a whole blob on change.** The renderer keeps a single reducer store and
+persists all of it per change, which keeps the storage interface identical across both runtimes.
+At personal-ledger scale this is comfortably fast; per-entity writes would be the first thing to
+change if it grew.
+
+**The life plan lives in settings, not new tables.** Plan Ahead is a projection over existing
+state plus a config object, so it needed no schema change — and its engine stays pure and
+testable.
+
+## Tech stack
+
+React 18 · Vite · Tailwind CSS · Recharts · date-fns · Electron · better-sqlite3 ·
+@anthropic-ai/sdk · Vitest + Testing Library

@@ -15,6 +15,7 @@ import RecurringManager from './components/RecurringManager';
 import Reports from './components/Reports';
 import Settings from './components/Settings';
 import OwedManager from './components/OwedManager';
+import LifePlanPage from './components/lifeplan/LifePlanPage';
 
 function Toast({ toasts, removeToast }) {
   return (
@@ -67,6 +68,7 @@ function AppContent() {
     investments:  <InvestmentTracker />,
     debts:        <DebtTracker />,
     recurring:    <RecurringManager />,
+    plan:         <LifePlanPage />,
     reports:      <Reports />,
     settings:     <Settings />,
   };

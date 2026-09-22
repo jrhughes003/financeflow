@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   LayoutDashboard, CreditCard, PieChart, Target, TrendingUp, Wallet,
-  BarChart3, FileText, Menu, X, Plus, DollarSign, Landmark, RefreshCw, Settings as SettingsIcon, HandCoins
+  BarChart3, FileText, Menu, X, Plus, DollarSign, Landmark, RefreshCw, Settings as SettingsIcon, HandCoins, Milestone
 } from 'lucide-react';
 
 const NAV_ITEMS = [
@@ -16,6 +16,7 @@ const NAV_ITEMS = [
   { id: 'investments', label: 'Investments',  icon: TrendingUp },
   { id: 'debts',       label: 'Debts',        icon: Landmark },
   { id: 'recurring',   label: 'Recurring',    icon: RefreshCw },
+  { id: 'plan',        label: 'Plan Ahead',   icon: Milestone },
   { id: 'reports',     label: 'Reports',      icon: FileText },
   { id: 'settings',    label: 'Settings',     icon: SettingsIcon },
 ];

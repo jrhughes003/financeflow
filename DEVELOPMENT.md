@@ -43,9 +43,10 @@ so it is compiled from source on install.
 If you see `Error: ... NODE_MODULE_VERSION 1xx ... requires NODE_MODULE_VERSION 1yy`,
 you're running with the binary built for the other runtime — rebuild as above.
 
-> Tip: on Windows, OneDrive sync can lock `better_sqlite3.node` and cause an
-> `EPERM: operation not permitted, unlink` error during rebuild. Close any running
-> Electron instance (and pause OneDrive if needed), then retry.
+> Tip: on Windows, a rebuild can fail with `EPERM: operation not permitted, unlink`
+> when something still holds `better_sqlite3.node` open. Close any running Electron
+> instance and retry. A file-syncing client (OneDrive, Dropbox) scanning the working
+> copy can hold the same lock, so keep the repo outside a synced folder.
 
 ## Data & migration
 

@@ -16,6 +16,8 @@ npm run dev          # browser at http://localhost:5173
 Then open **Settings → Load demo data** for ~8 months of generated history, so every chart and
 insight has something to show.
 
+![FinanceFlow dashboard — monthly income, spending, savings rate and net worth, with a financial health score](docs/screenshots/dashboard.png)
+
 ---
 
 ## Why it's interesting
@@ -61,6 +63,34 @@ Functions that depend on "now" take an explicit date, so they're deterministic u
 | **Plan Ahead** | Long-range monthly projection to retirement: house purchase (CMHC, land transfer tax, FHSA/HBP), car financing, one-off and recurring life events, Canadian tax, saved scenarios, and a Monte Carlo success rate |
 | **Reports** | Monthly, YTD and custom-range summaries, CSV/JSON export, AI insights and Q&A |
 | **Settings** | API key management, AI toggle, demo data, JSON backup/restore |
+
+## Screenshots
+
+**Analytics — what changed this month, against your own baseline rather than a fixed budget.**
+![Analytics: waterfall of category changes vs the 3-month average](docs/screenshots/analytics.png)
+
+**Budget — real rollover. Unused room carries forward (`+$160.88 rolled over`), and an overage
+carries as a deduction (`-$135.63 carried`), so the percentages track the *effective* limit.**
+![Budget page with per-category progress, flex thresholds and rollover](docs/screenshots/budget.png)
+
+**Owed to Me — a dinner split four ways, two repayments logged. The full amount counts as your
+spending until it comes back, and each repayment lowers that purchase's month.**
+![Owed to Me: partly repaid split expense with payment chips](docs/screenshots/owed-to-me.png)
+
+**Debts — an interest-free OSAP loan still in deferment: nothing due until repayment starts, and
+no interest accrues meanwhile.**
+![Debts page showing a deferred interest-free loan and payoff projections](docs/screenshots/debts.png)
+
+<details>
+<summary>More: transactions, goals, budget vs actual</summary>
+
+![Transaction ledger with search, filters, CSV import/export and tags](docs/screenshots/transactions.png)
+
+![Goals with progress derived from savings transactions and pace vs required contribution](docs/screenshots/goals.png)
+
+![Budget vs actual comparison table with a 6-month trend by category](docs/screenshots/comparison.png)
+
+</details>
 
 ## Architecture
 

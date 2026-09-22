@@ -66,6 +66,15 @@ Functions that depend on "now" take an explicit date, so they're deterministic u
 
 ## Screenshots
 
+**Plan Ahead — a month-by-month projection from today's balances to age 95: salary growth and
+RRSP contributions, a car in 2027, a wedding in 2028 and a first home in 2029, with Ontario and
+federal tax applied each year and CPP/OAS starting at the chosen ages.**
+![Plan Ahead projection: net worth over time split into savings, home equity and debt, with a retirement marker](docs/screenshots/plan-projection.png)
+
+**…then run it a few hundred times with a random return each year, instead of the same return
+every year, to see how often the plan survives.**
+![Monte Carlo: 71% of 300 runs hold up, with a median outcome and a middle-80% band to 2094](docs/screenshots/plan-montecarlo.png)
+
 **Analytics — what changed this month, against your own baseline rather than a fixed budget.**
 ![Analytics: waterfall of category changes vs the 3-month average](docs/screenshots/analytics.png)
 
@@ -82,7 +91,9 @@ no interest accrues meanwhile.**
 ![Debts page showing a deferred interest-free loan and payoff projections](docs/screenshots/debts.png)
 
 <details>
-<summary>More: transactions, goals, budget vs actual</summary>
+<summary>More: plan setup, transactions, goals, budget vs actual</summary>
+
+![Plan Ahead setup: birth year, retirement age, CPP/OAS start, TFSA/RRSP room and FHSA contributions](docs/screenshots/plan-setup.png)
 
 ![Transaction ledger with search, filters, CSV import/export and tags](docs/screenshots/transactions.png)
 

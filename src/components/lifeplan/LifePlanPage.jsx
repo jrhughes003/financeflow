@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { SlidersHorizontal, Flag, LineChart as LineChartIcon, AlertTriangle, CheckCircle2, Info } from 'lucide-react';
+import { SlidersHorizontal, Flag, LineChart as LineChartIcon, GitCompare, AlertTriangle, CheckCircle2, Info } from 'lucide-react';
 import { useFinancial } from '../../context/FinancialContext';
 import { formatCurrency } from '../../utils/calculations';
 import { runPlan } from '../../utils/lifeplan/engine';
@@ -7,11 +7,13 @@ import { normalizePlan, buildSnapshot } from '../../utils/lifeplan/snapshot';
 import PlanSetup from './PlanSetup';
 import PlanEvents from './PlanEvents';
 import PlanProjection from './PlanProjection';
+import PlanScenarios from './PlanScenarios';
 
 const TABS = [
   { id: 'setup', label: 'Setup', icon: SlidersHorizontal },
   { id: 'events', label: 'Life Events', icon: Flag },
   { id: 'projection', label: 'Projection', icon: LineChartIcon },
+  { id: 'scenarios', label: 'Scenarios', icon: GitCompare },
 ];
 
 /** Plan + saver, stored inside settings (no database change needed). */
@@ -72,6 +74,7 @@ export default function LifePlanPage() {
       {tab === 'setup' && <PlanSetup plan={plan} setPlan={setPlan} state={state} snapshot={snapshot} />}
       {tab === 'events' && <PlanEvents plan={plan} setPlan={setPlan} snapshot={snapshot} result={result} />}
       {tab === 'projection' && <PlanProjection plan={plan} result={result} />}
+      {tab === 'scenarios' && <PlanScenarios plan={plan} setPlan={setPlan} state={state} result={result} />}
     </div>
   );
 }

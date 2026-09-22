@@ -37,7 +37,15 @@ export function createDefaultPlan() {
     accountMap: {},
     events: [],
     assumptions: { inflationPct: 2.5, returnPct: 6, cashReturnPct: 2.5, homeAppreciationPct: 3, endAge: 95 },
+    // Saved "what if" copies of the whole plan, for side-by-side comparison.
+    scenarios: [],
   };
+}
+
+/** A snapshot copy of the current plan, saved under a name. */
+export function scenarioFromPlan(plan, name) {
+  const { scenarios, ...rest } = plan;
+  return { id: newId('sc'), name: name || 'Scenario', savedAt: new Date().toISOString(), plan: rest };
 }
 
 /** Fill in any fields added after a plan was saved (forward-compatible). */
@@ -53,6 +61,7 @@ export function normalizePlan(saved) {
     accountMap: saved.accountMap || {},
     incomes: saved.incomes || [],
     events: saved.events || [],
+    scenarios: (saved.scenarios || []).map(sc => ({ ...sc, plan: { ...d, ...sc.plan, scenarios: [] } })),
   };
 }
 

@@ -89,6 +89,36 @@ describe('income and tax', () => {
     expect(r.tax).toBeLessThan(computeTax({ employment: 60000 }, { year: 2027, inflationPct: 0 }).total);
   });
 
+  it('applies each income stream’s own RRSP and match settings', () => {
+    const p = plan({
+      people: [{ id: 'me', birthYear: 2000, retireAge: 65, rrspRoom: 100000, cppAt65: 0 }],
+      incomes: [
+        { ...salary, id: 'a', annual: 60000, rrspPct: 10, employerMatchPct: 0 },
+        { ...salary, id: 'b', annual: 24000, rrspPct: 0, employerMatchPct: 0 },
+      ],
+    });
+    const r = yearRow(run(p, snap({ cash: 20000 })), 2027);
+    expect(r.income).toBeCloseTo(84000, 0);
+    // 10% of the first job only — not 10% of both.
+    expect(r.contributions).toBeCloseTo(6000, 0);
+  });
+
+  it('pays an income through its final month', () => {
+    const p = plan({ incomes: [{ ...salary, start: '2027-01', end: '2027-06' }] });
+    const r = yearRow(run(p, snap({ cash: 20000 })), 2027);
+    expect(r.income).toBeCloseTo(30000, 0); // Jan–Jun inclusive
+  });
+
+  it('stops contributing once RRSP room runs out', () => {
+    const p = plan({
+      people: [{ id: 'me', birthYear: 2000, retireAge: 65, rrspRoom: 2000, cppAt65: 0 }],
+      incomes: [{ ...salary, rrspPct: 10, employerMatchPct: 5 }],
+    });
+    const r = yearRow(run(p, snap({ cash: 20000 })), 2027);
+    // Room only allows 2,000 up front; the rest of the year's room accrues for next year.
+    expect(r.contributions).toBeCloseTo(2000, 0);
+  });
+
   it('invests surplus into the TFSA first, then non-registered', () => {
     const res = run(plan({
       incomes: [{ ...salary, annual: 120000 }],
@@ -188,6 +218,28 @@ describe('life events', () => {
     expect(ev.fromFhsa).toBeGreaterThan(10000);   // 20 months of contributions
     expect(ev.shortfall).toBeGreaterThan(0);      // still not enough for $100k down
     expect(res.firstShortfall.year).toBe(2028);
+  });
+
+  it('treats a second home as a move: sells the first and clears its mortgage', () => {
+    const p = plan({
+      living: { spendingMode: 'custom', spendingMonthly: 0, rentMonthly: 0, emergencyMonths: 0, retirementSpendingPct: 100 },
+      assumptions: { inflationPct: 0, returnPct: 0, cashReturnPct: 0, homeAppreciationPct: 0, endAge: 35 },
+      events: [
+        { ...house, id: 'h1', date: '2028-06', price: 400000, downPct: 20 },
+        { ...house, id: 'h2', name: 'Bigger place', date: '2032-06', price: 500000, downPct: 20, sellingCostsPct: 5 },
+      ],
+    });
+    const res = run(p, snap({ cash: 500000 }));
+    const move = res.eventResults.h2[0];
+    expect(move.soldPreviousHome.value).toBe(400000);
+    expect(move.soldPreviousHome.mortgage).toBeGreaterThan(0);
+    // Proceeds = value − mortgage − 5% selling costs.
+    expect(move.soldPreviousHome.proceeds).toBeCloseTo(400000 - move.soldPreviousHome.mortgage - 20000, 0);
+    const after = yearRow(res, 2032);
+    expect(after.homeValue).toBe(500000);
+    // Only the new mortgage remains — the old one isn't silently wiped.
+    expect(after.mortgage).toBeLessThan(400000);
+    expect(after.mortgage).toBeGreaterThan(390000);
   });
 
   it('handles a wedding and a car bought with a loan', () => {

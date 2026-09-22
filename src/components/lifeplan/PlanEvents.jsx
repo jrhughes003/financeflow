@@ -127,25 +127,25 @@ export default function PlanEvents({ plan, setPlan, snapshot, result }) {
                 <>
                   <MonthField label="Starts" value={ev.start} onChange={v => setEvent(ev.id, { start: v })} />
                   <MonthField label="Ends (optional)" value={ev.end} onChange={v => setEvent(ev.id, { end: v })} />
-                  <NumberField label="Monthly cost" value={ev.monthly} onChange={v => setEvent(ev.id, { monthly: Number(v) })} />
+                  <NumberField label="Monthly cost" value={ev.monthly} onChange={v => setEvent(ev.id, { monthly: v })} />
                   <div className="sm:col-span-3"><Toggle label="Rises with inflation" checked={ev.inflate !== false} onChange={v => setEvent(ev.id, { inflate: v })} /></div>
                 </>
               ) : (
                 <MonthField label="When" value={ev.date} onChange={v => setEvent(ev.id, { date: v })} />
               )}
 
-              {ev.type === 'oneTime' && <NumberField label="Cost" value={ev.amount} onChange={v => setEvent(ev.id, { amount: Number(v) })} />}
+              {ev.type === 'oneTime' && <NumberField label="Cost" value={ev.amount} onChange={v => setEvent(ev.id, { amount: v })} />}
 
               {ev.type === 'house' && (
                 <>
-                  <NumberField label="Purchase price" value={ev.price} onChange={v => setEvent(ev.id, { price: Number(v) })} />
-                  <NumberField label="Down payment" value={ev.downPct} onChange={v => setEvent(ev.id, { downPct: Number(v) })} suffix="%" step="0.5" />
-                  <NumberField label="Mortgage rate" value={ev.mortgageRate} onChange={v => setEvent(ev.id, { mortgageRate: Number(v) })} suffix="%" step="0.05" />
-                  <NumberField label="Amortization" value={ev.amortizationYears} onChange={v => setEvent(ev.id, { amortizationYears: Number(v) })} suffix="yrs" />
-                  <NumberField label="Property tax" value={ev.propertyTaxPct} onChange={v => setEvent(ev.id, { propertyTaxPct: Number(v) })} suffix="%/yr" step="0.05" hint="Of home value; Ontario is roughly 0.6–1.3%" />
-                  <NumberField label="Home insurance" value={ev.insuranceAnnual} onChange={v => setEvent(ev.id, { insuranceAnnual: Number(v) })} suffix="/yr" />
-                  <NumberField label="Upkeep" value={ev.maintenancePct} onChange={v => setEvent(ev.id, { maintenancePct: Number(v) })} suffix="%/yr" step="0.1" hint="Of home value" />
-                  <NumberField label="Condo fees" value={ev.condoFeesMonthly} onChange={v => setEvent(ev.id, { condoFeesMonthly: Number(v) })} suffix="/mo" />
+                  <NumberField label="Purchase price" value={ev.price} onChange={v => setEvent(ev.id, { price: v })} />
+                  <NumberField label="Down payment" value={ev.downPct} onChange={v => setEvent(ev.id, { downPct: v })} suffix="%" step="0.5" />
+                  <NumberField label="Mortgage rate" value={ev.mortgageRate} onChange={v => setEvent(ev.id, { mortgageRate: v })} suffix="%" step="0.05" />
+                  <NumberField label="Amortization" value={ev.amortizationYears} onChange={v => setEvent(ev.id, { amortizationYears: v })} suffix="yrs" />
+                  <NumberField label="Property tax" value={ev.propertyTaxPct} onChange={v => setEvent(ev.id, { propertyTaxPct: v })} suffix="%/yr" step="0.05" hint="Of home value; Ontario is roughly 0.6–1.3%" />
+                  <NumberField label="Home insurance" value={ev.insuranceAnnual} onChange={v => setEvent(ev.id, { insuranceAnnual: v })} suffix="/yr" />
+                  <NumberField label="Upkeep" value={ev.maintenancePct} onChange={v => setEvent(ev.id, { maintenancePct: v })} suffix="%/yr" step="0.1" hint="Of home value" />
+                  <NumberField label="Condo fees" value={ev.condoFeesMonthly} onChange={v => setEvent(ev.id, { condoFeesMonthly: v })} suffix="/mo" />
                   <div className="sm:col-span-3 lg:col-span-4 flex flex-wrap gap-4">
                     <Toggle label="First-time buyer" checked={ev.firstTime !== false} onChange={v => setEvent(ev.id, { firstTime: v })} hint="Land transfer tax rebate, 30-yr insured amortization" />
                     <Toggle label="In Toronto" checked={!!ev.toronto} onChange={v => setEvent(ev.id, { toronto: v })} hint="Adds the municipal land transfer tax" />
@@ -157,20 +157,34 @@ export default function PlanEvents({ plan, setPlan, snapshot, result }) {
 
               {ev.type === 'car' && (
                 <>
-                  <NumberField label="Price" value={ev.price} onChange={v => setEvent(ev.id, { price: Number(v) })} />
+                  <NumberField label="Price" value={ev.price} onChange={v => setEvent(ev.id, { price: v })} />
                   <SelectField label="Paying by" value={ev.financing} onChange={v => setEvent(ev.id, { financing: v })}
                     options={[{ value: 'loan', label: 'Loan' }, { value: 'cash', label: 'Cash' }]} />
                   {ev.financing === 'loan' && <>
-                    <NumberField label="Down payment" value={ev.downPct} onChange={v => setEvent(ev.id, { downPct: Number(v) })} suffix="%" />
-                    <NumberField label="Loan rate" value={ev.loanRate} onChange={v => setEvent(ev.id, { loanRate: Number(v) })} suffix="%" step="0.1" />
-                    <NumberField label="Loan length" value={ev.loanMonths} onChange={v => setEvent(ev.id, { loanMonths: Number(v) })} suffix="months" />
+                    <NumberField label="Down payment" value={ev.downPct} onChange={v => setEvent(ev.id, { downPct: v })} suffix="%" />
+                    <NumberField label="Loan rate" value={ev.loanRate} onChange={v => setEvent(ev.id, { loanRate: v })} suffix="%" step="0.1" />
+                    <NumberField label="Loan length" value={ev.loanMonths} onChange={v => setEvent(ev.id, { loanMonths: v })} suffix="months" />
                   </>}
-                  <NumberField label="Replace every" value={ev.replaceEveryYears} onChange={v => setEvent(ev.id, { replaceEveryYears: Number(v) })} suffix="yrs" hint="0 = just once" />
+                  <NumberField label="Replace every" value={ev.replaceEveryYears} onChange={v => setEvent(ev.id, { replaceEveryYears: v })} suffix="yrs" hint="0 = just once" />
                 </>
               )}
             </div>
 
             {ev.type === 'house' && <HouseDetails ev={ev} />}
+            {(() => {
+              // The projection starts next month, so an earlier date never happens.
+              const when = ev.type === 'recurring' ? ev.end : ev.date;
+              const startYm = result.startYm || '';
+              if (!when || !startYm || when >= startYm) return null;
+              return (
+                <p className="flex items-center gap-1.5 text-xs text-amber-700 mt-3">
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  {ev.type === 'recurring'
+                    ? `This ends before the projection starts (${startYm}), so it has no effect.`
+                    : `This date is in the past. The projection starts ${startYm}, so this event is skipped — pick a future month.`}
+                </p>
+              );
+            })()}
             <Outcome results={results} />
             {earliest && (
               <p className="text-xs text-gray-600 mt-2">

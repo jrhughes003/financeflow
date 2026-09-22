@@ -54,7 +54,7 @@ function eventOccurrences(events, endYm) {
  * @param snapshot  starting point built from app data (see snapshot.js)
  * @returns { needsSetup } or { rows, eventResults, firstShortfall, retirementRow, finalRow }
  */
-export function runPlan(plan, snapshot, { today = new Date() } = {}) {
+export function runPlan(plan, snapshot, { today = new Date(), monthlyReturn = null } = {}) {
   const people = (plan.people || []).filter(p => p.id === 'me' || p.enabled);
   const me = people.find(p => p.id === 'me');
   if (!me || !Number(me.birthYear)) return { needsSetup: true };
@@ -62,6 +62,9 @@ export function runPlan(plan, snapshot, { today = new Date() } = {}) {
   const A = plan.assumptions || {};
   const infl = Number(A.inflationPct ?? 2.5);
   const retM = Math.pow(1 + Number(A.returnPct ?? 6) / 100, 1 / 12) - 1;
+  // Investment return for month k. Monte Carlo passes a sampler of random
+  // market years; otherwise every month earns the steady expected return.
+  const returnFor = monthlyReturn || (() => retM);
   const cashM = Math.pow(1 + Number(A.cashReturnPct ?? 2) / 100, 1 / 12) - 1;
   const homeM = Math.pow(1 + Number(A.homeAppreciationPct ?? 3) / 100, 1 / 12) - 1;
   const endAge = Number(A.endAge ?? 95);
@@ -129,16 +132,21 @@ export function runPlan(plan, snapshot, { today = new Date() } = {}) {
   const ageOf = (p, y) => y - Number(p.birthYear);
   const isRetired = (p, y) => ageOf(p, y) >= Number(p.retireAge ?? 65);
 
-  const employmentFor = (p, y, m) => sum((plan.incomes || []).filter(i => i.personId === p.id && i.start).map(inc => {
-    const s = parseYm(inc.start);
-    const cur = { y, m };
-    if (monthsBetween(s, cur) < 0) return 0;
-    if (inc.end) { if (monthsBetween(parseYm(inc.end), cur) >= 0) return 0; }
-    else if (isRetired(p, y)) return 0;
-    return (Number(inc.annual) || 0) / 12 * Math.pow(1 + (Number(inc.growthPct) || 0) / 100, y - s.y);
-  }));
-  const incomeParams = (p, y, m) => (plan.incomes || []).find(i => i.personId === p.id && i.start
-    && monthsBetween(parseYm(i.start), { y, m }) >= 0 && (!i.end ? !isRetired(p, y) : monthsBetween(parseYm(i.end), { y, m }) < 0));
+  // Each of a person's income streams paying in this month, with its own pay
+  // and its own RRSP / employer-match settings. The end month is inclusive.
+  const streamsFor = (p, y, m) => (plan.incomes || [])
+    .filter(inc => inc.personId === p.id && inc.start)
+    .map(inc => {
+      const s = parseYm(inc.start);
+      const cur = { y, m };
+      if (monthsBetween(s, cur) < 0) return null;
+      if (inc.end) { if (monthsBetween(parseYm(inc.end), cur) > 0) return null; }
+      else if (isRetired(p, y)) return null;
+      const pay = (Number(inc.annual) || 0) / 12 * Math.pow(1 + (Number(inc.growthPct) || 0) / 100, y - s.y);
+      return pay > 0 ? { inc, pay } : null;
+    })
+    .filter(Boolean);
+  const employmentFor = (p, y, m) => sum(streamsFor(p, y, m).map(s => s.pay));
 
   // Projected tax rate for the year (withholding), from the year's scheduled income.
   const withholdingRate = {};
@@ -146,10 +154,9 @@ export function runPlan(plan, snapshot, { today = new Date() } = {}) {
     people.forEach(p => {
       let emp = 0, other = 0, oas = 0, ded = 0;
       for (let m = fromM; m < 12; m++) {
-        const e = employmentFor(p, y, m);
-        emp += e;
-        const inc = incomeParams(p, y, m);
-        ded += e * (Number(inc?.rrspPct) || 0) / 100;
+        const streams = streamsFor(p, y, m);
+        emp += sum(streams.map(s => s.pay));
+        ded += sum(streams.map(s => s.pay * (Number(s.inc.rrspPct) || 0) / 100));
         const c = cppFor(ageOf(p, y), Number(p.cppStartAge ?? 65), Number(p.cppAt65 ?? 0), y, infl) / 12;
         const o = oasFor(ageOf(p, y), Number(p.oasStartAge ?? 65), y, infl) / 12;
         other += c + o; oas += o;
@@ -230,7 +237,7 @@ export function runPlan(plan, snapshot, { today = new Date() } = {}) {
     let gross = 0, withheld = 0;
     people.forEach(p => {
       const bp = yr.byPerson[p.id];
-      const emp = employmentFor(p, y, m);
+      const emp = employmentFor(p, y, m);   // total pay this month
       const c = cppFor(ageOf(p, y), Number(p.cppStartAge ?? 65), Number(p.cppAt65 ?? 0), y, infl) / 12;
       const o = oasFor(ageOf(p, y), Number(p.oasStartAge ?? 65), y, infl) / 12;
       bp.employment += emp; bp.cpp += c; bp.oas += o;
@@ -238,18 +245,19 @@ export function runPlan(plan, snapshot, { today = new Date() } = {}) {
       const w = (emp + c + o) * (withholdingRate[p.id] || 0);
       bp.withheld += w; withheld += w;
 
-      // 2. Registered contributions
-      const inc = incomeParams(p, y, m);
-      if (emp > 0 && inc) {
-        const rr = Math.min(emp * (Number(inc.rrspPct) || 0) / 100, Math.max(0, reg[p.id].rrspRoom));
-        const match = emp * (Number(inc.employerMatchPct) || 0) / 100;
+      // 2. Registered contributions — each stream uses its own settings.
+      streamsFor(p, y, m).forEach(({ inc, pay }) => {
+        const rr = Math.min(pay * (Number(inc.rrspPct) || 0) / 100, Math.max(0, reg[p.id].rrspRoom));
+        const match = Math.min(pay * (Number(inc.employerMatchPct) || 0) / 100, Math.max(0, reg[p.id].rrspRoom - rr));
+        if (rr <= 0 && match <= 0) return;
         reg[p.id].rrsp += rr + match;
-        reg[p.id].rrspRoom -= rr;
+        // Employer contributions to a group RRSP use up contribution room too.
+        reg[p.id].rrspRoom -= rr + match;
         bp.rrspContrib += rr; bp.deductions += rr;
         cash -= rr;
         yr.contributions += rr + match;
         yr.employerMatch += match;
-      }
+      });
       const fhsaAnnual = Math.min(Number(p.fhsaAnnual) || 0, REGISTERED.fhsaAnnual);
       if (!home && fhsaAnnual > 0 && reg[p.id].fhsaLifetime < REGISTERED.fhsaLifetime) {
         const f = Math.min(fhsaAnnual / 12, REGISTERED.fhsaLifetime - reg[p.id].fhsaLifetime);
@@ -317,6 +325,14 @@ export function runPlan(plan, snapshot, { today = new Date() } = {}) {
     occurrences.filter(o => o.date === d).forEach(({ event: ev, occurrence }) => {
       const res = { date: d, name: ev.name, type: ev.type, occurrence };
       if (ev.type === 'house') {
+        // Moving: sell the current home first (agent/legal costs ~5%).
+        if (home) {
+          const sellingCosts = home.value * (Number(ev.sellingCostsPct ?? 5) / 100);
+          const proceeds = Math.max(0, home.value - home.mortgage - sellingCosts);
+          cash += proceeds;
+          res.soldPreviousHome = { value: round2(home.value), mortgage: round2(home.mortgage), proceeds: round2(proceeds) };
+          home = null;
+        }
         const hp = housePurchase({
           price: Number(ev.price) || 0, downPct: Number(ev.downPct ?? 20), mortgageRate: Number(ev.mortgageRate ?? 4.5),
           amortizationYears: Number(ev.amortizationYears ?? 25), firstTime: ev.firstTime !== false, toronto: !!ev.toronto,
@@ -378,8 +394,9 @@ export function runPlan(plan, snapshot, { today = new Date() } = {}) {
 
     // 6. Growth
     if (cash > 0) cash *= 1 + cashM;
-    nonreg.value *= 1 + retM;
-    people.forEach(p => { const r = reg[p.id]; r.rrsp *= 1 + retM; r.tfsa *= 1 + retM; r.fhsa *= 1 + retM; });
+    const rM = returnFor(k);
+    nonreg.value *= 1 + rM;
+    people.forEach(p => { const r = reg[p.id]; r.rrsp *= 1 + rM; r.tfsa *= 1 + rM; r.fhsa *= 1 + rM; });
     if (home) home.value *= 1 + homeM;
 
     // 7. Year end: settle income tax, grow RRSP room, record the row.

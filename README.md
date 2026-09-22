@@ -5,8 +5,9 @@ A local-first personal finance app that runs as a **desktop app** (Electron + SQ
 are restricted, in code, to the minimum data each feature needs.
 
 Your ledger never leaves your machine. With AI switched on, a per-feature allow-list decides
-exactly what may be sent to the Anthropic API — insights and Q&A send **aggregate totals only**,
-never individual transactions. See [Privacy](#privacy).
+exactly what may be sent to the Anthropic API: insights send **aggregate totals only**, and Q&A
+sends **nothing but your question** — the model has to call tools that compute aggregates locally
+to learn any figure at all. See [Privacy](#privacy).
 
 ```bash
 npm install
@@ -42,7 +43,7 @@ plaintext only in memory at call time.
 **The financial logic is real, and tested.** Budget rollover, recurring-charge detection,
 duplicate detection, reimbursement-aware spending, goal pacing, debt avalanche/snowball, a
 long-range life plan with Canadian tax treatment (RRSP/TFSA/FHSA, CPP/OAS, first-time-buyer
-rules) and a Monte Carlo simulation. Roughly 9k lines of source and **244 unit tests**.
+rules) and a Monte Carlo simulation. Roughly 9k lines of source and **275 unit tests**.
 Functions that depend on "now" take an explicit date, so they're deterministic under test.
 
 ## Features
@@ -120,6 +121,7 @@ flowchart TD
         REPO["repository.cjs"]
         GATE["payload.cjs<br/>per-feature allow-list"]
         KEY["secureStore.cjs<br/>OS-encrypted API key"]
+        TOOLS["aggregates.cjs<br/>local Q&amp;A tools<br/>sums &amp; counts only"]
     end
 
     DB[("SQLite<br/>%APPDATA%/FinanceFlow")]
@@ -132,6 +134,9 @@ flowchart TD
     IPC --> GATE
     KEY --> GATE
     GATE -->|"only allow-listed fields"| API
+    API -.->|"Q&amp;A: asks for a figure"| TOOLS
+    TOOLS -.->|"one aggregate, never a row"| API
+    TOOLS --> DB
 
     classDef store fill:#0ea5e9,stroke:#0369a1,color:#fff
     classDef ext fill:#8b5cf6,stroke:#6d28d9,color:#fff
@@ -148,8 +153,9 @@ Enable in **Settings** by entering your own Anthropic API key and turning on the
 
 1. **Smart auto-categorization** — keyword matching first; only on a miss does the model decide. Your manual corrections are remembered locally and win next time.
 2. **Natural-language entry** — "spent $40 on gas at Esso yesterday" fills the transaction form.
-3. **Insights & Q&A** — a narrative monthly summary and grounded answers, computed from aggregates.
-4. **Receipt / statement parsing** — paste messy text, get structured transactions.
+3. **Insights** — a narrative monthly summary built on the app's *own* analysis (change against your baseline, month-end projection, quantified savings opportunities, goal pacing, debt payoff), so the model interprets rather than calculates.
+4. **Q&A** — ask anything about your finances; the model answers by calling local aggregate tools, and the answer shows which lookups it used.
+5. **Receipt / statement parsing** — paste messy text, get structured transactions.
 
 Routine calls use Sonnet and the heavier reasoning pass uses Opus, both through forced tool-use
 for structured output, with cacheable system prompts. Every AI path has a deterministic fallback,
@@ -171,8 +177,18 @@ invalid category on demand — so the failure paths get exercised, not just the 
   |---|---|
   | Categorization | The merchant name + the category list. No amounts, no other transactions. |
   | Natural-language entry | Your typed text + today's date + the category list. |
-  | Insights & Q&A | **Aggregates only** — monthly/category totals, budget status, anomalies. Never individual transactions. |
+  | Insights | **Aggregates only** — totals, per-category sums, budget status, anomalies, forecasts, goal and debt positions, and *counts* of flagged items. Never individual transactions, never a merchant name. |
+  | Q&A | **Your question, and nothing else.** Figures reach the model only when it calls a tool that computes an aggregate locally (see below). |
   | Receipt parsing | The text you paste (unavoidable) + the category list. |
+
+**Q&A is worth spelling out.** The obvious design — ship a summary of the ledger with every
+question — sends data whether or not the question needs it, and still can't answer "how much at
+Tim Hortons?" because merchant detail isn't in the summary. So instead the model gets *tools*
+([`electron/ai/aggregates.cjs`](electron/ai/aggregates.cjs)) that run against the local database
+and return sums and counts. The model asks; this machine decides what an answer may contain.
+Results never include a transaction, an id, a note or a tag, and a merchant search returns totals
+plus *how many* merchants matched — never which. The ledger becomes reachable for reasoning
+without ever being sent, and each answer lists the lookups it used so you can check it.
 
 - **The key** is encrypted through the OS keychain, never bundled and never committed.
 
@@ -183,7 +199,7 @@ invalid category on demand — so the failure paths get exercised, not just the 
 | `npm run dev` | Browser app at `http://localhost:5173` (localStorage) |
 | `npm run electron:dev` | Desktop app in development (SQLite) |
 | `npm run electron:dev:mock` | Desktop app with AI wired to the local mock (no key, no spend) |
-| `npm test` | Unit tests (244) |
+| `npm test` | Unit tests (275) |
 | `npm run build` | Production web bundle |
 | `npm run dist` | Windows installer into `release/` |
 

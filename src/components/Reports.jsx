@@ -13,8 +13,17 @@ import { useGetCategory } from '../context/FinancialContext';
 import { exportToCSV, exportToJSON } from '../utils/exportUtils';
 import { withEffectiveAmount } from '../utils/reimbursements';
 import { getIncomeSources } from '../utils/accounts';
-import { runAi, buildSummary, aiSupported } from '../ai/ai';
+import { runAi, buildSummary, taxonomy, aiSupported } from '../ai/ai';
 import { Sparkles } from 'lucide-react';
+
+// Plain-language names for the local lookups an answer used, so the user can see
+// what was consulted on their machine rather than taking the answer on trust.
+const TOOL_LABELS = {
+  get_spending: 'spending totals',
+  get_merchant_spending: 'spending at a merchant',
+  get_budget_status: 'budget vs actual',
+  get_financial_position: 'goals, debts & net worth',
+};
 
 export default function Reports() {
   const { state } = useFinancial();
@@ -32,6 +41,7 @@ export default function Reports() {
   const [narrative, setNarrative] = useState('');
   const [question, setQuestion] = useState('');
   const [answer, setAnswer] = useState('');
+  const [consulted, setConsulted] = useState([]);
   const [aiErr, setAiErr] = useState('');
 
   const generateInsights = async () => {
@@ -42,13 +52,22 @@ export default function Reports() {
     else setAiErr(res.error === 'no_key' ? 'Add an API key in Settings first.' : 'Insights unavailable right now.');
   };
 
+  // Only the question is sent; the model calls local tools for any figures.
   const askQuestion = async () => {
     if (!question.trim()) return;
-    setAiBusy(true); setAiErr(''); setAnswer('');
-    const res = await runAi('query', { question: question.trim(), summary: buildSummary(state, month, year) });
+    setAiBusy(true); setAiErr(''); setAnswer(''); setConsulted([]);
+    const res = await runAi('query', {
+      question: question.trim(),
+      today: format(new Date(), 'yyyy-MM-dd'),
+      categories: taxonomy(state.customCategories),
+    });
     setAiBusy(false);
-    if (res.ok) setAnswer(res.data.answer);
-    else setAiErr(res.error === 'no_key' ? 'Add an API key in Settings first.' : 'Could not answer right now.');
+    if (res.ok) {
+      setAnswer(res.data.answer);
+      setConsulted(res.data.consulted || []);
+    } else {
+      setAiErr(res.error === 'no_key' ? 'Add an API key in Settings first.' : 'Could not answer right now.');
+    }
   };
 
   const incomeSources = getIncomeSources(incomes, investments);
@@ -197,7 +216,16 @@ export default function Reports() {
             />
             <button onClick={askQuestion} disabled={aiBusy || !question.trim()} className="px-3 py-2 border border-purple-200 text-purple-600 hover:bg-purple-50 disabled:opacity-50 text-sm rounded-lg font-medium">Ask</button>
           </div>
-          {answer && <p className="text-sm text-gray-700 mt-3 bg-gray-50 rounded-xl p-3">{answer}</p>}
+          {answer && (
+            <div className="mt-3 bg-gray-50 rounded-xl p-3">
+              <p className="text-sm text-gray-700">{answer}</p>
+              {consulted.length > 0 && (
+                <p className="text-xs text-gray-400 mt-2">
+                  Looked up locally: {consulted.map(c => TOOL_LABELS[c.tool] || c.tool).join(' · ')}
+                </p>
+              )}
+            </div>
+          )}
           {aiErr && <p className="text-xs text-red-500 mt-2">{aiErr}</p>}
           <p className="text-[11px] text-gray-400 mt-3">Grounded only on aggregate totals for {format(new Date(year, month, 1), 'MMMM yyyy')} — your raw transactions are not sent.</p>
         </div>

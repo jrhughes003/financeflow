@@ -132,6 +132,19 @@ function extractLines(text, available) {
     .filter(Boolean);
 }
 
+// The most recent tool_result the client sent back, parsed.
+function lastToolResult(messages) {
+  for (let i = (messages || []).length - 1; i >= 0; i -= 1) {
+    const blocks = messages[i]?.content;
+    if (!Array.isArray(blocks)) continue;
+    const result = blocks.find(b => b.type === 'tool_result');
+    if (result) {
+      try { return JSON.parse(result.content); } catch { return {}; }
+    }
+  }
+  return null;
+}
+
 function summaryFrom(text) {
   const m = (text || '').match(/Summary \(JSON\):\s*(\{[\s\S]*?\})\s*(?:\n\nQuestion:|$)/);
   if (!m) return null;
@@ -195,6 +208,26 @@ function replyFor(body, scenario) {
   if (forced === 'extract_transactions') {
     const text = (prompt.split(/Text:\n/)[1] || '');
     return message(model, [toolUse('extract_transactions', { transactions: extractLines(text, available) })]);
+  }
+
+  // Q&A: the model is given tools and must call them. Mimic that — ask for a
+  // lookup on the first turn, then answer from the tool result on the second —
+  // so the loop, not just the happy path, gets exercised.
+  if (Array.isArray(body.tools) && body.tools.some(t => t.name === 'get_spending')) {
+    const lastResult = lastToolResult(body.messages);
+    if (!lastResult) {
+      const question = (prompt.match(/Question: (.*)$/m) || [])[1] || '';
+      return message(model, [toolUse('get_spending', {
+        start: `${(prompt.match(/Today is (\d{4})/) || [])[1] || '2026'}-01-01`,
+        end: todayFrom(prompt),
+        group_by: /each month|by month|trend/i.test(question) ? 'month' : 'category',
+      })]);
+    }
+    const total = lastResult.total ?? 0;
+    return message(model, [textBlock(
+      `[mock] Based on the local lookup, that comes to $${total}`
+      + (lastResult.transactionCount != null ? ` across ${lastResult.transactionCount} transactions.` : '.'),
+    )]);
   }
 
   // Text features: insights (analyst system prompt) and Q&A.

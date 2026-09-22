@@ -8,6 +8,7 @@ const { getDb, closeDb } = require('./db/index.cjs');
 const { loadAll, saveAll, getMeta, setMeta } = require('./db/repository.cjs');
 const { buildPayload } = require('./ai/payload.cjs');
 const { createClient, runFeature } = require('./ai/client.cjs');
+const { executeTool } = require('./ai/aggregates.cjs');
 const secureStore = require('./ai/secureStore.cjs');
 
 const isDev = !app.isPackaged;
@@ -76,7 +77,13 @@ ipcMain.handle('ai:run', async (_evt, feature, input) => {
     if (!apiKey) return { ok: false, error: 'no_key' };
     const payload = buildPayload(feature, input); // data-minimization gate
     const client = createClient(apiKey);
-    const data = await runFeature(client, feature, payload);
+    // Q&A answers by calling local aggregate tools. State is read once per
+    // question so every lookup within one answer sees the same data, and only
+    // the aggregate a tool returns is ever sent.
+    const ctx = feature === 'query'
+      ? { runTool: (name, toolInput) => executeTool(loadAll(getDb()), name, toolInput) }
+      : {};
+    const data = await runFeature(client, feature, payload, ctx);
     return { ok: true, data };
   } catch (err) {
     return { ok: false, error: err.message || 'AI request failed' };

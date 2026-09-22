@@ -22,8 +22,10 @@ const ALLOW = {
   // Natural-language entry: the user's text, today's date for relative dates,
   // and the taxonomy to map onto.
   parse_entry: ['text', 'today', 'categories'],
-  // Q&A is grounded on a precomputed aggregate summary — never raw transactions.
-  query: ['question', 'summary'],
+  // Q&A sends the question itself and nothing else about the user's finances.
+  // Figures reach the model only when it calls the local aggregate tools in
+  // aggregates.cjs, which answer with sums and counts computed on this machine.
+  query: ['question', 'today', 'categories'],
   // Insights run on aggregates only (totals, trends, budget status, anomalies).
   insights: ['summary'],
   // Receipt/statement parsing must send the raw pasted text plus the taxonomy.

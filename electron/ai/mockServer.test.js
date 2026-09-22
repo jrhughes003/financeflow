@@ -69,12 +69,46 @@ describe('AI features against the mock server (real SDK, real HTTP)', () => {
     expect(out.narrative).toContain('housing');
   });
 
-  it('query answers from the summary', async () => {
-    const out = await runFeature(client, 'query', {
-      question: 'How much did I spend?',
-      summary: { totalExpenses: 3339.5 },
-    });
+  it('query answers by calling a local tool, and reports what it consulted', async () => {
+    const calls = [];
+    const runTool = (name, input) => {
+      calls.push({ name, input });
+      return { total: 3339.5, transactionCount: 42 };
+    };
+    const out = await runFeature(
+      client,
+      'query',
+      { question: 'How much did I spend this year?', today: '2026-09-22', categories: CATEGORIES },
+      { runTool },
+    );
+    expect(calls[0].name).toBe('get_spending');
     expect(out.answer).toContain('3339.5');
+    expect(out.consulted).toEqual([{ tool: 'get_spending', input: calls[0].input }]);
+  });
+
+  it('query never sends the ledger — only the question crosses the wire', async () => {
+    server.requests.length = 0;
+    await runFeature(
+      client,
+      'query',
+      { question: 'How much at Tim Hortons?', today: '2026-09-22', categories: CATEGORIES },
+      { runTool: () => ({ total: 40.74, transactionCount: 7, matchedMerchantCount: 1 }) },
+    );
+    const firstRequest = JSON.stringify(server.requests[0]);
+    expect(firstRequest).toContain('How much at Tim Hortons?'); // the user's own words
+    expect(firstRequest).not.toContain('"transactions"');
+    expect(firstRequest).not.toContain('totalExpenses'); // no summary blob any more
+  });
+
+  it('query degrades to an honest answer when the tools are unavailable', async () => {
+    const out = await runFeature(
+      client,
+      'query',
+      { question: 'How much did I spend?', today: '2026-09-22', categories: CATEGORIES },
+      {}, // no runTool — e.g. a context where the database isn't reachable
+    );
+    expect(out.answer).toMatch(/unavailable|could not/i);
+    expect(out.consulted).toEqual([]);
   });
 
   it('sends only the model and payload the app intends', async () => {

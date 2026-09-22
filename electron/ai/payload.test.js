@@ -29,14 +29,19 @@ describe('buildPayload (data minimization)', () => {
     expect(out).not.toHaveProperty('transactions');
   });
 
-  it('query carries the question + aggregate summary only', () => {
+  it('query carries the question and nothing about the finances themselves', () => {
+    // Figures reach the model only through the local aggregate tools, so even a
+    // precomputed summary is stripped here.
     const out = buildPayload('query', {
       question: 'How much on dining in March?',
+      today: '2026-09-22',
+      categories: [{ id: 'dining_out', name: 'Dining Out' }],
       summary: { months: [] },
       transactions: RAW_LEDGER,
       apiKey: 'sk-secret',
     });
-    expect(Object.keys(out).sort()).toEqual(['question', 'summary']);
+    expect(Object.keys(out).sort()).toEqual(['categories', 'question', 'today']);
+    expect(out).not.toHaveProperty('summary');
   });
 
   it('extract sends the pasted text and taxonomy (raw text is unavoidable here)', () => {

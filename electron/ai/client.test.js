@@ -39,10 +39,16 @@ describe('runFeature', () => {
     expect(client.calls[0].model).toMatch(/opus/);
   });
 
-  it('query returns an answer grounded on the summary', async () => {
+  it('query returns an answer plus the local lookups it used', async () => {
+    // No tool_use in the response, so the loop finishes on the first turn.
     const client = fakeClient(textResponse('$240 on dining in March.'));
-    const out = await runFeature(client, 'query', { question: 'How much on dining in March?', summary: {} });
-    expect(out).toEqual({ answer: '$240 on dining in March.' });
+    const out = await runFeature(client, 'query', {
+      question: 'How much on dining in March?', today: '2026-03-31', categories: [],
+    });
+    expect(out).toEqual({ answer: '$240 on dining in March.', consulted: [] });
+    // The tools are offered, and the question travels without any figures.
+    expect(client.calls[0].tools.map(t => t.name)).toContain('get_spending');
+    expect(JSON.stringify(client.calls[0].messages)).not.toContain('summary');
   });
 
   it('extract returns the transactions array (defaults to empty)', async () => {

@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Sparkles, ShieldCheck, Download, Upload, Trash2, KeyRound, AlertTriangle } from 'lucide-react';
+import { Sparkles, ShieldCheck, Download, Upload, Trash2, KeyRound, AlertTriangle, Wand2 } from 'lucide-react';
 import { useFinancial } from '../context/FinancialContext';
 import { aiSupported, getAiStatus, setAiKey, clearAiKey } from '../ai/ai';
 import { exportToJSON, importFromJSON } from '../utils/exportUtils';
+import generateDemoData from '../utils/demoData';
 
 export default function Settings() {
   const { state, dispatch } = useFinancial();
@@ -39,6 +40,18 @@ export default function Settings() {
   };
 
   const toggleAi = (on) => dispatch({ type: 'UPDATE_SETTINGS', payload: { aiEnabled: on } });
+
+  // Replaces everything with generated sample data — handy for trying the app out
+  // (and for taking screenshots without exposing real finances).
+  const loadDemoData = () => {
+    const hasData = (state.transactions || []).length > 0;
+    const warning = hasData
+      ? 'Replace ALL current data with generated demo data? This cannot be undone — export a backup first if you want to keep it.'
+      : 'Load generated demo data so you can explore the app?';
+    if (!window.confirm(warning)) return;
+    dispatch({ type: 'LOAD_DATA', payload: generateDemoData(new Date()) });
+    setMsg({ type: 'ok', text: 'Demo data loaded — about 8 months of sample history.' });
+  };
 
   const handleImport = (e) => {
     const file = e.target.files?.[0];
@@ -137,6 +150,21 @@ export default function Settings() {
           </button>
           <input ref={fileRef} type="file" accept="application/json,.json" onChange={handleImport} className="hidden" />
         </div>
+      </div>
+
+      {/* Demo data */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+        <h2 className="text-base font-semibold text-gray-900 mb-3">Demo Data</h2>
+        <p className="text-sm text-gray-500 mb-4">
+          Fill the app with about 8 months of generated transactions, budgets, goals, debts and a
+          Plan Ahead setup, so every chart and insight has something to show. Replaces your current data.
+        </p>
+        <button
+          onClick={loadDemoData}
+          className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm rounded-lg font-medium"
+        >
+          <Wand2 className="w-4 h-4" /> Load demo data
+        </button>
       </div>
 
       {/* Danger zone */}

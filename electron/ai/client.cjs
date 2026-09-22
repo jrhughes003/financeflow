@@ -131,9 +131,22 @@ async function insights(client, { summary }) {
     max_tokens: 900,
     system: [{
       type: 'text',
-      text: 'You are a personal-finance analyst. Given an aggregate monthly summary, '
-        + 'write a short narrative (3-5 sentences) covering notable changes, anomalies, '
-        + 'and one or two concrete, actionable suggestions. Ground every claim in the data.',
+      text: 'You are a personal-finance analyst. You are given an aggregate monthly '
+        + 'summary that already contains the app\'s own analysis: `whatChanged` compares '
+        + 'this month with the user\'s own recent baseline (not a budget), '
+        + '`monthEndProjection` is where the month lands at the current pace, '
+        + '`cashFlowOutlook` is the months ahead, `savingsOpportunities` are quantified '
+        + 'in dollars, `flagged` counts things worth reviewing, and `goals`/`debts` carry '
+        + 'pacing and payoff status.\n\n'
+        + 'Write 3-5 sentences. Lead with the single most decision-relevant fact. Quote '
+        + 'the figures you are given rather than deriving new ones, and never recompute '
+        + 'or infer totals. Prefer a change against the baseline over a raw total, and '
+        + 'name the dollar amount for any suggestion. Finish with one or two concrete '
+        + 'actions tied to a goal, a debt or a specific category.\n\n'
+        + 'The summary is aggregate-only by design: it has no individual transactions and '
+        + 'no merchant names. Never ask for them, and never invent one — when something '
+        + 'is only a count (e.g. flagged duplicates), say how many and point the user at '
+        + 'the relevant page.',
       cache_control: { type: 'ephemeral' },
     }],
     messages: [{

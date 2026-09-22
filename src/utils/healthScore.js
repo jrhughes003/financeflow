@@ -7,6 +7,7 @@
 
 import { subMonths, format } from 'date-fns';
 import { getTotalIncome, getTransactionsForPeriod, getBudgetStatus } from './calculations';
+import { getIncomeSources, getInvestmentsValue, requiredPayment } from './accounts';
 
 const clamp = (n, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, n));
 const roundCents = n => Math.round(n * 100) / 100;
@@ -58,8 +59,8 @@ function savingsAsOf(goals, transactions, beforeStr) {
  *            available, value, detail, tip }], monthsUsed }
  */
 export function getFinancialHealth(state, { ref = new Date() } = {}) {
-  const { transactions = [], budgets = [], incomes = [], savings_goals = [], debts = [] } = state || {};
-  const income = getTotalIncome(incomes);
+  const { transactions = [], budgets = [], incomes = [], savings_goals = [], debts = [], investments = [] } = state || {};
+  const income = getTotalIncome(getIncomeSources(incomes, investments));
 
   // Expenses over the last 3 full months with data (and 6 for stability).
   const six = monthsBefore(ref, 6)
@@ -110,14 +111,17 @@ export function getFinancialHealth(state, { ref = new Date() } = {}) {
 
   // 3. Emergency fund (savings ÷ monthly expenses)
   if (avgExpenses) {
-    const saved = savingsAsOf(savings_goals, transactions, format(new Date(ref.getFullYear(), ref.getMonth(), 1), 'yyyy-MM-dd'));
+    // Savings goals plus investment accounts (valued as of the reference date).
+    const refStart = new Date(ref.getFullYear(), ref.getMonth(), 1);
+    const saved = savingsAsOf(savings_goals, transactions, format(refStart, 'yyyy-MM-dd'))
+      + getInvestmentsValue(investments, { today: refStart });
     const monthsCovered = saved / avgExpenses;
     const milestone = monthsCovered < 3 ? 3 : TARGET_EMERGENCY_MONTHS;
     add('emergency', 'Emergency cushion', {
       available: true,
       score: clamp((monthsCovered / TARGET_EMERGENCY_MONTHS) * 100),
       value: `${monthsCovered.toFixed(1)} mo`,
-      detail: `of expenses covered by savings (target ${TARGET_EMERGENCY_MONTHS})`,
+      detail: `of expenses covered by savings & investments (target ${TARGET_EMERGENCY_MONTHS})`,
       tip: monthsCovered >= TARGET_EMERGENCY_MONTHS ? null : `Saving ${formatUsd(milestone * avgExpenses - saved)} more gets you to ${milestone} months of expenses.`,
     });
   } else {
@@ -125,10 +129,15 @@ export function getFinancialHealth(state, { ref = new Date() } = {}) {
   }
 
   // 4. Debt load (minimum payments as a share of income)
+  // Deferred loans (repayment not started) don't cost anything monthly yet.
   const owing = debts.filter(d => (Number(d.balance) || 0) > 0);
-  const minPayments = sum(owing.map(d => Number(d.minimumPayment) || 0));
-  if (!owing.length) {
-    add('debt', 'Debt load', { available: true, score: 100, value: 'None', detail: 'no debts tracked', tip: null });
+  const minPayments = sum(owing.map(d => requiredPayment(d, { today: ref })));
+  if (!owing.length || minPayments === 0) {
+    add('debt', 'Debt load', {
+      available: true, score: 100, value: 'None',
+      detail: owing.length ? 'no debt payments due yet (deferred)' : 'no debts tracked',
+      tip: null,
+    });
   } else if (income > 0) {
     const ratio = (minPayments / income) * 100;
     add('debt', 'Debt load', {

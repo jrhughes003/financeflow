@@ -7,6 +7,7 @@ import {
   getSavingsOpportunities, getCategoryAverages, simulateCuts, goalTimelineImpact,
 } from '../../utils/insights';
 import DuplicatesPanel from './DuplicatesPanel';
+import { getIncomeSources } from '../../utils/accounts';
 
 const TYPE_ICON = {
   over_budget: AlertTriangle,
@@ -64,7 +65,7 @@ export default function SavingsPanel() {
 
   // Simulator inputs
   const averages = useMemo(() => getCategoryAverages(transactions), [transactions]);
-  const income = getTotalIncome(incomes);
+  const income = getTotalIncome(getIncomeSources(incomes, state.investments));
   const simCats = Object.entries(averages.byCategory)
     .sort((a, b) => b[1] - a[1])
     .slice(0, SIM_CATEGORIES)

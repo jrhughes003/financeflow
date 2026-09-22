@@ -4,6 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { format } from 'date-fns';
 import { useFinancial } from '../context/FinancialContext';
 import { getTotalIncome, getTotalExpenses, toMonthlyAmount, formatCurrency } from '../utils/calculations';
+import { getIncomeSources } from '../utils/accounts';
 
 const FREQUENCIES = ['weekly', 'biweekly', 'semi-monthly', 'monthly', 'annual'];
 const FREQ_LABELS = { weekly: 'Weekly', biweekly: 'Biweekly', 'semi-monthly': 'Semi-monthly', monthly: 'Monthly', annual: 'Annual' };
@@ -20,7 +21,9 @@ export default function IncomeManager() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [editId, setEditId] = useState(null);
 
-  const totalMonthly = getTotalIncome(incomes);
+  // Scheduled withdrawals from tracked accounts count as income (set on the Investments page).
+  const accountIncomes = getIncomeSources([], state.investments);
+  const totalMonthly = getTotalIncome([...incomes, ...accountIncomes]);
   const totalExpenses = getTotalExpenses(transactions, now.getMonth(), now.getFullYear());
   const netAvailable = totalMonthly - totalExpenses;
 
@@ -131,7 +134,20 @@ export default function IncomeManager() {
         )}
 
         <div className="space-y-3">
-          {incomes.length === 0
+          {accountIncomes.map(inc => (
+            <div key={inc.id} className="flex items-center gap-4 p-3 rounded-xl border border-dashed border-gray-200 bg-gray-50/50">
+              <div className="w-3 h-3 rounded-full shrink-0 bg-violet-500" />
+              <div className="flex-1">
+                <p className="font-medium text-gray-800 text-sm">{inc.name}</p>
+                <p className="text-xs text-gray-400">Monthly withdrawal · managed on the Investments page</p>
+              </div>
+              <div className="text-right">
+                <p className="font-semibold text-gray-800 text-sm">{formatCurrency(inc.amount)}<span className="text-xs text-gray-400 font-normal">/mo</span></p>
+              </div>
+              <div className="w-[60px]" />
+            </div>
+          ))}
+          {incomes.length === 0 && accountIncomes.length === 0
             ? <p className="text-sm text-gray-400 text-center py-4">No income sources added yet.</p>
             : incomes.map(inc => {
                 const monthly = toMonthlyAmount(inc.amount, inc.frequency);
@@ -155,7 +171,7 @@ export default function IncomeManager() {
           }
         </div>
 
-        {incomes.length > 0 && (
+        {(incomes.length > 0 || accountIncomes.length > 0) && (
           <div className="mt-4 pt-3 border-t border-gray-100 flex justify-between">
             <span className="text-sm font-semibold text-gray-700">Total Monthly Income</span>
             <span className="text-sm font-bold text-green-600">{formatCurrency(totalMonthly)}</span>

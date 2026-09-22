@@ -155,6 +155,31 @@ describe('simulateDebtPayoff', () => {
     expect(simulateDebtPayoff(bad, { strategy: 'avalanche', extra: 200 }).feasible).toBe(true);
   });
 
+  it('waits for deferred loans to start, then pays them', () => {
+    const today = new Date(2026, 8, 22);
+    const loans = [{ id: 's', name: 'Student', balance: 1200, interestRate: 0, minimumPayment: 100, repaymentStart: '2027-06-01' }];
+    const min = simulateDebtPayoff(loans, { strategy: 'minimum', today });
+    // Nothing due for 9 months, then 12 payments of $100 at 0%.
+    expect(min).toMatchObject({ feasible: true, months: 20, totalInterest: 0, totalPaid: 1200 });
+    expect(min.timeline[8].balance).toBe(1200);
+    // Extra money can't go to it before repayment starts.
+    const av = simulateDebtPayoff(loans, { strategy: 'avalanche', extra: 500, today });
+    expect(av.timeline[8].balance).toBe(1200);
+    expect(av.months).toBe(10); // month 9 pays 600, month 10 the rest
+  });
+
+  it('pays active debts while another is deferred, then rolls into it', () => {
+    const today = new Date(2026, 8, 22);
+    const debts = [
+      { id: 'c', name: 'Card', balance: 500, interestRate: 0, minimumPayment: 100 },
+      { id: 's', name: 'Student', balance: 1000, interestRate: 0, minimumPayment: 100, repaymentStart: '2027-06-01' },
+    ];
+    const av = simulateDebtPayoff(debts, { strategy: 'avalanche', today });
+    // Card gone in month 5; from month 9 the student loan gets its own $100 plus
+    // the card's rolled-over $100 → $200/mo → paid off in month 13.
+    expect(av.payoffs.map(p => [p.id, p.month])).toEqual([['c', 5], ['s', 13]]);
+  });
+
   it('returns an empty plan with no debts', () => {
     expect(simulateDebtPayoff([], {})).toMatchObject({ feasible: true, months: 0, payoffs: [] });
   });

@@ -12,6 +12,7 @@ import { getCategoryById } from '../utils/categorization';
 import { useGetCategory } from '../context/FinancialContext';
 import { exportToCSV, exportToJSON } from '../utils/exportUtils';
 import { withEffectiveAmount } from '../utils/reimbursements';
+import { getIncomeSources } from '../utils/accounts';
 import { runAi, buildSummary, aiSupported } from '../ai/ai';
 import { Sparkles } from 'lucide-react';
 
@@ -50,9 +51,10 @@ export default function Reports() {
     else setAiErr(res.error === 'no_key' ? 'Add an API key in Settings first.' : 'Could not answer right now.');
   };
 
-  const income = getTotalIncome(incomes);
+  const incomeSources = getIncomeSources(incomes, investments);
+  const income = getTotalIncome(incomeSources);
   const expenses = getTotalExpenses(transactions, month, year);
-  const savingsRate = getSavingsRate(incomes, transactions, month, year);
+  const savingsRate = getSavingsRate(incomeSources, transactions, month, year);
   const netWorth = getNetWorth(investments, debts, savings_goals);
   const health = getBudgetHealthScore(budgets, transactions, month, year);
   const byCategory = getSpendingByCategory(transactions, month, year);

@@ -6,6 +6,7 @@ import { useFinancial } from '../../context/FinancialContext';
 import { formatCurrency } from '../../utils/calculations';
 import { compareDebtStrategies } from '../../utils/planning';
 import { getSavingsOpportunities } from '../../utils/insights';
+import { requiredPayment, isInRepayment } from '../../utils/accounts';
 
 const STRATEGIES = [
   { key: 'minimum', label: 'Minimums only', color: '#94a3b8', blurb: 'Pay each debt its minimum, nothing more.' },
@@ -48,7 +49,8 @@ export default function DebtStrategyPanel() {
   }
 
   const best = cmp[cmp.recommended];
-  const totalMin = owing.reduce((s, d) => s + (Number(d.minimumPayment) || 0), 0);
+  const totalMin = owing.reduce((s, d) => s + requiredPayment(d), 0);
+  const deferredDebts = owing.filter(d => !isInRepayment(d));
   const sliderMax = Math.max(500, Math.ceil((totalMin * 2) / 50) * 50, Math.ceil(potential / 50) * 50);
 
   // One row per month with each strategy's remaining balance.
@@ -68,6 +70,7 @@ export default function DebtStrategyPanel() {
           <p className="text-xs text-gray-400 mt-0.5">
             {owing.length} debt{owing.length > 1 ? 's' : ''} · {formatCurrency(owing.reduce((s, d) => s + Number(d.balance), 0))} total · {formatCurrency(totalMin)}/mo in minimums.
             When a debt is paid off, its minimum rolls into the next one.
+            {deferredDebts.length > 0 && ` ${deferredDebts.map(d => d.name).join(', ')} ${deferredDebts.length > 1 ? 'are' : 'is'} deferred — ${deferredDebts.length > 1 ? 'they join' : 'it joins'} the plan when repayment starts.`}
           </p>
         </div>
       </div>

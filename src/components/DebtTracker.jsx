@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
-import { Plus, Edit2, Trash2 } from 'lucide-react';
+import { Plus, Edit2, Trash2, PauseCircle } from 'lucide-react';
 import { useFinancial } from '../context/FinancialContext';
 import { calculateDebtPayoff, formatCurrency } from '../utils/calculations';
-import { addMonths, format } from 'date-fns';
+import { addMonths, format, parseISO } from 'date-fns';
+import { isInRepayment, requiredPayment, monthsUntilRepayment } from '../utils/accounts';
 
 const DEBT_TYPES = ['credit_card', 'loan', 'mortgage', 'student_loan', 'auto', 'other'];
 const DEBT_LABELS = { credit_card: 'Credit Card', loan: 'Personal Loan', mortgage: 'Mortgage', student_loan: 'Student Loan', auto: 'Auto Loan', other: 'Other' };
 const DEBT_COLORS = { credit_card: '#ef4444', loan: '#f97316', mortgage: '#8b5cf6', student_loan: '#3b82f6', auto: '#10b981', other: '#94a3b8' };
 
-const EMPTY_FORM = { name: '', type: 'credit_card', balance: '', interestRate: '', minimumPayment: '', originalBalance: '' };
+const EMPTY_FORM = { name: '', type: 'credit_card', balance: '', interestRate: '', minimumPayment: '', originalBalance: '', repaymentStart: '' };
+const fmtMonth = d => format(parseISO(d), 'MMM yyyy');
 
 export default function DebtTracker() {
   const { state, dispatch } = useFinancial();
@@ -19,10 +21,12 @@ export default function DebtTracker() {
   const [extraPayment, setExtraPayment] = useState({});
 
   const totalDebt = debts.reduce((s, d) => s + d.balance, 0);
-  const totalMinPayment = debts.reduce((s, d) => s + d.minimumPayment, 0);
+  // Deferred loans (repayment not started yet) have no payment due right now.
+  const totalMinPayment = debts.reduce((s, d) => s + requiredPayment(d), 0);
+  const deferred = debts.filter(d => d.balance > 0 && !isInRepayment(d));
 
   const openEdit = (d) => {
-    setForm({ ...d, balance: String(d.balance), interestRate: String(d.interestRate), minimumPayment: String(d.minimumPayment), originalBalance: String(d.originalBalance || d.balance) });
+    setForm({ ...EMPTY_FORM, ...d, balance: String(d.balance), interestRate: String(d.interestRate), minimumPayment: String(d.minimumPayment), originalBalance: String(d.originalBalance || d.balance), repaymentStart: d.repaymentStart || '' });
     setEditId(d.id);
     setShowForm(true);
   };
@@ -37,6 +41,8 @@ export default function DebtTracker() {
       interestRate: parseFloat(form.interestRate) || 0,
       minimumPayment: parseFloat(form.minimumPayment) || 0,
       originalBalance: parseFloat(form.originalBalance) || parseFloat(form.balance) || 0,
+      // Optional: loans in deferment (e.g. student loans) — no payments until this date.
+      ...(form.repaymentStart ? { repaymentStart: form.repaymentStart } : {}),
     };
     dispatch({ type: editId ? 'UPDATE_DEBT' : 'ADD_DEBT', payload });
     setForm(EMPTY_FORM);
@@ -53,8 +59,11 @@ export default function DebtTracker() {
           <p className="text-xl font-bold text-red-600">{formatCurrency(totalDebt)}</p>
         </div>
         <div className="bg-orange-50 rounded-xl p-4">
-          <p className="text-xs font-medium text-gray-500 mb-1">Min Monthly Payments</p>
+          <p className="text-xs font-medium text-gray-500 mb-1">Payments Due Monthly</p>
           <p className="text-xl font-bold text-orange-600">{formatCurrency(totalMinPayment)}</p>
+          {deferred.length > 0 && (
+            <p className="text-xs text-gray-500 mt-0.5">{deferred.length} loan{deferred.length > 1 ? 's' : ''} deferred — not due yet</p>
+          )}
         </div>
       </div>
 
@@ -106,6 +115,12 @@ export default function DebtTracker() {
                   <input type="number" value={form.originalBalance} onChange={e => setForm(f => ({ ...f, originalBalance: e.target.value }))} placeholder="defaults to current balance" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:border-blue-500" />
                 )}
               </div>
+              <div className="col-span-2">
+                <label className="block text-xs font-medium text-gray-500 mb-1">Repayment starts (optional)</label>
+                <input type="date" value={form.repaymentStart} onChange={e => setForm(f => ({ ...f, repaymentStart: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:border-blue-500" />
+                <p className="text-[11px] text-gray-400 mt-1">For deferred loans (like student loans in school): no payment is expected before this date. Use 0% for interest-free loans.</p>
+              </div>
             </div>
             <div className="flex gap-2">
               <button onClick={handleSave} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg font-medium">Save</button>
@@ -137,7 +152,15 @@ export default function DebtTracker() {
                           <p className="font-semibold text-gray-900 text-sm">{d.name}</p>
                           <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: color + '20', color }}>{DEBT_LABELS[d.type]}</span>
                         </div>
-                        <p className="text-xs text-gray-400 mt-0.5">{d.interestRate}% APR · Min payment {formatCurrency(d.minimumPayment)}/mo</p>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {Number(d.interestRate) === 0 ? 'Interest-free' : `${d.interestRate}% APR`}
+                          {' · '}{isInRepayment(d) ? `Min payment ${formatCurrency(d.minimumPayment)}/mo` : d.minimumPayment > 0 ? `${formatCurrency(d.minimumPayment)}/mo once repayment starts` : 'No payment set yet'}
+                        </p>
+                        {!isInRepayment(d) && (
+                          <span className="inline-flex items-center gap-1 mt-1 text-xs font-medium text-sky-700 bg-sky-50 px-2 py-0.5 rounded-full">
+                            <PauseCircle className="w-3.5 h-3.5" />Deferred — repayment starts {fmtMonth(d.repaymentStart)} ({monthsUntilRepayment(d)} mo)
+                          </span>
+                        )}
                       </div>
                       <div className="flex gap-1">
                         <button onClick={() => openEdit(d)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"><Edit2 className="w-3.5 h-3.5" /></button>
@@ -153,7 +176,13 @@ export default function DebtTracker() {
                       <div className="h-full rounded-full transition-all" style={{ width: `${paidOff}%`, backgroundColor: color }} />
                     </div>
 
-                    {payoff && (
+                    {!isInRepayment(d) ? (
+                      <div className="bg-gray-50 rounded-lg p-3 text-xs text-gray-600">
+                        {d.minimumPayment > 0 && payoff
+                          ? <>Nothing due until {fmtMonth(d.repaymentStart)}. Then at {formatCurrency(d.minimumPayment)}/mo it's paid off in <strong>{payoff.months} months</strong> — around {format(addMonths(parseISO(d.repaymentStart), payoff.months - 1), 'MMM yyyy')}{Number(d.interestRate) === 0 ? ', with no interest.' : '.'}</>
+                          : <>Nothing due until {fmtMonth(d.repaymentStart)}. Add the expected monthly payment to see when it'll be paid off.</>}
+                      </div>
+                    ) : payoff && (
                       <div className="bg-gray-50 rounded-lg p-3 text-xs space-y-1">
                         <p className="text-gray-600">At minimum payment: payoff in <strong>{payoff.months} months</strong> · Total interest: <strong className="text-red-500">{formatCurrency(payoff.totalInterest)}</strong></p>
                         {payoff.months > 12 && (

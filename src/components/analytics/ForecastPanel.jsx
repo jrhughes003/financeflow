@@ -8,6 +8,7 @@ import { useFinancial, useGetCategory } from '../../context/FinancialContext';
 import { formatCurrency } from '../../utils/calculations';
 import { projectMonthEnd, forecastCashFlow } from '../../utils/insights';
 import IrregularExpensesPanel from './IrregularExpensesPanel';
+import { getIncomeSources } from '../../utils/accounts';
 
 const CONFIDENCE = {
   high:   { label: 'High confidence',   cls: 'bg-green-50 text-green-700' },
@@ -60,7 +61,8 @@ function CashFlowTooltip({ active, payload }) {
 
 export default function ForecastPanel() {
   const { state } = useFinancial();
-  const { transactions, budgets, incomes, recurringTemplates = [] } = state;
+  const { transactions, budgets, recurringTemplates = [] } = state;
+  const incomes = useMemo(() => getIncomeSources(state.incomes, state.investments), [state.incomes, state.investments]);
   const getCategory = useGetCategory();
 
   const p = useMemo(() => projectMonthEnd({ transactions, budgets, recurringTemplates }), [transactions, budgets, recurringTemplates]);

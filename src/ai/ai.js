@@ -8,6 +8,7 @@ import {
   getSpendingByCategory, getBudgetStatus, getTotalExpenses, getTotalIncome,
   getSavingsRate, detectAnomalies, getMonthlyTrend,
 } from '../utils/calculations';
+import { getIncomeSources } from '../utils/accounts';
 
 export const aiSupported = isElectron;
 
@@ -41,7 +42,8 @@ export function taxonomy(customCategories = []) {
 
 // Build an aggregate-only summary for insights / Q&A — no raw transactions.
 export function buildSummary(state, month, year) {
-  const { transactions, budgets, incomes } = state;
+  const { transactions, budgets } = state;
+  const incomes = getIncomeSources(state.incomes, state.investments);
   return {
     period: { month, year },
     totalExpenses: getTotalExpenses(transactions, month, year),

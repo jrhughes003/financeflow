@@ -4,6 +4,7 @@
 import { subMonths, addMonths, differenceInCalendarMonths, parseISO, isValid, format } from 'date-fns';
 import { getTransactionsForPeriod, getGoalProgress } from './calculations';
 import { getGoalMonthlyContribution, detectIrregularExpenses } from './insights';
+import { monthsUntilRepayment } from './accounts';
 import {
   BUDGET_TUNE_LOOKBACK, BUDGET_TUNE_MIN_MONTHS, BUDGET_TUNE_MIN_AVERAGE, BUDGET_UNDERUSE_RATIO,
 } from './constants';
@@ -188,6 +189,9 @@ const MAX_MONTHS = 600;
  *   snowball  — minimums on all, everything else to the smallest balance first.
  * With avalanche/snowball the monthly budget stays constant (sum of minimums +
  * extra), so a paid-off debt's minimum rolls into the next target.
+ * Deferred debts (repaymentStart in the future) need no payment and aren't
+ * targeted until their start month; their minimum joins the budget then.
+ * Interest still accrues at their rate (0% for interest-free loans).
  *
  * @returns { strategy, feasible, months, totalInterest, totalPaid, debtFreeDate,
  *            payoffs: [{ id, name, month }], timeline: [{ month, balance }] }
@@ -202,6 +206,8 @@ export function simulateDebtPayoff(debts, { strategy = 'avalanche', extra = 0, t
       rate: (Number(d.interestRate) || 0) / 100 / 12,
       apr: Number(d.interestRate) || 0,
       min: Number(d.minimumPayment) || 0,
+      // Month index (from today) when payments begin; 0 = already in repayment.
+      startMonth: monthsUntilRepayment(d, { today }),
     }));
 
   const empty = { strategy, feasible: true, months: 0, totalInterest: 0, totalPaid: 0, debtFreeDate: format(today, 'yyyy-MM-dd'), payoffs: [], timeline: [{ month: 0, balance: 0 }] };
@@ -211,7 +217,9 @@ export function simulateDebtPayoff(debts, { strategy = 'avalanche', extra = 0, t
   if (strategy === 'avalanche') order.sort((a, b) => (b.apr - a.apr) || (a.balance - b.balance));
   else if (strategy === 'snowball') order.sort((a, b) => (a.balance - b.balance) || (b.apr - a.apr));
 
-  const budget = sum(active.map(d => d.min)) + (strategy === 'minimum' ? 0 : Math.max(0, extra));
+  const started = (d, m) => m >= d.startMonth;
+  // Budget grows as deferred debts enter repayment; paid-off minimums keep rolling.
+  const budgetFor = m => sum(active.filter(d => started(d, m)).map(d => d.min)) + (strategy === 'minimum' ? 0 : Math.max(0, extra));
   const payoffs = [];
   const timeline = [{ month: 0, balance: roundCents(sum(active.map(d => d.balance))) }];
   let totalInterest = 0;
@@ -229,10 +237,10 @@ export function simulateDebtPayoff(debts, { strategy = 'avalanche', extra = 0, t
       totalInterest += interest;
     });
 
-    // Minimums first.
-    let pool = budget;
+    // Minimums first (only for debts in repayment).
+    let pool = budgetFor(month);
     active.forEach(d => {
-      if (d.balance <= 0.005) return;
+      if (d.balance <= 0.005 || !started(d, month)) return;
       const pay = Math.min(d.min, d.balance);
       d.balance -= pay;
       pool -= pay;
@@ -243,7 +251,7 @@ export function simulateDebtPayoff(debts, { strategy = 'avalanche', extra = 0, t
     if (strategy !== 'minimum') {
       for (const d of order) {
         if (pool <= 0.005) break;
-        if (d.balance <= 0.005) continue;
+        if (d.balance <= 0.005 || !started(d, month)) continue;
         const pay = Math.min(pool, d.balance);
         d.balance -= pay;
         pool -= pay;
@@ -261,9 +269,11 @@ export function simulateDebtPayoff(debts, { strategy = 'avalanche', extra = 0, t
     const total = sum(active.map(d => d.balance));
     timeline.push({ month, balance: roundCents(total) });
 
-    // Balance not shrinking for a year → payments don't cover interest.
+    // Balance not shrinking for a year → payments don't cover interest. Months
+    // where every remaining debt is still deferred don't count as stuck.
+    const anyInRepayment = active.some(d => d.balance > 0.005 && started(d, month));
     if (total < bestBalance - 0.01) { bestBalance = total; stuckMonths = 0; }
-    else if (++stuckMonths >= 12) break;
+    else if (anyInRepayment && ++stuckMonths >= 12) break;
   }
 
   const feasible = active.every(d => d.balance <= 0.005);

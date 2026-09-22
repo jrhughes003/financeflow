@@ -6,6 +6,7 @@ import {
   DEFAULT_TREND_MONTHS,
 } from './constants';
 import { withEffectiveAmount } from './reimbursements';
+import { getInvestmentsValue } from './accounts';
 
 // Format currency consistently
 export function formatCurrency(amount) {
@@ -138,9 +139,10 @@ export function getSavingsRate(incomes, transactions, month, year) {
   return Math.max(0, ((income - expenses) / income) * 100);
 }
 
-// Net worth: investments + savings goal progress - debts
-export function getNetWorth(investments, debts, savingsGoals) {
-  const assets = investments.reduce((s, i) => s + i.currentValue, 0)
+// Net worth: investments + savings goal progress - debts. Investments tracked
+// against a statement (see accounts.js) use their estimated value today.
+export function getNetWorth(investments, debts, savingsGoals, { today = new Date() } = {}) {
+  const assets = getInvestmentsValue(investments, { today })
     + savingsGoals.reduce((s, g) => s + g.currentAmount, 0);
   const liabilities = debts.reduce((s, d) => s + d.balance, 0);
   return assets - liabilities;

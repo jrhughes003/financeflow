@@ -4,6 +4,7 @@ import {
   getTotalIncome, getTotalExpenses, getSpendingByCategory, getBudgetStatus,
   getSavingsRate, getNetWorth, getBudgetHealthScore,
 } from './calculations.js';
+import { getIncomeSources } from './accounts.js';
 
 // Download any string as a file
 function downloadFile(content, filename, mimeType) {
@@ -249,7 +250,8 @@ export function importFromCSV(file) {
 
 // Generate a monthly report object
 export function generateMonthlyReport(data, month, year) {
-  const { transactions, budgets, incomes, savings_goals, investments, debts } = data;
+  const { transactions, budgets, savings_goals, investments, debts } = data;
+  const incomes = getIncomeSources(data.incomes, investments);
 
   const income = getTotalIncome(incomes);
   const expenses = getTotalExpenses(transactions, month, year);

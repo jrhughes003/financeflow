@@ -10,6 +10,7 @@ import { getAllCategories } from '../utils/categorization';
 import { useGetCategory } from '../context/FinancialContext';
 import FinancialHealthCard from './FinancialHealthCard';
 import { getOwedSummary } from '../utils/reimbursements';
+import { getIncomeSources } from '../utils/accounts';
 import { HandCoins } from 'lucide-react';
 
 function SummaryCard({ title, value, subtitle, icon: Icon, color, trend }) {
@@ -87,9 +88,10 @@ export default function Dashboard({ onQuickAdd, onNavigate }) {
   const getCategory = useGetCategory();
   const { transactions, budgets, incomes, savings_goals, investments, debts } = state;
 
-  const totalIncome = getTotalIncome(incomes);
+  const incomeSources = getIncomeSources(incomes, investments);
+  const totalIncome = getTotalIncome(incomeSources);
   const totalExpenses = getTotalExpenses(transactions, month, year);
-  const savingsRate = getSavingsRate(incomes, transactions, month, year);
+  const savingsRate = getSavingsRate(incomeSources, transactions, month, year);
   const netWorth = getNetWorth(investments, debts, savings_goals);
   const budgetStatuses = getBudgetStatus(budgets, transactions, month, year).filter(b => b.budget > 0);
   const health = getBudgetHealthScore(budgets, transactions, month, year);

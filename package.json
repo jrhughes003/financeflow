@@ -60,7 +60,7 @@
     "typescript-eslint": "^8.70.1",
     "vite": "^5.3.4",
     "vitest": "^2.0.5",
-    "wait-on": "^7.2.0"
+    "wait-on": "^9.1.0"
   },
   "build": {
     "appId": "com.financeflow.app",

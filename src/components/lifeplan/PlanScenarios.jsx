@@ -210,7 +210,7 @@ export default function PlanScenarios({ plan, setPlan, state, result }) {
       {/* Monte Carlo */}
       <Card
         title="What if markets don't cooperate?"
-        subtitle="Runs the plan many times with a random return each year instead of the same return every year."
+        subtitle="Runs the plan many times over uncertain markets, and reports how often it survives — with the range that estimate is good to."
       >
         <div className="flex flex-wrap items-end gap-3 mb-4">
           <NumberField label="Market swing (volatility)" value={volatility} onChange={setVolatility} suffix="%" step="1"
@@ -233,9 +233,14 @@ export default function PlanScenarios({ plan, setPlan, state, result }) {
         ) : (
           <>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+              {/* The interval matters as much as the estimate: at a few hundred
+                  runs the sampling error is several points wide, and rounding it
+                  to a bare percentage implies a precision the run doesn't have. */}
               <Stat label="Plans that hold up" value={`${Math.round(mc.successRate * 100)}%`}
                 accent={mc.successRate >= 0.85 ? 'text-positive' : mc.successRate >= 0.6 ? 'text-caution' : 'text-negative'}
-                sub={`${mc.trials - mc.failures} of ${mc.trials} runs`} />
+                sub={mc.successInterval
+                  ? `${Math.round(mc.successInterval.low * 100)}–${Math.round(mc.successInterval.high * 100)}% likely, from ${mc.trials} runs`
+                  : `${mc.trials - mc.failures} of ${mc.trials} runs`} />
               <Stat label="Typical outcome" value={mcData.length ? money(mcData[mcData.length - 1].p50) : '—'} sub="Median net worth at the end" />
               <Stat label="Unlucky (bottom 10%)" value={mcData.length ? money(mcData[mcData.length - 1].range[0]) : '—'} />
               <Stat label="Lucky (top 10%)" value={mcData.length ? money(mcData[mcData.length - 1].range[1]) : '—'} />
@@ -259,8 +264,10 @@ export default function PlanScenarios({ plan, setPlan, state, result }) {
               </ComposedChart>
             </ResponsiveContainer>
             <p className="text-caption text-ink-muted mt-2">
-              Net worth in today's dollars across {mc.trials} runs at {mc.volatilityPct}% volatility. Returns are drawn independently each year,
-              so this shows the effect of market swings, not crashes that run several years.
+              Net worth in today's dollars across {mc.trials} runs at {mc.volatilityPct}% volatility.
+              Returns are drawn from a fat-tailed distribution with year-to-year persistence, so bad years
+              can cluster — the sequence risk that matters once you're withdrawing. Runs are paired so each
+              pair explores a path and its mirror image, which sharpens the estimate for the same number of runs.
             </p>
           </>
         )}

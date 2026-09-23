@@ -69,4 +69,46 @@ describe('runMonteCarlo', () => {
     const rough = runMonteCarlo(p, s, { today: TODAY, trials: 80, volatilityPct: 25, seed: 7 });
     expect(rough.successRate).toBeLessThan(calm.successRate);
   });
+
+  // --- what the upgraded model is supposed to buy you --------------------
+
+  it('reports the sampling error, not just a bare percentage', () => {
+    const r = runMonteCarlo(plan(), snap({ cash: 300000 }), { today: TODAY, trials: 60, volatilityPct: 18, seed: 5 });
+    expect(r.successInterval.low).toBeLessThanOrEqual(r.successRate);
+    expect(r.successInterval.high).toBeGreaterThanOrEqual(r.successRate);
+    expect(r.successInterval.low).toBeGreaterThanOrEqual(0);
+    expect(r.successInterval.high).toBeLessThanOrEqual(1);
+    expect(r.standardError).toBeGreaterThanOrEqual(0);
+  });
+
+  it('narrows the interval as runs increase', () => {
+    const args = { today: TODAY, volatilityPct: 18, seed: 9 };
+    const few = runMonteCarlo(plan(), snap({ cash: 260000 }), { ...args, trials: 40 });
+    const many = runMonteCarlo(plan(), snap({ cash: 260000 }), { ...args, trials: 400 });
+    const width = r => r.successInterval.high - r.successInterval.low;
+    expect(width(many)).toBeLessThan(width(few));
+  });
+
+  it('runs antithetic pairs, so every path has a mirror', () => {
+    const r = runMonteCarlo(plan(), snap({ cash: 300000 }), { today: TODAY, trials: 50, seed: 3 });
+    expect(r.trials % 2).toBe(0); // pairs, not odd counts
+    const independent = runMonteCarlo(plan(), snap({ cash: 300000 }), { today: TODAY, trials: 50, seed: 3, antithetic: false });
+    expect(independent.trials).toBe(50);
+  });
+
+  it('defaults to the fat-tailed model and can be pointed at another', () => {
+    const fat = runMonteCarlo(plan(), snap({ cash: 300000 }), { today: TODAY, trials: 40, seed: 2 });
+    expect(fat.model).toBe('studentT');
+    const thin = runMonteCarlo(plan(), snap({ cash: 300000 }), { today: TODAY, trials: 40, seed: 2, model: 'normal' });
+    expect(thin.model).toBe('normal');
+  });
+
+  it('can resample a supplied history instead of assuming a distribution', () => {
+    const series = [0.21, -0.37, 0.26, 0.15, -0.04, 0.32, 0.13, -0.22, 0.18, 0.06];
+    const r = runMonteCarlo(plan(), snap({ cash: 300000 }), {
+      today: TODAY, trials: 40, seed: 4, model: 'bootstrap', series, blockYears: 3,
+    });
+    expect(r.model).toBe('bootstrap');
+    expect(r.bands.length).toBeGreaterThan(0);
+  });
 });

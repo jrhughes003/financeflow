@@ -61,7 +61,7 @@ function NavBadge({ badge }) {
   return (
     <span
       title={badge.title}
-      className="shrink-0 px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[11px] font-semibold leading-none"
+      className="shrink-0 px-1.5 py-0.5 rounded-control bg-caution-tint text-caution text-micro font-medium leading-none"
     >
       {badge.label}
     </span>
@@ -106,50 +106,50 @@ export default function Layout({ currentPage, setCurrentPage, onQuickAdd, childr
   };
 
   const itemClasses = (id, nested) => `
-    w-full flex items-center gap-3 ${nested ? 'pl-9 pr-3' : 'px-3'} py-2.5 rounded-xl mb-0.5
-    text-sm font-medium transition-colors text-left
+    w-full flex items-center gap-2.5 ${nested ? 'pl-8 pr-2.5' : 'px-2.5'} h-8 rounded-control mb-px
+    text-sm transition-colors text-left
     ${currentPage === id
-      ? 'bg-blue-50 text-blue-700'
-      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}
+      ? 'bg-accent-tint text-accent-ink font-medium'
+      : 'text-ink-secondary hover:bg-surface-hover hover:text-ink'}
   `;
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-screen bg-canvas overflow-hidden">
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-black/40 z-20 lg:hidden"
+          className="fixed inset-0 bg-ink/25 z-20 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       {/* Sidebar */}
       <aside className={`
-        fixed lg:static inset-y-0 left-0 z-30 w-64 bg-white border-r border-gray-200
+        fixed lg:static inset-y-0 left-0 z-30 w-60 bg-surface border-r border-line
         transform transition-transform duration-200 ease-in-out flex flex-col
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
         {/* Logo */}
-        <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
+        <div className="flex items-center justify-between px-5 h-14 border-b border-line">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-              <TrendingUp className="w-4 h-4 text-white" />
+            <div className="w-6 h-6 bg-accent rounded-control flex items-center justify-center">
+              <TrendingUp className="w-3.5 h-3.5 text-ink-inverse" />
             </div>
-            <span className="text-lg font-bold text-gray-900">FinanceFlow</span>
+            <span className="text-base font-semibold text-ink tracking-[-0.01em]">FinanceFlow</span>
           </div>
-          <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-gray-400 hover:text-gray-600">
+          <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-ink-muted hover:text-ink">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Quick Add button */}
-        <div className="px-4 py-4">
+        <div className="px-3 py-3">
           <button
             onClick={() => { onQuickAdd(); setSidebarOpen(false); }}
-            className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-4 rounded-xl transition-colors"
+            className="w-full flex items-center justify-center gap-2 bg-accent hover:bg-accent-hover text-ink-inverse text-sm font-medium h-9 px-4 rounded-control transition-colors"
           >
             <Plus className="w-4 h-4" />
-            Add Transaction
+            Add transaction
           </button>
         </div>
 
@@ -179,11 +179,11 @@ export default function Layout({ currentPage, setCurrentPage, onQuickAdd, childr
                   aria-expanded={isOpen}
                   aria-controls={`nav-group-${entry.id}`}
                   className={`
-                    w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium
+                    w-full flex items-center gap-2.5 px-2.5 h-8 rounded-control text-sm
                     transition-colors text-left
                     ${holdsCurrent && !isOpen
-                      ? 'text-blue-700 hover:bg-blue-50'
-                      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}
+                      ? 'text-accent-ink font-medium hover:bg-accent-tint'
+                      : 'text-ink-secondary hover:bg-surface-hover hover:text-ink'}
                   `}
                 >
                   <Icon className="shrink-0" style={{ width: 18, height: 18 }} />
@@ -191,11 +191,11 @@ export default function Layout({ currentPage, setCurrentPage, onQuickAdd, childr
                   {/* A collapsed group still shows where you are, and that
                       something inside is waiting on you. */}
                   {!isOpen && entry.items.some(i => badges[i.id]) && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" title="Something inside needs attention" />
+                    <span className="w-1.5 h-1.5 rounded-pill bg-caution shrink-0" title="Something inside needs attention" />
                   )}
-                  {holdsCurrent && !isOpen && <span className="w-1.5 h-1.5 rounded-full bg-blue-600 shrink-0" />}
+                  {holdsCurrent && !isOpen && <span className="w-1.5 h-1.5 rounded-pill bg-accent shrink-0" />}
                   <ChevronDown
-                    className={`shrink-0 text-gray-400 transition-transform duration-200 ${isOpen ? '' : '-rotate-90'}`}
+                    className={`shrink-0 text-ink-muted transition-transform duration-200 ${isOpen ? '' : '-rotate-90'}`}
                     style={{ width: 16, height: 16 }}
                   />
                 </button>
@@ -217,42 +217,42 @@ export default function Layout({ currentPage, setCurrentPage, onQuickAdd, childr
         </nav>
 
         {/* Footer */}
-        <div className="px-4 py-3 border-t border-gray-100">
-          <p className="text-xs text-gray-400 text-center">Your data stays on your device</p>
+        <div className="px-4 py-3 border-t border-line">
+          <p className="text-caption text-ink-muted text-center">Your data stays on your device</p>
         </div>
       </aside>
 
       {/* Main content area */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top header */}
-        <header className="bg-white border-b border-gray-200 px-4 lg:px-6 py-4 flex items-center gap-4 shrink-0">
+        <header className="bg-surface border-b border-line px-4 lg:px-6 h-14 flex items-center gap-4 shrink-0">
           <button
             onClick={() => setSidebarOpen(true)}
-            className="lg:hidden text-gray-500 hover:text-gray-700"
+            className="lg:hidden text-ink-secondary hover:text-ink"
           >
             <Menu className="w-6 h-6" />
           </button>
           <div>
-            <h1 className="text-lg font-semibold text-gray-900">
+            <h1 className="text-base font-semibold text-ink tracking-[-0.01em]">
               {NAV_ITEMS.find(n => n.id === currentPage)?.label || 'FinanceFlow'}
             </h1>
-            <p className="text-xs text-gray-400">
+            <p className="text-caption text-ink-muted">
               {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
             </p>
           </div>
           <div className="ml-auto flex items-center gap-3">
             <button
               onClick={onQuickAdd}
-              className="hidden sm:flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-4 rounded-lg transition-colors"
+              className="hidden sm:flex items-center gap-2 border border-line-strong hover:bg-surface-hover text-ink text-sm font-medium h-8 px-3 rounded-control transition-colors"
             >
-              <Plus className="w-4 h-4" />
-              Quick Add
+              <Plus className="w-3.5 h-3.5" />
+              Quick add
             </button>
           </div>
         </header>
 
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6">
+        <main className="flex-1 overflow-y-auto p-4 lg:p-6 bg-canvas">
           {children}
         </main>
       </div>
@@ -260,7 +260,7 @@ export default function Layout({ currentPage, setCurrentPage, onQuickAdd, childr
       {/* Mobile FAB */}
       <button
         onClick={onQuickAdd}
-        className="sm:hidden fixed bottom-6 right-6 z-10 w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-colors"
+        className="sm:hidden fixed bottom-6 right-6 z-10 w-12 h-12 bg-accent hover:bg-accent-hover text-ink-inverse rounded-pill shadow-overlay flex items-center justify-center transition-colors"
       >
         <Plus className="w-6 h-6" />
       </button>

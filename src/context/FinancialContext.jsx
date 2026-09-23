@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useReducer, useEffect, useRef } from 'react';
 import { sampleData } from '../utils/sampleData';
 import { getCategoryById } from '../utils/categorization';
+import { setDisplayCurrency } from '../utils/calculations';
 import {
   isElectron,
   loadState,
@@ -132,6 +133,9 @@ export function FinancialProvider({ children }) {
 
   // Electron-only: load from SQLite, seeding sample data (or migrating a legacy
   // localStorage blob) exactly once on first launch.
+  // Currency is a display concern, so it lives outside React state.
+  useEffect(() => { setDisplayCurrency(state.settings?.currency); }, [state.settings?.currency]);
+
   useEffect(() => {
     if (!isElectron) return;
     let cancelled = false;

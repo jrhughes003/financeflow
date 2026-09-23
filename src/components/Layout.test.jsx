@@ -99,15 +99,15 @@ describe('sidebar grouping', () => {
         badges={{ owed: { label: '$62', title: '$62.00 still owed to you' } }}><div /></Layout>,
     );
     expect(group('Everyday')).toHaveAttribute('aria-expanded', 'false');
-    expect(container.querySelector('.bg-amber-500')).toBeTruthy();
+    expect(container.querySelector('[title="Something inside needs attention"]')).toBeTruthy();
   });
 
   it('shows no badges when nothing needs attention', () => {
     const { container } = render(
       <Layout currentPage="dashboard" setCurrentPage={vi.fn()} onQuickAdd={vi.fn()}><div /></Layout>,
     );
-    expect(container.querySelector('.bg-amber-500')).toBeNull();
-    expect(container.querySelector('.bg-amber-100')).toBeNull();
+    expect(container.querySelector('[title="Something inside needs attention"]')).toBeNull();
+    expect(screen.queryByTitle(/still owed|due to post/)).not.toBeInTheDocument();
   });
 
   it('still shows the page title in the header for a grouped page', () => {

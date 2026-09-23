@@ -1,0 +1,146 @@
+/*
+ * Design tokens — "Quiet Ledger".
+ *
+ * The look this replaces was the default one: a single 12–16px radius on every
+ * element, Tailwind blue as the accent, a soft shadow under every card, and
+ * pastel pill badges. The rules here exist to stop that coming back.
+ *
+ *   1. Colour belongs to data. The canvas, surfaces and chrome are neutral;
+ *      green and red mean money moved, never "this is a nice badge".
+ *   2. Hairlines, not shadows. Elevation is for things that genuinely float —
+ *      modals, the command palette, toasts.
+ *   3. Radius is a hierarchy, not a constant: controls sit tighter than
+ *      containers, and table rows are square.
+ *   4. Money is set in tabular figures so decimals line up down a column.
+ *      Misaligned decimals are the fastest way to look untrustworthy.
+ *
+ * Everything is a variable so dark mode is a swap of this block, not a rewrite
+ * of the app.
+ */
+
+:root {
+  /* --- canvas & surfaces ------------------------------------------------ */
+  --c-canvas:        #fcfcfd;  /* app background — a shade off white */
+  --c-surface:       #ffffff;  /* cards, panels */
+  --c-surface-sunk:  #f7f8fa;  /* table headers, inset areas */
+  --c-surface-hover: #f4f5f8;
+
+  /* --- ink -------------------------------------------------------------- */
+  --c-ink:           #16181d;  /* primary text, figures */
+  --c-ink-secondary: #5b6472;  /* labels, supporting copy */
+  --c-ink-muted:     #8a93a2;  /* captions, placeholders, axis labels */
+  --c-ink-inverse:   #ffffff;
+
+  /* --- lines ------------------------------------------------------------ */
+  --c-line:          #e7e9ee;  /* borders, table rules */
+  --c-line-strong:   #d4d8e0;  /* input borders, dividers that need presence */
+  --c-line-faint:    #f1f2f5;  /* chart gridlines, zebra separation */
+
+  /* --- accent: deep evergreen ------------------------------------------- */
+  /* Not blue. Blue is the default every generated interface reaches for. */
+  --c-accent:        #0f5540;
+  --c-accent-hover:  #0b4433;
+  --c-accent-tint:   #e8f1ed;  /* active nav, selected rows */
+  --c-accent-ink:    #0a3d2f;  /* accent text on tint */
+
+  /* --- semantics: only ever applied to money ---------------------------- */
+  --c-positive:      #1b7f5a;  /* money in, under budget, on track */
+  --c-positive-tint: #e9f4ef;
+  --c-negative:      #b3402e;  /* money out, over budget, behind */
+  --c-negative-tint: #fceeeb;
+  --c-caution:       #8a6212;  /* approaching a limit */
+  --c-caution-tint:  #faf1de;
+
+  /* --- data visualisation ----------------------------------------------- */
+  /* Muted and harmonious: these sit on a light canvas without vibrating. */
+  --c-data-1: #0f5540;
+  --c-data-2: #c2703c;
+  --c-data-3: #3d6a99;
+  --c-data-4: #8a6212;
+  --c-data-5: #7a5b8f;
+  --c-data-6: #488a7b;
+  --c-data-7: #a4544a;
+
+  /* --- radius: a hierarchy ---------------------------------------------- */
+  --r-control:   4px;   /* buttons, inputs, chips */
+  --r-container: 8px;   /* cards, panels, modals */
+  --r-pill:      999px; /* genuine tags only */
+
+  /* --- elevation: overlays only ----------------------------------------- */
+  --shadow-overlay: 0 16px 40px -12px rgb(16 18 29 / 0.24), 0 2px 8px -2px rgb(16 18 29 / 0.08);
+  --shadow-raised:  0 1px 2px rgb(16 18 29 / 0.04);
+
+  /* --- type ------------------------------------------------------------- */
+  --font-sans: 'Instrument Sans Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  /* Money and any figure that lands in a column. */
+  --font-numeric: 'Geist Mono Variable', ui-monospace, 'SF Mono', 'Cascadia Mono', monospace;
+
+  /* --- density ---------------------------------------------------------- */
+  --row-height: 36px;   /* table rows: more ledger on screen at once */
+}
+
+/* Placeholder for the dark theme: redefining this block is the whole job. */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+}
+
+/* --- base ---------------------------------------------------------------- */
+
+html {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background: var(--c-canvas);
+  color: var(--c-ink);
+}
+
+/* Every number in the app reads in tabular figures; money additionally moves
+   to the mono face via the .money utility. */
+:where(body) {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Labels above tables and stat blocks: small, spaced, quiet. */
+.label-micro {
+  font-size: 11px;
+  line-height: 1.2;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--c-ink-muted);
+  font-weight: 500;
+}
+
+/* Money. Tabular by construction, and tightened so a column of figures reads
+   as a block rather than as scattered characters. */
+.money {
+  font-family: var(--font-numeric);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* The one figure a page is about. */
+.figure-display {
+  font-family: var(--font-numeric);
+  font-variant-numeric: tabular-nums;
+  font-size: 34px;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  font-weight: 500;
+  color: var(--c-ink);
+}
+
+/* Focus that is visible without being a blue halo. */
+:where(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 2px;
+  border-radius: var(--r-control);
+}
+
+/* Scrollbars in the same neutral language as everything else. */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--c-line-strong); border-radius: var(--r-pill); }
+::-webkit-scrollbar-thumb:hover { background: var(--c-ink-muted); }

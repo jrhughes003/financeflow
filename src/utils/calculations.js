@@ -8,9 +8,18 @@ import {
 import { withEffectiveAmount } from './reimbursements';
 import { getInvestmentsValue } from './accounts';
 
-// Format currency consistently
-export function formatCurrency(amount) {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount || 0);
+// The currency every figure is printed in. `settings.currency` was stored but
+// never read, so amounts always rendered as en-US/USD whatever the setting
+// said. The provider calls setDisplayCurrency when state loads.
+let displayCurrency = 'CAD';
+
+export function setDisplayCurrency(currency) {
+  if (currency) displayCurrency = currency;
+}
+
+export function formatCurrency(amount, currency = displayCurrency) {
+  const locale = currency === 'USD' ? 'en-US' : 'en-CA';
+  return new Intl.NumberFormat(locale, { style: 'currency', currency }).format(amount || 0);
 }
 
 // Normalize any income frequency to monthly equivalent

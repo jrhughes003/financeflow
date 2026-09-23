@@ -1,7 +1,7 @@
 {
   "name": "financeflow",
   "private": true,
-  "version": "1.6.1",
+  "version": "1.7.0",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
@@ -19,6 +19,8 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",
+    "@fontsource-variable/geist-mono": "^5.3.0",
+    "@fontsource-variable/instrument-sans": "^5.3.0",
     "better-sqlite3": "^11.10.0",
     "date-fns": "^3.6.0",
     "lucide-react": "^0.400.0",

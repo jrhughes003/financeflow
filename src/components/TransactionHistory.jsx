@@ -3,6 +3,7 @@ import { Search, Filter, Download, Upload, Trash2, Edit2, ChevronUp, ChevronDown
 import { format, parseISO } from 'date-fns';
 import { useFinancial } from '../context/FinancialContext';
 import EmptyState from './EmptyState';
+import { Money, CategoryMark } from './ui';
 import { useUndoableDelete } from '../hooks/useUndoableDelete';
 import { CATEGORIES, getAllCategories, getCategoryById } from '../utils/categorization';
 import { useGetCategory } from '../context/FinancialContext';
@@ -139,13 +140,13 @@ export default function TransactionHistory() {
 
       {/* Confirm delete */}
       {deleteId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-2xl p-6 max-w-sm mx-4 shadow-xl">
-            <p className="text-base font-semibold text-gray-900 mb-2">Delete this transaction?</p>
-            <p className="text-sm text-gray-500 mb-4">This action cannot be undone.</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/25 px-4">
+          <div className="bg-surface rounded-container border border-line p-5 max-w-sm shadow-overlay">
+            <p className="text-base font-semibold text-ink mb-1">Delete this transaction?</p>
+            <p className="text-sm text-ink-secondary mb-4">You can undo this from the toast that appears.</p>
             <div className="flex gap-3">
-              <button onClick={() => setDeleteId(null)} className="flex-1 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50">Cancel</button>
-              <button onClick={() => handleDelete(deleteId)} className="flex-1 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-xl text-sm font-medium">Delete</button>
+              <button onClick={() => setDeleteId(null)} className="flex-1 h-9 border border-line-strong rounded-control text-sm font-medium text-ink hover:bg-surface-hover">Cancel</button>
+              <button onClick={() => handleDelete(deleteId)} className="flex-1 h-9 bg-negative hover:opacity-90 text-ink-inverse rounded-control text-sm font-medium">Delete</button>
             </div>
           </div>
         </div>
@@ -154,27 +155,27 @@ export default function TransactionHistory() {
       {/* Search & actions bar */}
       <div className="flex flex-wrap gap-3 items-center">
         <div className="relative flex-1 min-w-48">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-muted" />
           <input
             type="text"
             placeholder="Search merchant, notes, tags..."
             value={search}
             onChange={e => { setSearch(e.target.value); setPage(1); }}
-            className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500"
+            className="w-full h-9 pl-8 pr-3 bg-surface border border-line-strong rounded-control text-sm placeholder:text-ink-muted focus:outline-none focus:border-accent"
           />
         </div>
-        <button onClick={() => setShowFilters(s => !s)} className={`flex items-center gap-2 px-3 py-2.5 border rounded-xl text-sm font-medium transition-colors ${showFilters ? 'border-blue-500 text-blue-600 bg-blue-50' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+        <button onClick={() => setShowFilters(s => !s)} className={`flex items-center gap-2 h-9 px-3 border rounded-control text-sm font-medium transition-colors ${showFilters ? 'border-accent text-accent-ink bg-accent-tint' : 'border-line-strong text-ink hover:bg-surface-hover'}`}>
           <Filter className="w-4 h-4" /> Filters
         </button>
-        <button onClick={() => exportToCSV(filtered)} className="flex items-center gap-2 px-3 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50">
+        <button onClick={() => exportToCSV(filtered)} className="flex items-center gap-2 h-9 px-3 border border-line-strong rounded-control text-sm font-medium text-ink hover:bg-surface-hover">
           <Download className="w-4 h-4" /> Export
         </button>
-        <label className="flex items-center gap-2 px-3 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50 cursor-pointer">
+        <label className="flex items-center gap-2 h-9 px-3 border border-line-strong rounded-control text-sm font-medium text-ink hover:bg-surface-hover cursor-pointer">
           <Upload className="w-4 h-4" /> Import CSV
           <input ref={importRef} type="file" accept=".csv" className="hidden" onChange={handleImport} />
         </label>
         {aiEnabled && (
-          <button onClick={() => setShowPaste(s => !s)} className="flex items-center gap-2 px-3 py-2.5 border border-purple-200 text-purple-600 rounded-xl text-sm font-medium hover:bg-purple-50">
+          <button onClick={() => setShowPaste(s => !s)} className="flex items-center gap-2 h-9 px-3 border border-line-strong text-ink-secondary rounded-control text-sm font-medium hover:bg-surface-hover">
             <Sparkles className="w-4 h-4" /> Paste receipt
           </button>
         )}
@@ -182,70 +183,70 @@ export default function TransactionHistory() {
 
       {/* AI receipt / statement paste panel */}
       {aiEnabled && showPaste && (
-        <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 space-y-2">
-          <p className="text-sm font-semibold text-purple-800">Paste receipt or bank-statement text</p>
+        <div className="bg-surface-sunk border border-line rounded-container p-4 space-y-2">
+          <p className="text-sm font-semibold text-ink">Paste receipt or bank-statement text</p>
           <textarea
             rows={5}
             value={pasteText}
             onChange={e => setPasteText(e.target.value)}
             placeholder="Paste messy text here — line items, amounts, dates…"
-            className="w-full px-3 py-2 border border-purple-200 rounded-lg text-sm bg-white focus:outline-none focus:border-purple-500 resize-y"
+            className="w-full px-3 py-2 border border-line-strong rounded-control text-sm bg-surface focus:outline-none focus:border-accent resize-y"
           />
           <div className="flex items-center gap-2">
-            <button onClick={handleParsePaste} disabled={pasteBusy || !pasteText.trim()} className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white text-sm rounded-lg font-medium">
+            <button onClick={handleParsePaste} disabled={pasteBusy || !pasteText.trim()} className="h-9 px-4 bg-accent hover:bg-accent-hover disabled:opacity-40 text-ink-inverse text-sm rounded-control font-medium">
               {pasteBusy ? 'Parsing…' : 'Extract transactions'}
             </button>
-            {pasteMsg && <span className="text-xs text-red-500">{pasteMsg}</span>}
+            {pasteMsg && <span className="text-caption text-negative">{pasteMsg}</span>}
           </div>
-          <p className="text-[11px] text-purple-400">The pasted text is sent to Anthropic to extract line items. Review imported items afterward.</p>
+          <p className="text-caption text-ink-muted">The pasted text is sent to Anthropic to extract line items. Review imported items afterward.</p>
         </div>
       )}
 
       {/* Filters panel */}
       {showFilters && (
-        <div className="bg-gray-50 rounded-xl p-4 grid grid-cols-2 md:grid-cols-3 gap-3">
+        <div className="bg-surface-sunk border border-line rounded-container p-4 grid grid-cols-2 md:grid-cols-3 gap-3">
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Category</label>
-            <select value={filterCategory} onChange={e => { setFilterCategory(e.target.value); setPage(1); }} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:border-blue-500">
+            <label className="label-micro block mb-1">Category</label>
+            <select value={filterCategory} onChange={e => { setFilterCategory(e.target.value); setPage(1); }} className="w-full h-9 px-2.5 border border-line-strong rounded-control text-sm bg-surface focus:outline-none focus:border-accent">
               <option value="">All categories</option>
               {allCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">From Date</label>
-            <input type="date" value={filterDateFrom} onChange={e => { setFilterDateFrom(e.target.value); setPage(1); }} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-500" />
+            <label className="label-micro block mb-1">From Date</label>
+            <input type="date" value={filterDateFrom} onChange={e => { setFilterDateFrom(e.target.value); setPage(1); }} className="w-full h-9 px-2.5 border border-line-strong rounded-control text-sm bg-surface focus:outline-none focus:border-accent" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">To Date</label>
-            <input type="date" value={filterDateTo} onChange={e => { setFilterDateTo(e.target.value); setPage(1); }} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-500" />
+            <label className="label-micro block mb-1">To Date</label>
+            <input type="date" value={filterDateTo} onChange={e => { setFilterDateTo(e.target.value); setPage(1); }} className="w-full h-9 px-2.5 border border-line-strong rounded-control text-sm bg-surface focus:outline-none focus:border-accent" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Min Amount</label>
-            <input type="number" placeholder="$0" value={filterMinAmt} onChange={e => { setFilterMinAmt(e.target.value); setPage(1); }} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-500" />
+            <label className="label-micro block mb-1">Min Amount</label>
+            <input type="number" placeholder="$0" value={filterMinAmt} onChange={e => { setFilterMinAmt(e.target.value); setPage(1); }} className="w-full h-9 px-2.5 border border-line-strong rounded-control text-sm bg-surface focus:outline-none focus:border-accent" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Max Amount</label>
-            <input type="number" placeholder="Any" value={filterMaxAmt} onChange={e => { setFilterMaxAmt(e.target.value); setPage(1); }} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-500" />
+            <label className="label-micro block mb-1">Max Amount</label>
+            <input type="number" placeholder="Any" value={filterMaxAmt} onChange={e => { setFilterMaxAmt(e.target.value); setPage(1); }} className="w-full h-9 px-2.5 border border-line-strong rounded-control text-sm bg-surface focus:outline-none focus:border-accent" />
           </div>
           <div className="flex items-end">
-            <button onClick={() => { setFilterCategory(''); setFilterDateFrom(''); setFilterDateTo(''); setFilterMinAmt(''); setFilterMaxAmt(''); setSearch(''); setPage(1); }} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-white">Clear Filters</button>
+            <button onClick={() => { setFilterCategory(''); setFilterDateFrom(''); setFilterDateTo(''); setFilterMinAmt(''); setFilterMaxAmt(''); setSearch(''); setPage(1); }} className="w-full h-9 px-3 border border-line-strong rounded-control text-sm text-ink hover:bg-surface">Clear Filters</button>
           </div>
         </div>
       )}
 
       {/* Table */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="bg-surface rounded-container border border-line overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-100">
+              <tr className="bg-surface-sunk border-b border-line">
                 {[['date','Date'],['merchant','Merchant'],['category','Category'],['amount','Amount']].map(([field, label]) => (
-                  <th key={field} onClick={() => handleSort(field)} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none">
+                  <th key={field} onClick={() => handleSort(field)} className={`label-micro font-medium py-2 px-3 cursor-pointer hover:text-ink select-none ${field === 'amount' ? 'text-right' : 'text-left'}`}>
                     {label}<SortIcon field={field} />
                   </th>
                 ))}
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Tags</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+                <th className="label-micro font-medium py-2 px-3 text-left">Tags</th>
+                <th className="label-micro font-medium py-2 px-3 text-right"><span className="sr-only">Actions</span></th>
               </tr>
             </thead>
             <tbody>
@@ -261,36 +262,38 @@ export default function TransactionHistory() {
                       secondary="No data to hand? Settings → Load demo data fills the app with a realistic example."
                     />
                   ) : (
-                    <p className="px-4 py-8 text-center text-gray-400 text-sm">No transactions match these filters.</p>
+                    <p className="px-4 py-8 text-center text-ink-muted text-sm">No transactions match these filters.</p>
                   )}
                 </td></tr>
               )}
               {paged.map(t => {
                 const cat = getCategory(t.category);
                 return (
-                  <tr key={t.id} className={`border-b border-gray-50 hover:bg-gray-50 transition-colors ${t.isException ? 'opacity-60' : ''}`}>
-                    <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{format(parseISO(t.date), 'MMM d, yyyy')}</td>
-                    <td className="px-4 py-3">
-                      <p className="font-medium text-gray-800">{t.merchant}</p>
-                      {t.subcategory && <p className="text-xs text-gray-400">{t.subcategory}</p>}
-                      {t.isException && <span className="text-xs text-purple-500 font-medium">Exception</span>}
+                  <tr key={t.id} className={`border-b border-line-faint hover:bg-surface-hover transition-colors ${t.isException ? 'opacity-55' : ''}`}>
+                    <td className="px-3 h-row text-ink-secondary whitespace-nowrap money text-caption">{format(parseISO(t.date), 'dd MMM yyyy')}</td>
+                    <td className="px-3 h-row">
+                      <span className="text-ink">{t.merchant}</span>
+                      {t.subcategory && <span className="text-ink-muted text-caption"> · {t.subcategory}</span>}
+                      {t.isException && <span className="text-ink-muted text-caption"> · one-off</span>}
                       <OwedBadge t={t} />
                     </td>
-                    <td className="px-4 py-3">
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium" style={{ backgroundColor: cat.color + '20', color: cat.color }}>
-                        {cat.name}
-                      </span>
+                    <td className="px-3 h-row">
+                      <CategoryMark color={cat.color} name={cat.name} className="text-ink-secondary text-caption" />
                     </td>
-                    <td className="px-4 py-3 font-semibold text-gray-800 whitespace-nowrap">{formatCurrency(t.amount)}</td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 h-row text-right whitespace-nowrap">
+                      {t.kind === 'savings'
+                        ? <Money value={t.amount} size="sm" signed className="text-positive" />
+                        : <Money value={-t.amount} size="sm" />}
+                    </td>
+                    <td className="px-3 h-row">
                       <div className="flex flex-wrap gap-1">
                         {(t.tags || []).map(tag => (
-                          <span key={tag} className="px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded text-xs">{tag}</span>
+                          <span key={tag} className="px-1.5 py-0.5 bg-surface-sunk border border-line text-ink-muted rounded-control text-caption">{tag}</span>
                         ))}
                       </div>
                     </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-end gap-2">
+                    <td className="px-3 h-row">
+                      <div className="flex items-center justify-end gap-1">
                         <button
                           onClick={() => dispatch({ type: 'MARK_EXCEPTION', payload: t.id })}
                           title={t.isException
@@ -298,14 +301,14 @@ export default function TransactionHistory() {
                             : 'Mark as a one-off so it stays out of budgets and averages'}
                           aria-label={t.isException ? 'Include in budgets' : 'Mark as one-off'}
                           aria-pressed={Boolean(t.isException)}
-                          className={`p-1.5 rounded transition-colors ${t.isException
-                            ? 'text-purple-600 bg-purple-50 hover:bg-purple-100'
-                            : 'text-gray-400 hover:text-purple-600 hover:bg-purple-50'}`}
+                          className={`p-1.5 rounded-control transition-colors ${t.isException
+                            ? 'text-accent-ink bg-accent-tint'
+                            : 'text-ink-muted hover:text-ink hover:bg-surface-hover'}`}
                         >
                           <CircleSlash className="w-3.5 h-3.5" />
                         </button>
-                        <button onClick={() => setEditTx(t)} className="text-gray-400 hover:text-blue-600 transition-colors p-1 rounded hover:bg-blue-50"><Edit2 className="w-3.5 h-3.5" /></button>
-                        <button onClick={() => setDeleteId(t.id)} className="text-gray-400 hover:text-red-500 transition-colors p-1 rounded hover:bg-red-50"><Trash2 className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => setEditTx(t)} aria-label={`Edit ${t.merchant}`} title="Edit" className="text-ink-muted hover:text-ink transition-colors p-1.5 rounded-control hover:bg-surface-hover"><Edit2 className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => setDeleteId(t.id)} aria-label={`Delete ${t.merchant}`} title="Delete" className="text-ink-muted hover:text-negative transition-colors p-1.5 rounded-control hover:bg-negative-tint"><Trash2 className="w-3.5 h-3.5" /></button>
                       </div>
                     </td>
                   </tr>
@@ -316,12 +319,12 @@ export default function TransactionHistory() {
         </div>
 
         {/* Pagination & total */}
-        <div className="px-4 py-3 border-t border-gray-100 flex flex-wrap items-center justify-between gap-2 bg-gray-50">
-          <span className="text-sm text-gray-500">{filtered.length} transactions · Total: <strong>{formatCurrency(total)}</strong></span>
+        <div className="px-4 py-2.5 border-t border-line flex flex-wrap items-center justify-between gap-2 bg-surface-sunk">
+          <span className="text-caption text-ink-secondary">{filtered.length} transactions · <Money value={total} size="caption" className="text-ink font-medium" /></span>
           <div className="flex items-center gap-2">
-            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-white">Prev</button>
-            <span className="text-sm text-gray-600">{page} / {Math.max(1, totalPages)}</span>
-            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-white">Next</button>
+            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="h-7 px-2.5 text-caption border border-line-strong rounded-control disabled:opacity-40 hover:bg-surface text-ink">Prev</button>
+            <span className="text-caption text-ink-secondary money">{page} / {Math.max(1, totalPages)}</span>
+            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="h-7 px-2.5 text-caption border border-line-strong rounded-control disabled:opacity-40 hover:bg-surface text-ink">Next</button>
           </div>
         </div>
       </div>

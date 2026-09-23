@@ -23,11 +23,39 @@
 import { runPlan } from './engine';
 import { normalVector, chiSquared, annualReturns, wilsonInterval } from './returns';
 
-const round2 = n => Math.round(n * 100) / 100;
-const round4 = n => Math.round(n * 10000) / 10000;
+import type { Money } from '../../types/domain';
+import type { LifePlan } from '../../types/lifeplan';
+import type {
+  PlanSnapshot, RunProgress, SimulationOutcome, SimulationRun,
+} from '../../types/projection';
+import { needsSetup } from '../../types/projection';
+import type { ReturnModel, Rng } from './returns';
+
+export interface SimulationOptions {
+  today?: Date;
+  trials?: number;
+  /** Annual volatility as a percent. */
+  volatilityPct?: number;
+  seed?: number;
+  model?: ReturnModel;
+  df?: number;
+  phi?: number;
+  /** Historical returns for the bootstrap model. */
+  series?: number[];
+  blockYears?: number;
+  /**
+   * Run each draw twice with the sign of its shocks flipped. The twin reuses
+   * the same tail draws, so only the direction changes — flipping the magnitude
+   * too would break the variance reduction.
+   */
+  antithetic?: boolean;
+}
+
+const round2 = (n: number): Money => Math.round(n * 100) / 100;
+const round4 = (n: number): number => Math.round(n * 10000) / 10000;
 
 /** Small seeded RNG so the same inputs give the same answer twice. */
-export function mulberry32(seed) {
+export function mulberry32(seed: number): Rng {
   let a = seed >>> 0;
   return () => {
     a = (a + 0x6D2B79F5) >>> 0;
@@ -39,7 +67,7 @@ export function mulberry32(seed) {
 
 export { normal } from './returns';
 
-export function percentile(sorted, p) {
+export function percentile(sorted: number[], p: number): number {
   if (!sorted.length) return 0;
   const idx = (sorted.length - 1) * p;
   const lo = Math.floor(idx), hi = Math.ceil(idx);
@@ -64,35 +92,36 @@ export function percentile(sorted, p) {
  *   while (!run.step(25).done) { /* yield, report, maybe stop *\/ }
  *   const result = run.finish();
  */
-export function createRun(plan, snapshot, {
+export function createRun(plan: LifePlan, snapshot: PlanSnapshot, {
   today = new Date(), trials = 300, volatilityPct = 12, seed = 12345,
   model = 'studentT', df = 5, phi = 0.15, series = [], blockYears = 5,
   antithetic = true,
-} = {}) {
+}: SimulationOptions = {}): SimulationRun {
   const mean = Number(plan.assumptions?.returnPct ?? 6) / 100;
   const sd = Math.max(0, Number(volatilityPct) / 100);
   const rand = mulberry32(seed);
   const horizon = Math.max(1, Number(plan.assumptions?.endAge ?? 95) - 18) + 1;
 
-  const byYear = new Map();   // year → net worth (today's $) across trials
-  const depletions = [];
-  const ages = new Map();
+  const byYear = new Map<number, number[]>();   // year → net worth (today's $) across trials
+  const depletions: number[] = [];
+  const ages = new Map<number, number>();
   let survived = 0;
   // Survival counted per antithetic pair: a pair is one independent draw, so
   // this is the sequence the standard error is computed from.
-  const pairOutcomes = [];
+  const pairOutcomes: number[] = [];
 
-  const runTrial = (returnsByYear) => {
+  const runTrial = (returnsByYear: number[]): number | null => {
     const monthly = returnsByYear.map(a => Math.pow(1 + a, 1 / 12) - 1);
-    const monthlyReturn = k => monthly[Math.min(Math.floor(k / 12), monthly.length - 1)];
+    const monthlyReturn = (k: number): number => monthly[Math.min(Math.floor(k / 12), monthly.length - 1)];
     const res = runPlan(plan, snapshot, { today, monthlyReturn });
-    if (res.needsSetup) return null;
+    if (needsSetup(res)) return null;
 
     if (res.firstShortfall) depletions.push(res.firstShortfall.year);
     else survived += 1;
     res.rows.forEach(r => {
-      if (!byYear.has(r.year)) { byYear.set(r.year, []); ages.set(r.year, r.ages.me); }
-      byYear.get(r.year).push(r.netWorth / r.inflationIndex);
+      let values = byYear.get(r.year);
+      if (!values) { values = []; byYear.set(r.year, values); ages.set(r.year, r.ages.me); }
+      values.push(r.netWorth / r.inflationIndex);
     });
     return res.firstShortfall ? 0 : 1;
   };
@@ -106,7 +135,7 @@ export function createRun(plan, snapshot, {
   let setupFailed = false;
 
   /** Advance by `pairs` iterations. Returns progress. */
-  const advance = (pairs = 1) => {
+  const advance = (pairs = 1): RunProgress => {
     for (let n = 0; n < pairs && cursor < trials; n += 1) {
       const t = cursor;
       cursor += step;
@@ -133,7 +162,7 @@ export function createRun(plan, snapshot, {
     return { done: setupFailed || cursor >= trials, completed: Math.min(cursor, trials), total: trials };
   };
 
-  const finish = () => {
+  const finish = (): SimulationOutcome => {
   if (setupFailed) return { needsSetup: true };
   const bands = [...byYear.entries()].sort((a, b) => a[0] - b[0]).map(([year, values]) => {
     const sorted = values.sort((a, b) => a - b);
@@ -180,7 +209,11 @@ export function createRun(plan, snapshot, {
 }
 
 /** Run every trial at once. The worker uses createRun instead. */
-export function runMonteCarlo(plan, snapshot, options = {}) {
+export function runMonteCarlo(
+  plan: LifePlan,
+  snapshot: PlanSnapshot,
+  options: SimulationOptions = {},
+): SimulationOutcome {
   const run = createRun(plan, snapshot, options);
   while (!run.step(50).done) { /* keep going */ }
   return run.finish();

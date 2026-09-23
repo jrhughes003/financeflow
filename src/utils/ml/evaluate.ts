@@ -21,8 +21,54 @@ import { trainingData } from './categorizer';
 import { autoCategorize } from '../categorization';
 import { normaliseMerchant } from './features';
 
+import type { Category, Transaction } from '../../types/domain';
+import type { TrainingRow, TrainOptions } from './categorizer';
+
+/** A merchant and every labelled row belonging to it. */
+export interface MerchantGroup {
+  key: string;
+  category: string;
+  rows: TrainingRow[];
+}
+
+/** One prediction against its true label. */
+export interface PredictionPair {
+  actual: string;
+  predicted: string;
+}
+
+export interface ClassScore {
+  category: string;
+  precision: number;
+  recall: number;
+  f1: number;
+  /** How many rows actually belong to this class. */
+  support: number;
+}
+
+export interface Scores {
+  accuracy: number;
+  macroF1: number;
+  macroPrecision: number;
+  macroRecall: number;
+  perClass: ClassScore[];
+  n: number;
+}
+
+export interface CrossValidateOptions extends TrainOptions {
+  k?: number;
+  seed?: number;
+  customCategories?: Category[];
+  /**
+   * 'merchant' asks whether an unseen merchant can be categorised; 'row' asks
+   * whether a merchant the user has already labelled can be. Two different
+   * questions with two different answers.
+   */
+  splitBy?: 'merchant' | 'row';
+}
+
 /** Deterministic shuffle, so a reported score is reproducible. */
-function shuffled(items, seed = 1) {
+function shuffled<T>(items: T[], seed = 1): T[] {
   let state = seed >>> 0;
   const random = () => {
     state = (state * 1664525 + 1013904223) >>> 0;
@@ -40,22 +86,24 @@ function shuffled(items, seed = 1) {
  * Fold assignment by distinct merchant, balanced across categories so each
  * fold sees a similar class mix.
  */
-export function merchantFolds(rows, k = 5, seed = 1) {
-  const byMerchant = new Map();
+export function merchantFolds(rows: TrainingRow[], k = 5, seed = 1): MerchantGroup[][] {
+  const byMerchant = new Map<string, MerchantGroup>();
   rows.forEach(row => {
     const key = normaliseMerchant(row.merchant);
-    if (!byMerchant.has(key)) byMerchant.set(key, { key, category: row.category, rows: [] });
-    byMerchant.get(key).rows.push(row);
+    let group = byMerchant.get(key);
+    if (!group) { group = { key, category: row.category, rows: [] }; byMerchant.set(key, group); }
+    group.rows.push(row);
   });
 
   const groups = [...byMerchant.values()];
-  const byCategory = new Map();
+  const byCategory = new Map<string, MerchantGroup[]>();
   groups.forEach(g => {
-    if (!byCategory.has(g.category)) byCategory.set(g.category, []);
-    byCategory.get(g.category).push(g);
+    let list = byCategory.get(g.category);
+    if (!list) { list = []; byCategory.set(g.category, list); }
+    list.push(g);
   });
 
-  const folds = Array.from({ length: k }, () => []);
+  const folds: MerchantGroup[][] = Array.from({ length: k }, () => []);
   // Deal each category's merchants round-robin, so no fold is starved of a class.
   [...byCategory.entries()].sort((a, b) => a[0].localeCompare(b[0])).forEach(([, groupList]) => {
     shuffled(groupList, seed).forEach((group, index) => folds[index % k].push(group));
@@ -68,15 +116,15 @@ export function merchantFolds(rows, k = 5, seed = 1) {
  * That is not leakage here — it is the question: the user has categorised this
  * place before, and another transaction from it has just arrived.
  */
-export function rowFolds(rows, k = 5, seed = 1) {
-  const folds = Array.from({ length: k }, () => []);
+export function rowFolds(rows: TrainingRow[], k = 5, seed = 1): MerchantGroup[][] {
+  const folds: MerchantGroup[][] = Array.from({ length: k }, () => []);
   shuffled(rows, seed).forEach((row, index) => {
     folds[index % k].push({ key: row.merchant, category: row.category, rows: [row] });
   });
   return folds;
 }
 
-export function confusionMatrix(pairs, classes) {
+export function confusionMatrix(pairs: PredictionPair[], classes: string[]): number[][] {
   const index = new Map(classes.map((c, i) => [c, i]));
   const matrix = classes.map(() => new Array(classes.length).fill(0));
   pairs.forEach(({ actual, predicted }) => {
@@ -88,7 +136,7 @@ export function confusionMatrix(pairs, classes) {
 }
 
 /** Per-class precision, recall and F1, plus the macro average and accuracy. */
-export function scores(pairs, classes) {
+export function scores(pairs: PredictionPair[], classes: string[]): Scores {
   const perClass = classes.map(category => {
     const tp = pairs.filter(p => p.actual === category && p.predicted === category).length;
     const fp = pairs.filter(p => p.actual !== category && p.predicted === category).length;
@@ -102,7 +150,8 @@ export function scores(pairs, classes) {
   // Macro averages over classes that actually appear, so an absent category
   // can't drag the mean down to look like a failure.
   const present = perClass.filter(c => c.support > 0);
-  const mean = key => (present.length ? present.reduce((a, c) => a + c[key], 0) / present.length : 0);
+  const mean = (key: 'f1' | 'precision' | 'recall'): number =>
+    (present.length ? present.reduce((a, c) => a + c[key], 0) / present.length : 0);
 
   return {
     accuracy: pairs.length ? pairs.filter(p => p.actual === p.predicted).length / pairs.length : 0,
@@ -117,12 +166,11 @@ export function scores(pairs, classes) {
 /**
  * Cross-validate the classifier against the keyword baseline on the same folds.
  *
- * @returns { model, baseline, folds, classes, confusion, coverage } — or null
- *          when there isn't enough labelled history to evaluate honestly.
+ * Returns null when there isn't enough labelled history to evaluate honestly.
  */
-export function crossValidate(transactions, {
+export function crossValidate(transactions: Transaction[], {
   k = 5, seed = 1, customCategories = [], splitBy = 'merchant', ...options
-} = {}) {
+}: CrossValidateOptions = {}) {
   const rows = trainingData(transactions);
   if (rows.length < 20) return null;
 
@@ -139,12 +187,12 @@ export function crossValidate(transactions, {
   const folds = splitBy === 'row' ? rowFolds(rows, k, seed) : merchantFolds(rows, k, seed);
   if (folds.filter(f => f.length).length < 2) return null;
 
-  const modelPairs = [];
-  const baselinePairs = [];
+  const modelPairs: PredictionPair[] = [];
+  const baselinePairs: PredictionPair[] = [];
   // The cases that decide whether this feature earns its place: the keyword
   // matcher has no rule, so it falls back to the catch-all category.
-  const fallbackModel = [];
-  const fallbackBaseline = [];
+  const fallbackModel: PredictionPair[] = [];
+  const fallbackBaseline: PredictionPair[] = [];
   let abstained = 0;
 
   folds.forEach((heldOut, index) => {
@@ -153,7 +201,7 @@ export function crossValidate(transactions, {
     const testRows = heldOut.flatMap(g => g.rows);
     if (!trainRows.length) return;
 
-    const trained = train(trainRows.map(r => ({ ...r, kind: 'expense' })), options);
+    const trained = train(trainRows.map(r => ({ ...r, kind: 'expense' as const })), options);
 
     testRows.forEach(row => {
       const prediction = trained ? classify(trained, row.merchant) : null;

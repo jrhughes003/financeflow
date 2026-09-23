@@ -8,6 +8,16 @@ import {
 import { withEffectiveAmount } from './reimbursements';
 import { getInvestmentsValue } from './accounts';
 
+import type {
+  Budget, Debt, EffectiveTransaction, Goal, Income, IncomeFrequency,
+  Investment, Money, Transaction,
+} from '../types/domain';
+import type {
+  Anomaly, AnomalyOptions, BudgetHealth, BudgetStatus, BudgetStatusName,
+  DayOfWeekSpending, DebtPayoff, GoalCompletion, GoalProgress, MerchantTotal,
+  MonthlyTrendPoint, NetWorthOptions, SpendingByCategory,
+} from '../types/analysis';
+
 // The currency every figure is printed in. `settings.currency` was stored but
 // never read, so amounts always rendered as en-US/USD whatever the setting
 // said. The provider calls setDisplayCurrency when state loads.
@@ -16,29 +26,29 @@ import { getInvestmentsValue } from './accounts';
 // it too, and threading a currency prop through all 42 of its call sites to say
 // the same thing each time would be noise. Every caller re-renders on a settings
 // change anyway, since the change goes through the context.
-export const SUPPORTED_CURRENCIES = ['CAD', 'USD'];
+export const SUPPORTED_CURRENCIES = ['CAD', 'USD'] as const;
 
 let displayCurrency = 'CAD';
 
-export function setDisplayCurrency(currency) {
+export function setDisplayCurrency(currency: string | undefined): void {
   if (currency) displayCurrency = currency;
 }
 
-export function getDisplayCurrency() {
+export function getDisplayCurrency(): string {
   return displayCurrency;
 }
 
 /** The locale a currency should be printed in — grouping and symbol placement. */
-export function localeFor(currency = displayCurrency) {
+export function localeFor(currency: string = displayCurrency): string {
   return currency === 'USD' ? 'en-US' : 'en-CA';
 }
 
-export function formatCurrency(amount, currency = displayCurrency) {
+export function formatCurrency(amount: number, currency: string = displayCurrency): string {
   return new Intl.NumberFormat(localeFor(currency), { style: 'currency', currency }).format(amount || 0);
 }
 
 // Normalize any income frequency to monthly equivalent
-export function toMonthlyAmount(amount, frequency) {
+export function toMonthlyAmount(amount: Money, frequency: IncomeFrequency | undefined): Money {
   switch (frequency) {
     case 'weekly': return amount * 52 / 12;
     case 'biweekly': return amount * 26 / 12;
@@ -50,7 +60,7 @@ export function toMonthlyAmount(amount, frequency) {
 }
 
 // Get total monthly income from all income sources
-export function getTotalIncome(incomes) {
+export function getTotalIncome(incomes: Income[]): Money {
   return incomes.reduce((sum, inc) => sum + toMonthlyAmount(inc.amount, inc.frequency), 0);
 }
 
@@ -58,7 +68,11 @@ export function getTotalIncome(incomes) {
 // Uses plain YYYY-MM-DD string comparison to avoid timezone-offset bugs.
 // parseISO('2026-03-01') returns UTC midnight — in ET (UTC-5) that's Feb 28 at 7pm,
 // which would wrongly place March 1st transactions in February.
-export function getTransactionsForPeriod(transactions, month, year) {
+export function getTransactionsForPeriod(
+  transactions: Transaction[],
+  month?: number,
+  year?: number,
+): EffectiveTransaction[] {
   if (month === undefined || year === undefined) return transactions;
   const mm = String(month + 1).padStart(2, '0');
   const startStr = `${year}-${mm}-01`;
@@ -74,21 +88,25 @@ export function getTransactionsForPeriod(transactions, month, year) {
 }
 
 // Round to cents to avoid floating-point drift (0.1 + 0.2 = 0.30000000000000004)
-function roundCents(n) {
+function roundCents(n: number): Money {
   return Math.round(n * 100) / 100;
 }
 
 // Total expenses for a period (excludes exceptions)
-export function getTotalExpenses(transactions, month, year) {
+export function getTotalExpenses(transactions: Transaction[], month?: number, year?: number): Money {
   const total = getTransactionsForPeriod(transactions, month, year)
     .reduce((sum, t) => sum + t.amount, 0);
   return roundCents(total);
 }
 
 // Spending grouped by category for a period
-export function getSpendingByCategory(transactions, month, year) {
+export function getSpendingByCategory(
+  transactions: Transaction[],
+  month?: number,
+  year?: number,
+): SpendingByCategory {
   const filtered = getTransactionsForPeriod(transactions, month, year);
-  const map = {};
+  const map: SpendingByCategory = {};
   filtered.forEach(t => {
     map[t.category] = roundCents((map[t.category] || 0) + t.amount);
   });
@@ -100,7 +118,12 @@ export function getSpendingByCategory(transactions, month, year) {
 // Budgets in FinanceFlow are not per-month, so the previous month's limit is the
 // same base amount; we carry a single month (predictable and bounded) rather than
 // compounding indefinitely. Returns 0 when rollover is off.
-export function getRolloverCarry(budget, transactions, month, year) {
+export function getRolloverCarry(
+  budget: Budget | null | undefined,
+  transactions: Transaction[],
+  month: number,
+  year: number,
+): Money {
   if (!budget || !budget.rollover) return 0;
   const prev = subMonths(new Date(year, month, 1), 1);
   const prevSpending = getSpendingByCategory(transactions, prev.getMonth(), prev.getFullYear());
@@ -111,7 +134,12 @@ export function getRolloverCarry(budget, transactions, month, year) {
 // Budget status for each category. When a budget has rollover enabled, the prior
 // month's leftover/overage is folded into an `effectiveBudget` against which
 // usage, flex, and status are measured.
-export function getBudgetStatus(budgets, transactions, month, year) {
+export function getBudgetStatus(
+  budgets: Budget[],
+  transactions: Transaction[],
+  month: number,
+  year: number,
+): BudgetStatus[] {
   const spending = getSpendingByCategory(transactions, month, year);
   return budgets.map(b => {
     const actual = spending[b.category] || 0;
@@ -121,7 +149,7 @@ export function getBudgetStatus(budgets, transactions, month, year) {
     const effectiveBudget = roundCents(Math.max(0, b.amount + carry));
     const flexLimit = effectiveBudget * (1 + flex / 100);
     const percentUsed = effectiveBudget > 0 ? (actual / effectiveBudget) * 100 : 0;
-    let status = 'good';
+    let status: BudgetStatusName = 'good';
     if (actual > flexLimit) status = 'danger';
     else if (percentUsed >= 80) status = 'warning';
     return {
@@ -143,8 +171,15 @@ export function getBudgetStatus(budgets, transactions, month, year) {
 // Categories that were over budget (danger) in at least `minOverMonths` of the
 // trailing `monthsBack` months. Computes each month's statuses once (monthsBack
 // calls total) instead of re-running getBudgetStatus per-budget-per-month.
-export function getConsistentlyOverBudget(budgets, transactions, month, year, monthsBack = 3, minOverMonths = 2) {
-  const overCounts = {};
+export function getConsistentlyOverBudget(
+  budgets: Budget[],
+  transactions: Transaction[],
+  month: number,
+  year: number,
+  monthsBack = 3,
+  minOverMonths = 2,
+): Budget[] {
+  const overCounts: Record<string, number> = {};
   for (let i = 1; i <= monthsBack; i++) {
     const d = subMonths(new Date(year, month, 1), i);
     const statuses = getBudgetStatus(budgets, transactions, d.getMonth(), d.getFullYear());
@@ -156,7 +191,12 @@ export function getConsistentlyOverBudget(budgets, transactions, month, year, mo
 }
 
 // Savings rate: (income - expenses) / income * 100
-export function getSavingsRate(incomes, transactions, month, year) {
+export function getSavingsRate(
+  incomes: Income[],
+  transactions: Transaction[],
+  month: number,
+  year: number,
+): number {
   const income = getTotalIncome(incomes);
   const expenses = getTotalExpenses(transactions, month, year);
   if (income === 0) return 0;
@@ -165,7 +205,12 @@ export function getSavingsRate(incomes, transactions, month, year) {
 
 // Net worth: investments + savings goal progress - debts. Investments tracked
 // against a statement (see accounts.js) use their estimated value today.
-export function getNetWorth(investments, debts, savingsGoals, { today = new Date() } = {}) {
+export function getNetWorth(
+  investments: Investment[],
+  debts: Debt[],
+  savingsGoals: Goal[],
+  { today = new Date() }: NetWorthOptions = {},
+): Money {
   const assets = getInvestmentsValue(investments, { today })
     + savingsGoals.reduce((s, g) => s + g.currentAmount, 0);
   const liabilities = debts.reduce((s, d) => s + d.balance, 0);
@@ -173,9 +218,12 @@ export function getNetWorth(investments, debts, savingsGoals, { today = new Date
 }
 
 // Monthly trend: returns array of {month, year, label, [categoryId]: amount, total}
-export function getMonthlyTrend(transactions, numMonths = DEFAULT_TREND_MONTHS) {
+export function getMonthlyTrend(
+  transactions: Transaction[],
+  numMonths: number = DEFAULT_TREND_MONTHS,
+): MonthlyTrendPoint[] {
   const now = new Date();
-  const result = [];
+  const result: MonthlyTrendPoint[] = [];
   for (let i = numMonths - 1; i >= 0; i--) {
     const d = subMonths(now, i);
     const m = d.getMonth();
@@ -188,12 +236,18 @@ export function getMonthlyTrend(transactions, numMonths = DEFAULT_TREND_MONTHS) 
 }
 
 // Budget health score: A-F based on % of categories within budget
-export function getBudgetHealthScore(budgets, transactions, month, year) {
+export function getBudgetHealthScore(
+  budgets: Budget[],
+  transactions: Transaction[],
+  month: number,
+  year: number,
+): BudgetHealth {
   if (!budgets.length) return { grade: 'N/A', percent: 0, color: '#94a3b8' };
   const statuses = getBudgetStatus(budgets, transactions, month, year);
   const withinBudget = statuses.filter(s => s.status !== 'danger').length;
   const percent = Math.round((withinBudget / statuses.length) * 100);
-  let grade, color;
+  let grade: BudgetHealth['grade'];
+  let color: string;
   if (percent >= 90) { grade = 'A'; color = '#22c55e'; }
   else if (percent >= 80) { grade = 'B'; color = '#84cc16'; }
   else if (percent >= 70) { grade = 'C'; color = '#f59e0b'; }
@@ -204,7 +258,7 @@ export function getBudgetHealthScore(budgets, transactions, month, year) {
 
 // Sum of savings contributions logged against a specific goal. A contribution is
 // any transaction tagged kind === 'savings' whose goalId matches.
-export function getGoalContributions(transactions, goalId) {
+export function getGoalContributions(transactions: Transaction[], goalId: string | undefined): Money {
   if (!goalId) return 0;
   const total = (transactions || [])
     .filter(t => t.kind === 'savings' && t.goalId === goalId)
@@ -214,7 +268,7 @@ export function getGoalContributions(transactions, goalId) {
 
 // Derived progress for a savings goal: the manually-entered opening balance
 // (currentAmount) plus everything contributed via savings transactions.
-export function getGoalProgress(goal, transactions) {
+export function getGoalProgress(goal: Goal, transactions: Transaction[]): GoalProgress {
   const opening = Number(goal.currentAmount) || 0;
   const contributed = getGoalContributions(transactions, goal.id);
   const total = roundCents(opening + contributed);
@@ -229,12 +283,17 @@ export function getGoalProgress(goal, transactions) {
 
 // Detect anomalies: categories spending well above their rolling average.
 // Thresholds come from constants but may be overridden via settings.
-export function detectAnomalies(transactions, month, year, options = {}) {
+export function detectAnomalies(
+  transactions: Transaction[],
+  month: number,
+  year: number,
+  options: AnomalyOptions = {},
+): Anomaly[] {
   const minAverage = options.minAverage ?? ANOMALY_MIN_AVERAGE;
   const multiplier = options.multiplier ?? ANOMALY_MULTIPLIER;
   const now = new Date(year, month, 1);
   const currentSpending = getSpendingByCategory(transactions, month, year);
-  const alerts = [];
+  const alerts: Anomaly[] = [];
 
   // Build rolling average over the lookback window
   const months = Array.from({ length: ANOMALY_LOOKBACK_MONTHS }, (_, i) => {
@@ -261,7 +320,7 @@ export function detectAnomalies(transactions, month, year, options = {}) {
 }
 
 // Project when a savings goal will be reached
-export function projectGoalCompletion(goal, monthlyContribution) {
+export function projectGoalCompletion(goal: Goal, monthlyContribution: Money): GoalCompletion | null {
   const remaining = goal.targetAmount - goal.currentAmount;
   if (monthlyContribution <= 0 || remaining <= 0) return null;
   const months = Math.ceil(remaining / monthlyContribution);
@@ -269,8 +328,8 @@ export function projectGoalCompletion(goal, monthlyContribution) {
 }
 
 // Get top merchants by total spend
-export function getTopMerchants(transactions, limit = 5) {
-  const map = {};
+export function getTopMerchants(transactions: Transaction[], limit = 5): MerchantTotal[] {
+  const map: Record<string, MerchantTotal> = {};
   transactions.forEach(t => {
     if (!map[t.merchant]) map[t.merchant] = { merchant: t.merchant, total: 0, count: 0, category: t.category };
     map[t.merchant].total += t.amount;
@@ -280,7 +339,7 @@ export function getTopMerchants(transactions, limit = 5) {
 }
 
 // Spending by day of week (0=Sun..6=Sat)
-export function getSpendingByDayOfWeek(transactions) {
+export function getSpendingByDayOfWeek(transactions: Transaction[]): DayOfWeekSpending[] {
   const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const counts = new Array(7).fill(0);
   const totals = new Array(7).fill(0);
@@ -293,7 +352,7 @@ export function getSpendingByDayOfWeek(transactions) {
 }
 
 // Debt payoff calculation
-export function calculateDebtPayoff(balance, interestRate, monthlyPayment) {
+export function calculateDebtPayoff(balance: Money, interestRate: number, monthlyPayment: Money): DebtPayoff | null {
   if (monthlyPayment <= 0) return null;
   const monthlyRate = interestRate / 100 / 12;
 

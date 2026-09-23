@@ -211,3 +211,67 @@ export interface RegisteredAccounts {
   hbpRepayFrom: number | null;
   hbpAnnual: Money;
 }
+
+// --- Monte Carlo -------------------------------------------------------------
+
+/** The p10/p50/p90 band of inflation-adjusted net worth for one year. */
+export interface NetWorthBand {
+  year: number;
+  /** Undefined for a year no path reached, which the chart skips. */
+  age: number | undefined;
+  p10: Money;
+  p50: Money;
+  p90: Money;
+}
+
+export interface SimulationResult {
+  /** Paths actually run, which an odd trial count makes differ from `trials` in. */
+  trials: number;
+  completed: number;
+  volatilityPct: number;
+  model: string;
+  /** Fraction of paths that never ran short. */
+  successRate: number;
+  /**
+   * A Wilson interval, not the normal approximation — at a few hundred trials
+   * the latter puts bounds outside [0, 1] near the extremes.
+   */
+  successInterval: { low: number; high: number };
+  /**
+   * Computed from the antithetic pair means, because a pair is the independent
+   * unit once antithetic sampling is on. Treating each path as independent
+   * here would understate it.
+   */
+  standardError: number;
+  failures: number;
+  bands: NetWorthBand[];
+  /** When the money ran out, across the paths where it did. */
+  depletionYears: { p10: number; p50: number; p90: number } | null;
+}
+
+/** Returned when the plan itself cannot run, so no simulation happened. */
+export interface SimulationNeedsSetup {
+  needsSetup: true;
+}
+
+export type SimulationOutcome = SimulationResult | SimulationNeedsSetup;
+
+/** Progress from one chunk of trials. */
+export interface RunProgress {
+  done: boolean;
+  completed: number;
+  total: number;
+}
+
+/**
+ * A simulation that can be advanced in pieces.
+ *
+ * Chunked so a worker can report progress and notice a cancellation between
+ * steps — a message only arrives between tasks, so an uninterrupted loop would
+ * never see one.
+ */
+export interface SimulationRun {
+  step: (pairs?: number) => RunProgress;
+  finish: () => SimulationOutcome;
+  total: number;
+}

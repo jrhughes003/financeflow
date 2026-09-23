@@ -28,6 +28,15 @@ export interface TrainingRow {
   category: string;
 }
 
+/**
+ * The three fields training reads.
+ *
+ * Narrower than Transaction on purpose: a real ledger satisfies it, and so does
+ * a labelled row from the evaluation harness, which has no amount or date and
+ * should not have to invent them.
+ */
+export type Labelled = Pick<Transaction, 'merchant' | 'category'> & Pick<Transaction, 'kind'>;
+
 export interface TrainOptions extends VocabularyOptions, Partial<Omit<FitOptions, 'dimensions' | 'classes'>> {
   /** Confidence below which classify() reports `confident: false`. */
   threshold?: number;
@@ -65,7 +74,7 @@ export const MIN_PER_CLASS = 2;
  * merchant, so they are excluded — including them would teach the model that
  * "savings →" predicts the savings pseudo-category, which is circular.
  */
-export function trainingData(transactions: Transaction[] = []): TrainingRow[] {
+export function trainingData(transactions: Labelled[] = []): TrainingRow[] {
   return transactions
     .filter(t => t.merchant && t.category && t.kind !== 'savings' && t.category !== 'savings')
     .map((t): TrainingRow => ({ merchant: t.merchant, category: t.category }))
@@ -86,7 +95,7 @@ function usableClasses(rows: TrainingRow[]): string[] {
  * Train on a ledger. Returns null when there isn't enough to learn from, which
  * callers treat as "fall back to keywords" rather than as an error.
  */
-export function train(transactions: Transaction[], options: TrainOptions = {}): TrainedClassifier | null {
+export function train(transactions: Labelled[], options: TrainOptions = {}): TrainedClassifier | null {
   const rows = trainingData(transactions);
   const classes = usableClasses(rows);
   if (rows.length < MIN_EXAMPLES || classes.length < 2) return null;

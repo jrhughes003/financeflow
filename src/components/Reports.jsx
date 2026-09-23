@@ -2,21 +2,18 @@ import React, { useState } from 'react';
 import { format } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import * as chart from './ui/chartTheme';
-import { Download, FileText } from 'lucide-react';
-import { useFinancial } from '../context/FinancialContext';
+import { Download, FileText, Sparkles } from 'lucide-react';
+import { useFinancial, useGetCategory } from '../context/FinancialContext';
 import { Card, PageLede, Stat, Money } from './ui';
 import {
   getTotalIncome, getTotalExpenses, getSpendingByCategory,
   getBudgetStatus, getSavingsRate, getNetWorth, getBudgetHealthScore,
   getMonthlyTrend, formatCurrency
 } from '../utils/calculations';
-import { getCategoryById } from '../utils/categorization';
-import { useGetCategory } from '../context/FinancialContext';
 import { exportToCSV, exportToJSON } from '../utils/exportUtils';
 import { withEffectiveAmount } from '../utils/reimbursements';
 import { getIncomeSources } from '../utils/accounts';
 import { runAi, buildSummary, taxonomy, aiSupported } from '../ai/ai';
-import { Sparkles } from 'lucide-react';
 
 // Plain-language names for the local lookups an answer used, so the user can see
 // what was consulted on their machine rather than taking the answer on trust.

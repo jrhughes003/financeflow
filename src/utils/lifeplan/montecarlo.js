@@ -99,6 +99,10 @@ export function createRun(plan, snapshot, {
 
   const step = antithetic ? 2 : 1;
   let cursor = 0;
+  // Counted rather than derived from the pair count: with an odd `trials` the
+  // last pair runs a single path, so pairs * 2 would claim one more path than
+  // was simulated and bias the success rate and its interval low.
+  let pathsRun = 0;
   let setupFailed = false;
 
   /** Advance by `pairs` iterations. Returns progress. */
@@ -123,6 +127,7 @@ export function createRun(plan, snapshot, {
         if (mirrored === null) { setupFailed = true; break; }
         outcomes.push(mirrored);
       }
+      pathsRun += outcomes.length;
       pairOutcomes.push(outcomes.reduce((a, b) => a + b, 0) / outcomes.length);
     }
     return { done: setupFailed || cursor >= trials, completed: Math.min(cursor, trials), total: trials };
@@ -142,7 +147,7 @@ export function createRun(plan, snapshot, {
   });
 
   const depSorted = [...depletions].sort((a, b) => a - b);
-  const ran = pairOutcomes.length * (antithetic ? 2 : 1);
+  const ran = pathsRun;
   const successRate = ran > 0 ? survived / ran : 0;
 
   // Standard error from the pair means, because a pair — not a path — is the

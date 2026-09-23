@@ -1,10 +1,4 @@
-import { format } from 'date-fns';
 import { autoCategorize } from './categorization.js';
-import {
-  getTotalIncome, getTotalExpenses, getSpendingByCategory, getBudgetStatus,
-  getSavingsRate, getNetWorth, getBudgetHealthScore,
-} from './calculations.js';
-import { getIncomeSources } from './accounts.js';
 
 // Download any string as a file
 function downloadFile(content, filename, mimeType) {
@@ -246,31 +240,4 @@ export function importFromCSV(file) {
     reader.onerror = () => reject(new Error('Could not read file'));
     reader.readAsText(file);
   });
-}
-
-// Generate a monthly report object
-export function generateMonthlyReport(data, month, year) {
-  const { transactions, budgets, savings_goals, investments, debts } = data;
-  const incomes = getIncomeSources(data.incomes, investments);
-
-  const income = getTotalIncome(incomes);
-  const expenses = getTotalExpenses(transactions, month, year);
-  const byCategory = getSpendingByCategory(transactions, month, year);
-  const budgetStatus = getBudgetStatus(budgets, transactions, month, year);
-  const savingsRate = getSavingsRate(incomes, transactions, month, year);
-  const netWorth = getNetWorth(investments, debts, savings_goals);
-  const healthScore = getBudgetHealthScore(budgets, transactions, month, year);
-
-  return {
-    period: format(new Date(year, month, 1), 'MMMM yyyy'),
-    income,
-    expenses,
-    netSavings: income - expenses,
-    savingsRate,
-    netWorth,
-    healthScore,
-    byCategory,
-    budgetStatus,
-    topCategories: Object.entries(byCategory).sort((a, b) => b[1] - a[1]).slice(0, 5),
-  };
 }

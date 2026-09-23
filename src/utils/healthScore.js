@@ -6,7 +6,7 @@
 // lets the same function produce a month-by-month trend.
 
 import { subMonths, format } from 'date-fns';
-import { getTotalIncome, getTransactionsForPeriod, getBudgetStatus } from './calculations';
+import { getTotalIncome, getTransactionsForPeriod, getBudgetStatus, getDisplayCurrency, localeFor } from './calculations';
 import { getIncomeSources, getInvestmentsValue, requiredPayment } from './accounts';
 
 const clamp = (n, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, n));
@@ -81,7 +81,7 @@ export function getFinancialHealth(state, { ref = new Date() } = {}) {
       score: clamp((rate / TARGET_SAVINGS_RATE) * 100),
       value: `${Math.round(rate)}%`,
       detail: `of income left after spending (target ${TARGET_SAVINGS_RATE}%)`,
-      tip: rate >= TARGET_SAVINGS_RATE ? null : `Spending ${formatUsd(needed)} less per month would reach a ${TARGET_SAVINGS_RATE}% savings rate.`,
+      tip: rate >= TARGET_SAVINGS_RATE ? null : `Spending ${formatWhole(needed)} less per month would reach a ${TARGET_SAVINGS_RATE}% savings rate.`,
     });
   } else {
     add('savings', 'Savings rate', { available: false, detail: income > 0 ? 'Needs a month of spending history' : 'Add your income to score this' });
@@ -122,7 +122,7 @@ export function getFinancialHealth(state, { ref = new Date() } = {}) {
       score: clamp((monthsCovered / TARGET_EMERGENCY_MONTHS) * 100),
       value: `${monthsCovered.toFixed(1)} mo`,
       detail: `of expenses covered by savings & investments (target ${TARGET_EMERGENCY_MONTHS})`,
-      tip: monthsCovered >= TARGET_EMERGENCY_MONTHS ? null : `Saving ${formatUsd(milestone * avgExpenses - saved)} more gets you to ${milestone} months of expenses.`,
+      tip: monthsCovered >= TARGET_EMERGENCY_MONTHS ? null : `Saving ${formatWhole(milestone * avgExpenses - saved)} more gets you to ${milestone} months of expenses.`,
     });
   } else {
     add('emergency', 'Emergency cushion', { available: false, detail: 'Needs a month of spending history' });
@@ -159,7 +159,7 @@ export function getFinancialHealth(state, { ref = new Date() } = {}) {
     add('stability', 'Spending stability', {
       available: true,
       score: clamp(((UNSTABLE_CV - cv) / (UNSTABLE_CV - STABLE_CV)) * 100),
-      value: `±${formatUsd(sd)}`,
+      value: `±${formatWhole(sd)}`,
       detail: `typical month-to-month swing (last ${six.length} mo)`,
       tip: cv <= STABLE_CV * 2 ? null : 'Big swings usually come from irregular bills — Analytics → Forecast shows what to set aside.',
     });
@@ -189,6 +189,12 @@ export function getHealthTrend(state, { today = new Date(), months = 6 } = {}) {
   });
 }
 
-function formatUsd(n) {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(Math.max(0, roundCents(n)));
+// Whole dollars: these appear mid-sentence in a tip, where cents are noise.
+// Follows the display currency like every other figure — it used to be pinned
+// to en-US/USD, so one tip could disagree with the number it was tipping about.
+function formatWhole(n) {
+  const currency = getDisplayCurrency();
+  return new Intl.NumberFormat(localeFor(currency), {
+    style: 'currency', currency, maximumFractionDigits: 0,
+  }).format(Math.max(0, roundCents(n)));
 }

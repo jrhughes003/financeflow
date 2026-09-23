@@ -7,7 +7,7 @@
 const { SCHEMA_SQL, CURRENT_VERSION, COLLECTION_TABLES } = require('./schema.cjs');
 
 // The default settings used when a fresh database has none yet.
-const DEFAULT_SETTINGS = { currency: 'USD', showSampleData: false };
+const DEFAULT_SETTINGS = { currency: 'CAD', showSampleData: false };
 
 /**
  * Create the schema (idempotent) and record the schema version. Safe to call on

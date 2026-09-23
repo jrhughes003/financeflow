@@ -35,6 +35,19 @@ describe('runMonteCarlo', () => {
     expect(runMonteCarlo(createDefaultPlan(), snap(), { today: TODAY, trials: 2 })).toEqual({ needsSetup: true });
   });
 
+  // `trials` was reported as pairs * 2, but an odd count runs a single path in
+  // the last pair. The extra phantom path counted as a failure, pulling the
+  // success rate and its interval down.
+  it('reports the number of paths it actually ran, odd counts included', () => {
+    const funded = snap({ cash: 5000000 });
+    for (const trials of [1, 5, 7]) {
+      const r = runMonteCarlo(plan(), funded, { today: TODAY, trials });
+      expect(r.trials).toBe(trials);
+      expect(r.successRate).toBe(1);
+      expect(r.successInterval.low).toBeGreaterThan(0);
+    }
+  });
+
   it('always succeeds when the plan is funded regardless of markets', () => {
     const r = runMonteCarlo(plan(), snap({ cash: 5000000 }), { today: TODAY, trials: 40 });
     expect(r.successRate).toBe(1);

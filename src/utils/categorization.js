@@ -105,11 +105,3 @@ export function getCategoryById(id, customCategories = []) {
   return getAllCategories(customCategories).find(c => c.id === id)
     || CATEGORIES[CATEGORIES.length - 1]; // fallback to Products
 }
-
-export function getCategoryColor(id, customCategories = []) {
-  return getCategoryById(id, customCategories).color;
-}
-
-export function getCategoryName(id, customCategories = []) {
-  return getCategoryById(id, customCategories).name;
-}

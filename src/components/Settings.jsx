@@ -4,6 +4,7 @@ import { useFinancial } from '../context/FinancialContext';
 import { aiSupported, getAiStatus, setAiKey, clearAiKey } from '../ai/ai';
 import { exportToJSON, importFromJSON } from '../utils/exportUtils';
 import generateDemoData from '../utils/demoData';
+import { SUPPORTED_CURRENCIES, formatCurrency } from '../utils/calculations';
 
 export default function Settings() {
   const { state, dispatch } = useFinancial();
@@ -150,6 +151,26 @@ export default function Settings() {
           </button>
           <input ref={fileRef} type="file" accept="application/json,.json" onChange={handleImport} className="hidden" />
         </div>
+      </div>
+
+      {/* Display */}
+      <div className="bg-surface rounded-container border border-line p-5">
+        <h2 className="text-lg font-semibold text-ink mb-3">Display</h2>
+        <label htmlFor="settings-currency" className="block text-caption text-ink-muted mb-1.5">
+          Currency
+        </label>
+        <select
+          id="settings-currency"
+          value={settings.currency || 'CAD'}
+          onChange={e => dispatch({ type: 'UPDATE_SETTINGS', payload: { currency: e.target.value } })}
+          className="w-full sm:w-48 px-3 h-9 text-sm bg-surface border border-line rounded-control text-ink focus:outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-accent"
+        >
+          {SUPPORTED_CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
+        <p className="text-sm text-ink-muted mt-2">
+          Changes how every figure is printed — for example {formatCurrency(1234.5)}. It does not
+          convert anything: the amounts you entered stay exactly as they are.
+        </p>
       </div>
 
       {/* Demo data */}

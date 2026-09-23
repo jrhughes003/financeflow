@@ -6,6 +6,7 @@
 // component here — not finding forty occurrences of `rounded-2xl shadow-sm`.
 
 import React from 'react';
+import { getDisplayCurrency, localeFor } from '../../utils/calculations';
 
 const cx = (...parts) => parts.filter(Boolean).join(' ');
 
@@ -96,12 +97,17 @@ export function IconButton({ icon: Icon, label, variant = 'ghost', className = '
  * just because it exists.
  * ---------------------------------------------------------------------- */
 export function Money({
-  value, currency = 'CAD', locale = 'en-CA', signed = false, colour = false,
+  value, currency, locale, signed = false, colour = false,
   size = 'base', className = '', decimals = 2,
 }) {
+  // Defaulting to CAD here while formatCurrency() read settings.currency meant
+  // the same page could print one figure as en-CA and the next as en-US. Both
+  // render a bare "$", so it stayed invisible — which is exactly why it needs
+  // one source rather than two.
+  const ccy = currency || getDisplayCurrency();
   const amount = Number(value) || 0;
-  const formatted = new Intl.NumberFormat(locale, {
-    style: 'currency', currency,
+  const formatted = new Intl.NumberFormat(locale || localeFor(ccy), {
+    style: 'currency', currency: ccy,
     minimumFractionDigits: decimals, maximumFractionDigits: decimals,
   }).format(Math.abs(amount));
 

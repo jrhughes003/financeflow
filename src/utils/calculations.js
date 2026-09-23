@@ -11,15 +11,30 @@ import { getInvestmentsValue } from './accounts';
 // The currency every figure is printed in. `settings.currency` was stored but
 // never read, so amounts always rendered as en-US/USD whatever the setting
 // said. The provider calls setDisplayCurrency when state loads.
+//
+// It lives here rather than in React state because the <Money> primitive needs
+// it too, and threading a currency prop through all 42 of its call sites to say
+// the same thing each time would be noise. Every caller re-renders on a settings
+// change anyway, since the change goes through the context.
+export const SUPPORTED_CURRENCIES = ['CAD', 'USD'];
+
 let displayCurrency = 'CAD';
 
 export function setDisplayCurrency(currency) {
   if (currency) displayCurrency = currency;
 }
 
+export function getDisplayCurrency() {
+  return displayCurrency;
+}
+
+/** The locale a currency should be printed in — grouping and symbol placement. */
+export function localeFor(currency = displayCurrency) {
+  return currency === 'USD' ? 'en-US' : 'en-CA';
+}
+
 export function formatCurrency(amount, currency = displayCurrency) {
-  const locale = currency === 'USD' ? 'en-US' : 'en-CA';
-  return new Intl.NumberFormat(locale, { style: 'currency', currency }).format(amount || 0);
+  return new Intl.NumberFormat(localeFor(currency), { style: 'currency', currency }).format(amount || 0);
 }
 
 // Normalize any income frequency to monthly equivalent
@@ -275,20 +290,6 @@ export function getSpendingByDayOfWeek(transactions) {
     totals[dow] += t.amount;
   });
   return days.map((name, i) => ({ name, total: totals[i], count: counts[i], avg: counts[i] ? totals[i] / counts[i] : 0 }));
-}
-
-// Month-over-month change for total spending
-export function getMonthOverMonthChange(transactions, month, year) {
-  const curr = getTotalExpenses(transactions, month, year);
-  const prevDate = subMonths(new Date(year, month, 1), 1);
-  const prev = getTotalExpenses(transactions, prevDate.getMonth(), prevDate.getFullYear());
-  if (prev === 0) return null;
-  return { current: curr, previous: prev, change: curr - prev, percent: ((curr - prev) / prev) * 100 };
-}
-
-// Compound interest projection for investments
-export function projectInvestmentValue(currentValue, annualReturn, years) {
-  return currentValue * Math.pow(1 + annualReturn / 100, years);
 }
 
 // Debt payoff calculation

@@ -14,8 +14,6 @@ import {
   projectGoalCompletion,
   getTopMerchants,
   getSpendingByDayOfWeek,
-  getMonthOverMonthChange,
-  projectInvestmentValue,
   calculateDebtPayoff,
   getMonthlyTrend,
   getRolloverCarry,
@@ -341,27 +339,6 @@ describe('getSpendingByDayOfWeek', () => {
     const result = getSpendingByDayOfWeek([tx({ date: '2026-03-15', amount: 20 })]);
     expect(result).toHaveLength(7);
     expect(result[0]).toMatchObject({ name: 'Sun', total: 20, count: 1, avg: 20 });
-  });
-});
-
-describe('getMonthOverMonthChange', () => {
-  it('compares current vs previous month', () => {
-    const txns = [
-      tx({ date: '2026-02-10', amount: 100 }),
-      tx({ date: '2026-03-10', amount: 150 }),
-    ];
-    const result = getMonthOverMonthChange(txns, MARCH.month, MARCH.year);
-    expect(result).toMatchObject({ current: 150, previous: 100, change: 50 });
-    expect(result.percent).toBeCloseTo(50);
-  });
-  it('returns null when the previous month had no spending', () => {
-    expect(getMonthOverMonthChange([tx({ date: '2026-03-10', amount: 10 })], MARCH.month, MARCH.year)).toBeNull();
-  });
-});
-
-describe('projectInvestmentValue', () => {
-  it('compounds annually', () => {
-    expect(projectInvestmentValue(1000, 10, 2)).toBeCloseTo(1210);
   });
 });
 

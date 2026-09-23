@@ -21,7 +21,7 @@ export const sampleData = {
   recurringTemplates: [],
 
   settings: {
-    currency: 'USD',
+    currency: 'CAD',
     showSampleData: false,
   },
 };

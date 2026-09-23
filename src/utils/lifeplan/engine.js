@@ -24,7 +24,6 @@ const ym = (y, m) => `${y}-${String(m + 1).padStart(2, '0')}`;
 const parseYm = s => ({ y: Number(s.slice(0, 4)), m: Number(s.slice(5, 7)) - 1 });
 const monthsBetween = (a, b) => (b.y - a.y) * 12 + (b.m - a.m);
 
-export const PERSON_IDS = ['me', 'partner'];
 
 /**
  * Expand events into dated occurrences (cars repeat every N years).

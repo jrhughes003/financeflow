@@ -94,7 +94,7 @@ describe('repository', () => {
 
   it('defaults settings when the database has none', () => {
     const loaded = loadAll(db);
-    expect(loaded.settings).toEqual({ currency: 'USD', showSampleData: false });
+    expect(loaded.settings).toEqual({ currency: 'CAD', showSampleData: false });
   });
 
   // A single unreadable row used to reject the whole load. The renderer read
@@ -127,7 +127,7 @@ describe('repository', () => {
       db.prepare("UPDATE meta SET value = ? WHERE key = 'settings'").run('{not json');
 
       const loaded = loadAll(db);
-      expect(loaded.settings).toEqual({ currency: 'USD', showSampleData: false });
+      expect(loaded.settings).toEqual({ currency: 'CAD', showSampleData: false });
       expect(loaded._corruptRows).toBe(1);
     });
 

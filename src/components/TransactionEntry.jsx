@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { X, Zap, Plus, Sparkles, HandCoins } from 'lucide-react';
 import { format } from 'date-fns';
 import { useFinancial, useGetCategory } from '../context/FinancialContext';
-import { CATEGORIES, getAllCategories, autoCategorize } from '../utils/categorization';
+import { getAllCategories, autoCategorize } from '../utils/categorization';
 import { runAi, taxonomy, aiSupported } from '../ai/ai';
 import { train, classify } from '../utils/ml/categorizer';
 import { owedFromSplit, getOwedStatus, buildOwed } from '../utils/reimbursements';

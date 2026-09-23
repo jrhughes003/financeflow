@@ -13,6 +13,21 @@ const secureStore = require('./ai/secureStore.cjs');
 
 const isDev = !app.isPackaged;
 
+/** URL parsing that answers "no" instead of throwing. */
+function parseUrl(url) {
+  try {
+    return new URL(url);
+  } catch {
+    return null;
+  }
+}
+
+/** Only real web links are worth handing to the system browser. */
+function isExternal(url) {
+  const parsed = parseUrl(url);
+  return parsed !== null && /^https?:$/.test(parsed.protocol);
+}
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1280,
@@ -21,6 +36,7 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true, // renderer cannot reach Node directly
       nodeIntegration: false,
+      sandbox: true, // Electron's default here, but worth saying out loud
     },
   });
 
@@ -29,17 +45,20 @@ function createWindow() {
   // both are refused and genuine external links go to the real browser instead,
   // where they are sandboxed and visible.
   win.webContents.setWindowOpenHandler(({ url }) => {
-    if (/^https?:$/.test(new URL(url).protocol)) shell.openExternal(url);
+    if (isExternal(url)) shell.openExternal(url);
     return { action: 'deny' };
   });
 
   win.webContents.on('will-navigate', (event, url) => {
-    const target = new URL(url);
+    const target = parseUrl(url);
     const devServer = process.env.VITE_DEV_SERVER_URL;
     const allowed = isDev && devServer && url.startsWith(devServer);
-    if (!allowed && target.protocol !== 'file:') {
+    // An unparseable URL is not a file: URL, so it lands here and is blocked.
+    // Parsing used to happen before this line, which meant a malformed URL
+    // threw out of the handler and the navigation went ahead unblocked.
+    if (!allowed && target?.protocol !== 'file:') {
       event.preventDefault();
-      if (/^https?:$/.test(target.protocol)) shell.openExternal(url);
+      if (isExternal(url)) shell.openExternal(url);
     }
   });
 

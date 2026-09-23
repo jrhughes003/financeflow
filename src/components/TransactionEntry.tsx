@@ -1,3 +1,4 @@
+import Modal from './ui/Modal';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { X, Zap, Plus, Sparkles, HandCoins } from 'lucide-react';
 import { format } from 'date-fns';
@@ -558,15 +559,22 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
     );
   }
 
+  const title = editTransaction ? 'Edit Transaction' : 'Add Transaction';
+
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-ink/25 animate-fade-in">
-      <div className="bg-surface w-full sm:max-w-md sm:rounded-container rounded-t-2xl shadow-overlay max-h-[90vh] overflow-y-auto">
+    <Modal
+      label={title}
+      onClose={() => onClose?.()}
+      className="w-full sm:max-w-md"
+      initialFocus={amountRef}
+    >
+      <div className="bg-surface w-full sm:rounded-container rounded-t-2xl shadow-overlay max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-line">
-          <h2 className="text-lg font-bold text-ink">{editTransaction ? 'Edit Transaction' : 'Add Transaction'}</h2>
-          <button onClick={onClose} className="text-ink-muted hover:text-ink-secondary"><X className="w-5 h-5" /></button>
+          <h2 className="text-lg font-bold text-ink">{title}</h2>
+          <button onClick={onClose} aria-label="Close" className="text-ink-muted hover:text-ink-secondary"><X className="w-5 h-5" /></button>
         </div>
         <div className="px-6 py-5">{content}</div>
       </div>
-    </div>
+    </Modal>
   );
 }

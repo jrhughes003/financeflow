@@ -204,6 +204,48 @@ The classifier's probabilities are what make the arrangement work: a confidence
 threshold decides when to answer and when to defer, which a naive Bayes model's
 saturated scores could not support.
 
+## Measuring the Q&A
+
+An assistant that answers questions about your money has one failure that
+matters more than the rest: a confident figure that is wrong. So the eval in
+[`eval/`](eval/) scores two things and deliberately refuses to average them.
+
+| | what it asks |
+|---|---|
+| **trust** | Did every monetary figure in the answer come from a number a tool actually returned, or a simple ratio or difference of two? |
+| **correct** | When there was a right figure, did the answer contain it? |
+
+An answer that says "I can't see that from here" scores trust 1, correct 0 —
+unhelpful but safe. A confident wrong number scores trust 0, which is the
+outcome that ends someone's trust in the feature for good. Averaging the two
+would let the second hide behind the first.
+
+The grader is programmatic, not an LLM judge
+([`eval/grader.mjs`](eval/grader.mjs)). Every tool result is captured during the
+run, so "was this number sourced?" is a decidable question rather than a matter
+of opinion — each figure in the answer is traced back to the tool call that
+produced it.
+
+The 25 cases ([`eval/cases.mjs`](eval/cases.mjs)) include six marked `seed`,
+which are questions I actually asked the app, typos included. Expected figures
+resolve at run time from the demo ledger rather than being hardcoded, so the
+cases cannot rot as the generator changes. Some cases carry `noFigure`: they
+have no honest answer, and stating one at all is a trust failure.
+
+It drives the shipped code path — the same `runFeature('query', …)` and the
+same `aggregates.cjs` tools the desktop app uses — so what is measured is the
+real behaviour rather than a reimplementation of it.
+
+```bash
+npm run ai:mock                                # terminal 1: the local API stand-in
+npx vite-node eval/run.mjs -- --mock --limit 3 # terminal 2: free smoke run
+npx vite-node eval/run.mjs                     # the real thing; needs an API key
+```
+
+The mock run exercises the whole harness for nothing, but its scores are
+meaningless — the stand-in returns canned text. **Numbers from a real run are
+not published here yet.** When they are, they will be these two, separately.
+
 ## Privacy
 
 - **Your data stays local.** SQLite (desktop) and `localStorage` (browser) never leave your machine.

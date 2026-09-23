@@ -19,7 +19,7 @@ import { state } from './groundTruth.mjs';
 import { createClient, runFeature } from '../electron/ai/client.cjs';
 import { executeTool } from '../electron/ai/aggregates.cjs';
 import { buildPayload } from '../electron/ai/payload.cjs';
-import { taxonomy } from '../src/ai/ai.js';
+import { taxonomy } from '../src/ai/ai';
 
 const args = process.argv.slice(2);
 const flag = (name, fallback = null) => {

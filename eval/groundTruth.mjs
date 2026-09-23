@@ -5,7 +5,7 @@
 // calls, a bug in that code would grade itself correct. These are independent
 // second-source numbers over the same deterministic demo data.
 
-import generateDemoData from '../src/utils/demoData.js';
+import generateDemoData from '../src/utils/demoData';
 
 export const TODAY = new Date(2026, 8, 22); // 2026-09-22
 export const state = generateDemoData(TODAY);

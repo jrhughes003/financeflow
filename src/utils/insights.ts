@@ -83,7 +83,8 @@ export interface SavingsOpportunity {
   // The rest depend on `type`. Optional rather than a discriminated union
   // because the panel renders them through one shared row; naming them is
   // still worth more than leaving every read as `unknown`.
-  category?: string;
+  /** Null on the recurring-cost entry, which spans every category. */
+  category?: string | null;
   merchant?: string;
   average?: Money;
   previousAverage?: Money;

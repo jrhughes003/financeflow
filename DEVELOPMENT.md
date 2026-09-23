@@ -90,3 +90,28 @@ you're running with the binary built for the other runtime — rebuild as above.
 - The reliable cross-environment path (e.g. browser → desktop) is the JSON backup:
   **Export** a backup from the web app, then **Import** it in the desktop app
   (`exportToJSON` / `importFromJSON` in `src/utils/exportUtils.js`).
+
+## Measuring the Q&A
+
+`eval/` scores the Q&A feature on two metrics that are never averaged: **trust**
+(every figure traces to a tool result) and **correct** (the right figure was
+there when one existed). The grader is programmatic rather than an LLM judge —
+tool results are captured during the run, so whether a number was sourced is
+decidable. Rationale and the case design are in the README.
+
+```bash
+npm run ai:mock                                   # the local stand-in, port 8787
+npx vite-node eval/run.mjs -- --mock --limit 3    # free smoke run
+npx vite-node eval/run.mjs -- --limit 3           # real, small
+npx vite-node eval/run.mjs                        # real, all 25 cases
+npx vite-node eval/listCases.mjs                  # what the cases cover
+npx vite-node eval/graderCheck.mjs                # tests for the grader itself
+```
+
+The API key comes from `ANTHROPIC_API_KEY` or `eval/.env.local`, which
+`.gitignore` covers. Results land in `.claude/hillclimb/qa/<variant>/` as
+`results.jsonl` plus a trace per case, written one row at a time so a crash
+costs only the case in flight.
+
+A mock run proves the harness works; its scores mean nothing, because the
+stand-in returns canned text.

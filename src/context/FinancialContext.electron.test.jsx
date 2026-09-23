@@ -41,7 +41,7 @@ async function renderElectron(db) {
 
   const React = (await import('react')).default;
   const rtl = await import('@testing-library/react');
-  const { FinancialProvider, useFinancial } = await import('./FinancialContext.jsx');
+  const { FinancialProvider, useFinancial } = await import('./FinancialContext');
 
   function Capture() {
     captured = useFinancial();

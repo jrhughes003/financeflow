@@ -8,22 +8,51 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { Undo2, X } from 'lucide-react';
 
-const ToastContext = createContext(null);
+/** Colour and intent. `neutral` is the undo toast, which is not a success. */
+export type ToastType = 'success' | 'error' | 'neutral';
+
+/** The button on a toast - in practice always Undo. */
+export interface ToastAction {
+  label: string;
+  onClick: () => void;
+}
+
+export interface ToastOptions {
+  type?: ToastType;
+  action?: ToastAction | null;
+  /** Defaults to longer when there is an action to click. */
+  duration?: number;
+}
+
+interface Toast {
+  id: string;
+  message: string;
+  type: ToastType;
+  action: ToastAction | null;
+}
+
+export interface ToastApi {
+  /** Returns the toast id, so a caller can dismiss it early. */
+  toast: (message: string, options?: ToastOptions) => string;
+  dismiss: (id: string) => void;
+}
+
+const ToastContext = createContext<ToastApi | null>(null);
 
 const DEFAULT_DURATION = 4000;
 const UNDO_DURATION = 7000; // long enough to notice a mistake and reach the mouse
 
-export function ToastProvider({ children }) {
-  const [toasts, setToasts] = useState([]);
-  const timers = useRef(new Map());
+export function ToastProvider({ children }: { children: React.ReactNode }) {
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
 
-  const dismiss = useCallback((id) => {
+  const dismiss = useCallback((id: string): void => {
     setToasts(list => list.filter(t => t.id !== id));
     const timer = timers.current.get(id);
     if (timer) { clearTimeout(timer); timers.current.delete(id); }
   }, []);
 
-  const toast = useCallback((message, options = {}) => {
+  const toast = useCallback((message: string, options: ToastOptions = {}): string => {
     const { type = 'success', action = null, duration = action ? UNDO_DURATION : DEFAULT_DURATION } = options;
     const id = `toast_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
     setToasts(list => [...list, { id, message, type, action }]);
@@ -50,7 +79,7 @@ export function ToastProvider({ children }) {
             <span className="flex-1">{t.message}</span>
             {t.action && (
               <button
-                onClick={() => { t.action.onClick(); dismiss(t.id); }}
+                onClick={() => { t.action?.onClick(); dismiss(t.id); }}
                 className="flex items-center gap-1.5 px-2.5 py-1 rounded-control bg-surface/20 hover:bg-surface/30 transition-colors"
               >
                 <Undo2 className="w-3.5 h-3.5" />
@@ -74,9 +103,9 @@ export function ToastProvider({ children }) {
 // Module-level so the identity is stable: callers put `toast` in effect
 // dependency arrays, and a fresh object per render would re-run those effects
 // on every render.
-const NO_TOASTS = { toast: () => {}, dismiss: () => {} };
+const NO_TOASTS: ToastApi = { toast: () => '', dismiss: () => {} };
 
-export function useToast() {
+export function useToast(): ToastApi {
   const ctx = useContext(ToastContext);
   // Components are rendered inside the provider in the app, but tests may mount
   // one on its own; a no-op keeps those from crashing.

@@ -11,6 +11,48 @@
 import { useCallback } from 'react';
 import { useFinancial } from '../context/FinancialContext';
 import { useToast } from '../context/ToastContext';
+import type { Action } from '../types/state';
+import type {
+  Budget, Debt, Goal, Income, Investment, RecurringTemplate, Transaction,
+} from '../types/domain';
+
+/** Which collection a deletable record belongs to, and what it holds. */
+interface EntityMap {
+  transaction: Transaction;
+  budget: Budget;
+  goal: Goal;
+  debt: Debt;
+  income: Income;
+  investment: Investment;
+  recurring: RecurringTemplate;
+}
+
+export type EntityKind = keyof EntityMap;
+
+/**
+ * How to remove and restore one kind of record.
+ *
+ * Factories rather than action-type strings, because the two halves of an
+ * action are not independent - a delete takes an id while an add or an upsert
+ * takes the whole object. A `type` read out of a lookup table is just `string`
+ * and can never be checked against the Action union.
+ */
+interface EntityActions<K extends EntityKind> {
+  noun: string;
+  remove: (id: string) => Action;
+  restore: (item: EntityMap[K]) => Action;
+}
+
+/**
+ * The argument. Generic over the kind, so `{ type: 'goal', item: someBudget }`
+ * does not compile - the kind and the record have to agree.
+ */
+export interface UndoableDelete<K extends EntityKind = EntityKind> {
+  type: K;
+  item: EntityMap[K];
+  /** Overrides the name shown in the toast. */
+  label?: string;
+}
 
 // How to remove and restore each entity, and what to call it in the message.
 // SET_BUDGET and ADD_* are upserts or appends, so restoring is just re-adding
@@ -23,7 +65,7 @@ import { useToast } from '../context/ToastContext';
 // just `string` there — and no amount of `as const` fixes it, because nothing
 // ties the chosen type back to the payload it requires. Building the action in
 // one place does.
-const ENTITIES = {
+const ENTITIES: { [K in EntityKind]: EntityActions<K> } = {
   transaction: {
     noun: 'Transaction',
     remove: id => ({ type: 'DELETE_TRANSACTION', payload: id }),
@@ -66,13 +108,22 @@ export function useUndoableDelete() {
   const { dispatch } = useFinancial();
   const { toast } = useToast();
 
-  return useCallback(({ type, item, label }) => {
-    const entity = ENTITIES[type];
+  // Generic over the kind rather than taking a union: with K concrete,
+  // ENTITIES[type] is EntityActions<K> and item is EntityMap[K], so the two
+  // correlate on their own and nothing has to be asserted.
+  return useCallback(<K extends EntityKind>({ type, item, label }: UndoableDelete<K>): void => {
+    // ENTITIES[type] with a generic key is a distributive indexed access, which
+    // TypeScript widens to a union of function types and refuses to call - it
+    // cannot see that the factory it picked matches the item beside it. The
+    // signature above is what actually enforces that pairing, at every call
+    // site; this restates it once, where the checker cannot follow.
+    const entity = ENTITIES[type] as EntityActions<K>;
     if (!entity || !item) return;
 
     dispatch(entity.remove(item.id));
 
-    const name = label || item.name || item.merchant || entity.noun;
+    const named = item as { name?: string; merchant?: string };
+    const name = label || named.name || named.merchant || entity.noun;
     toast(`${entity.noun === name ? name : `${entity.noun} “${name}”`} deleted`, {
       type: 'neutral',
       action: { label: 'Undo', onClick: () => dispatch(entity.restore(item)) },

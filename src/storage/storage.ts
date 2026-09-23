@@ -5,6 +5,9 @@
 // it falls back to the original localStorage behavior, so the web workflow keeps
 // working unchanged. Callers (FinancialContext) don't know or care which is active.
 
+import type { FinanceFlowApi } from '../types/api';
+import type { AppState } from '../types/state';
+
 const STORAGE_KEY = 'financeflow_data';
 
 const electronBridge = typeof window !== 'undefined' && window.api && window.api.isElectron
@@ -21,12 +24,12 @@ export const storageMode = isElectron ? 'sqlite' : 'localStorage';
  * global stays optional — which it genuinely is, since `npm run dev` has no
  * preload — and exactly one place has to prove it is present.
  */
-export function electronApi() {
+export function electronApi(): FinanceFlowApi | null {
   return electronBridge;
 }
 
 /** Read the legacy localStorage blob, if any. Used for one-time migration + web mode. */
-export function readLegacyLocalStorage() {
+export function readLegacyLocalStorage(): unknown {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) return JSON.parse(stored);
@@ -35,14 +38,14 @@ export function readLegacyLocalStorage() {
 }
 
 /** Has this storage backend been seeded yet? */
-export async function isInitialized() {
-  if (isElectron) return electronBridge.db.isInitialized();
+export async function isInitialized(): Promise<boolean> {
+  if (electronBridge) return electronBridge.db.isInitialized();
   return readLegacyLocalStorage() !== null;
 }
 
 /** Load the full app state, or null if nothing has been persisted yet. */
-export async function loadState() {
-  if (isElectron) return electronBridge.db.loadAll();
+export async function loadState(): Promise<unknown> {
+  if (electronBridge) return electronBridge.db.loadAll();
   return readLegacyLocalStorage();
 }
 
@@ -54,8 +57,8 @@ export async function loadState() {
  * in private mode — leaves the user editing a copy that is never saved, and
  * they find out when they reopen the app. The caller turns this into a toast.
  */
-export async function saveState(state) {
-  if (isElectron) {
+export async function saveState(state: AppState): Promise<void> {
+  if (electronBridge) {
     await electronBridge.db.saveAll(state);
     return;
   }
@@ -63,7 +66,7 @@ export async function saveState(state) {
 }
 
 /** Mark the backend seeded so first-run bootstrap doesn't re-seed. */
-export async function markInitialized() {
-  if (isElectron) await electronBridge.db.markInitialized();
+export async function markInitialized(): Promise<void> {
+  if (electronBridge) await electronBridge.db.markInitialized();
   // localStorage mode is implicitly "initialized" once saveState has written the blob.
 }

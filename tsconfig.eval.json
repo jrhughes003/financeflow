@@ -10,6 +10,8 @@
     "lib": ["ES2022", "DOM"],
     "module": "ESNext",
     "moduleResolution": "bundler",
+    // The harness reaches into src/, which now contains .tsx.
+    "jsx": "react-jsx",
     "allowJs": true,
     "checkJs": false,
     "noEmit": true,

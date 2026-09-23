@@ -4,6 +4,9 @@ import generateDemoData from '../utils/demoData';
 import { isDemoBuild } from '../demoMode';
 import { getCategoryById } from '../utils/categorization';
 import { setDisplayCurrency } from '../utils/calculations';
+import type { Category } from '../types/domain';
+import type { Action, AppState, Dispatch } from '../types/state';
+import { asAppState } from '../types/state';
 import { useToast } from './ToastContext';
 import LoadFailure from '../components/LoadFailure';
 import {
@@ -15,14 +18,22 @@ import {
   readLegacyLocalStorage,
 } from '../storage/storage';
 
-const FinancialContext = createContext(null);
-
-// Ensure customCategories field always exists (backwards compat).
-function withDefaults(parsed) {
-  return { customCategories: [], ...parsed };
+/** What every consumer gets: the whole state, and the one way to change it. */
+export interface FinancialContextValue {
+  state: AppState;
+  dispatch: Dispatch;
 }
 
-function loadInitialState() {
+const FinancialContext = createContext<FinancialContextValue | null>(null);
+
+// Ensure customCategories field always exists (backwards compat).
+function withDefaults(parsed: unknown): AppState {
+  // asAppState fills in every collection, so a blob written before a later
+  // version added one still loads.
+  return asAppState(parsed);
+}
+
+function loadInitialState(): AppState {
   // Synchronous best-effort: in web mode this is the real load; in Electron it's
   // an immediate placeholder that the async SQLite load (below) replaces.
   const legacy = readLegacyLocalStorage();
@@ -33,7 +44,7 @@ function loadInitialState() {
   return { ...sampleData };
 }
 
-function reducer(state, action) {
+function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
     case 'ADD_TRANSACTION':
       return { ...state, transactions: [...state.transactions, action.payload] };
@@ -118,7 +129,10 @@ function reducer(state, action) {
       return { ...state, customCategories: (state.customCategories || []).filter(c => c.id !== action.payload) };
 
     case 'LOAD_DATA':
-      return { customCategories: [], ...action.payload };
+      // Narrowed again rather than spread: this payload can originate from a
+      // backup file or from rows round-tripped through SQLite, and the type
+      // on the action describes the intent, not what is guaranteed to arrive.
+      return asAppState(action.payload);
 
     case 'RESET_DATA':
       return { ...sampleData };
@@ -131,7 +145,7 @@ function reducer(state, action) {
   }
 }
 
-export function FinancialProvider({ children }) {
+export function FinancialProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, null, loadInitialState);
   const { toast } = useToast();
 
@@ -142,7 +156,7 @@ export function FinancialProvider({ children }) {
   // A load that failed is the one state where writing is unsafe: `state` is
   // still the empty placeholder, and persisting it would delete every row the
   // load couldn't read. So the failure blocks the UI instead of being a toast.
-  const [loadError, setLoadError] = useState(null);
+  const [loadError, setLoadError] = useState<unknown>(null);
 
   // One toast per outage, not one per keystroke.
   const saveFailed = useRef(false);
@@ -160,10 +174,12 @@ export function FinancialProvider({ children }) {
         if (await isInitialized()) {
           const loaded = await loadState();
           if (!cancelled && loaded) {
-            // `_corruptRows` is a load report, not app state — strip it before
-            // the reducer spreads it in and the next save writes it back.
-            const { _corruptRows: corrupt, ...payload } = loaded;
-            dispatch({ type: 'LOAD_DATA', payload });
+            // `_corruptRows` is a load report, not app state. asAppState copies
+            // only the known collections, so the report cannot reach the
+            // reducer and be written back — it is dropped by construction
+            // rather than by remembering to strip it.
+            const corrupt = (loaded as { _corruptRows?: number })._corruptRows ?? 0;
+            dispatch({ type: 'LOAD_DATA', payload: asAppState(loaded) });
             if (corrupt > 0) {
               toast(
                 `${corrupt} ${corrupt === 1 ? 'record was' : 'records were'} unreadable and have been left out. `
@@ -221,7 +237,7 @@ export function FinancialProvider({ children }) {
   );
 }
 
-export function useFinancial() {
+export function useFinancial(): FinancialContextValue {
   const ctx = useContext(FinancialContext);
   if (!ctx) throw new Error('useFinancial must be used within FinancialProvider');
   return ctx;
@@ -231,8 +247,8 @@ export function useFinancial() {
  * Convenience hook — returns a getCategoryById function pre-loaded with
  * the user's custom categories, so callers don't need to pass customCategories manually.
  */
-export function useGetCategory() {
+export function useGetCategory(): (id: string) => Category {
   const { state } = useFinancial();
   const customCategories = state.customCategories || [];
-  return (id) => getCategoryById(id, customCategories);
+  return (id: string) => getCategoryById(id, customCategories);
 }

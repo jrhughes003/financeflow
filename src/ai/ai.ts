@@ -3,6 +3,9 @@
 // a structured failure so callers can fall back to deterministic behavior.
 
 import { isElectron, electronApi } from '../storage/storage';
+import type { AiFeature, AiResult, AiStatus } from '../types/api';
+import type { Category } from '../types/domain';
+import type { AppState } from '../types/state';
 import { getAllCategories } from '../utils/categorization';
 import {
   getSpendingByCategory, getBudgetStatus, getTotalExpenses, getTotalIncome,
@@ -17,31 +20,35 @@ import { getGoalStatuses, compareDebtStrategies } from '../utils/planning';
 
 export const aiSupported = isElectron;
 
-export async function getAiStatus() {
-  if (!isElectron) return { encryptionAvailable: false, hasKey: false };
-  try { return await electronApi().ai.status(); }
+export async function getAiStatus(): Promise<AiStatus> {
+  const api = electronApi();
+  if (!api) return { encryptionAvailable: false, hasKey: false };
+  try { return await api.ai.status(); }
   catch { return { encryptionAvailable: false, hasKey: false }; }
 }
 
-export async function setAiKey(key) {
-  if (!isElectron) return { ok: false, error: 'unavailable' };
-  return electronApi().ai.setKey(key);
+export async function setAiKey(key: string): Promise<AiResult<void>> {
+  const api = electronApi();
+  if (!api) return { ok: false, error: 'unavailable' };
+  return api.ai.setKey(key);
 }
 
-export async function clearAiKey() {
-  if (!isElectron) return { ok: false, error: 'unavailable' };
-  return electronApi().ai.clearKey();
+export async function clearAiKey(): Promise<AiResult<void>> {
+  const api = electronApi();
+  if (!api) return { ok: false, error: 'unavailable' };
+  return api.ai.clearKey();
 }
 
 // Run a feature. Returns { ok, data } or { ok:false, error }. Never throws.
-export async function runAi(feature, input) {
-  if (!isElectron) return { ok: false, error: 'unavailable' };
-  try { return await electronApi().ai.run(feature, input); }
-  catch (err) { return { ok: false, error: err?.message || 'AI request failed' }; }
+export async function runAi(feature: AiFeature, input: unknown): Promise<AiResult<unknown>> {
+  const api = electronApi();
+  if (!api) return { ok: false, error: 'unavailable' };
+  try { return await api.ai.run(feature, input); }
+  catch (err) { return { ok: false, error: err instanceof Error ? err.message : 'AI request failed' }; }
 }
 
 // Compact category taxonomy (id + name only) for prompts.
-export function taxonomy(customCategories = []) {
+export function taxonomy(customCategories: Category[] = []): { id: string; name: string }[] {
   return getAllCategories(customCategories).map(c => ({ id: c.id, name: c.name }));
 }
 
@@ -58,12 +65,17 @@ export function taxonomy(customCategories = []) {
 // amounts, deliberately dropping the merchant. Goal and debt names are included:
 // they label positions rather than spending records, and advice that can't name
 // the goal it's about isn't advice.
-export function buildSummary(state, month, year, { today = new Date() } = {}) {
+export function buildSummary(
+  state: AppState,
+  month: number,
+  year: number,
+  { today = new Date() }: { today?: Date } = {},
+) {
   const { transactions, budgets, debts = [], recurringTemplates = [] } = state;
   const incomes = getIncomeSources(state.incomes, state.investments);
   const goals = state.savings_goals || [];
   const opts = { today };
-  const round = n => Math.round((Number(n) || 0) * 100) / 100;
+  const round = (n: unknown): number => Math.round((Number(n) || 0) * 100) / 100;
 
   const deltas = getCategoryDeltas(transactions, month, year, opts);
   const monthEnd = projectMonthEnd({ transactions, budgets, recurringTemplates, ...opts });
@@ -104,7 +116,7 @@ export function buildSummary(state, month, year, { today = new Date() } = {}) {
         current: r.current,
         usual: r.average,
         change: r.changeVsAverage,
-        pct: Math.round(r.pctVsAverage),
+        pct: r.pctVsAverage === null ? null : Math.round(r.pctVsAverage),
       })),
     },
 
@@ -159,7 +171,7 @@ export function buildSummary(state, month, year, { today = new Date() } = {}) {
         name: d.name,
         balance: round(d.balance),
         rate: Number(d.interestRate) || 0,
-        deferred: !isInRepayment(d, today),
+        deferred: !isInRepayment(d, opts),
       })),
     } : null,
   };

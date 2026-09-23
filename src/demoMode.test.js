@@ -7,7 +7,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 async function loadContext({ demo }) {
   vi.stubEnv('VITE_DEMO_MODE', demo ? 'true' : 'false');
   vi.resetModules();
-  return import('./context/FinancialContext.jsx');
+  return import('./context/FinancialContext');
 }
 
 beforeEach(() => localStorage.clear());
@@ -18,7 +18,7 @@ describe('demo build', () => {
     const { FinancialProvider } = await loadContext({ demo: false });
     const { render } = await import('@testing-library/react');
     const React = (await import('react')).default;
-    const { useFinancial } = await import('./context/FinancialContext.jsx');
+    const { useFinancial } = await import('./context/FinancialContext');
 
     let state;
     function Capture() { state = useFinancial().state; return null; }

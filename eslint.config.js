@@ -49,7 +49,7 @@ export default [
   // --- Context and hook modules export a provider alongside its hook, which is
   //     the standard React pattern; the rule only guards HMR granularity.
   {
-    files: ['src/context/**/*.jsx', 'src/components/lifeplan/LifePlanPage.jsx'],
+    files: ['src/context/**/*.{jsx,tsx}', 'src/components/lifeplan/LifePlanPage.{jsx,tsx}'],
     rules: { 'react-refresh/only-export-components': 'off' },
   },
 

@@ -84,7 +84,7 @@ federal tax applied each year and CPP/OAS starting at the chosen ages.**
 
 **…then run it a few hundred times with a random return each year, instead of the same return
 every year, to see how often the plan survives.**
-![Monte Carlo: 71% of 300 runs hold up, with a median outcome and a middle-80% band to 2094](docs/screenshots/plan-montecarlo.png)
+![Monte Carlo: 67% of 300 runs hold up, with a median outcome and a middle-80% band to 2094](docs/screenshots/plan-montecarlo.png)
 
 **Analytics — what changed this month, against your own baseline rather than a fixed budget.**
 ![Analytics: waterfall of category changes vs the 3-month average](docs/screenshots/analytics.png)

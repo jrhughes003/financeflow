@@ -87,7 +87,9 @@ describe('projectAccount', () => {
 describe('statement sync and entries', () => {
   it('re-anchors to a new statement and keeps history', () => {
     const inv = addAccountEntry(advisor(), { type: 'withdrawal', amount: 300, date: '2026-07-10' });
-    // The statement form passes its raw input string; syncToStatement coerces it.
+    // syncToStatement coerces with `Number(balance) || 0`. Its one caller
+    // (InvestmentTracker) already converts, so the guard is really there for a
+    // NaN — a string exercises the same path, and the cast is the point.
     const synced = syncToStatement(inv, { balance: '97250.5' as unknown as number, date: '2026-08-31' });
     expect(synced).toMatchObject({ currentValue: 97250.5, asOfDate: '2026-08-31' });
     expect(synced.entries).toHaveLength(1);

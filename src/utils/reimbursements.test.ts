@@ -107,7 +107,9 @@ describe('addRepayment / removeRepayment / setForgiven', () => {
 
 describe('buildOwed', () => {
   it('builds from the form and keeps existing repayments', () => {
-    // The owed form hands buildOwed its raw input strings; it coerces with Number().
+    // buildOwed runs both values through Number() before using them. Every
+    // caller already passes numbers, so these strings pin the coercion itself
+    // rather than a real call shape; the casts say that on purpose.
     expect(buildOwed(undefined, { enabled: true, amount: '75' as unknown as number, people: '4' as unknown as number })).toEqual({ amount: 75, people: 4, payments: [], forgiven: false });
     const existing = owed(75, [{ id: 'p', amount: 25 }]);
     const rebuilt = buildOwed(existing, { enabled: true, amount: 60, people: '' as unknown as number });

@@ -378,7 +378,9 @@ describe('getMonthlyTrend', () => {
 describe('formatCurrency', () => {
   it('formats USD and treats nullish as zero', () => {
     expect(formatCurrency(1234.5)).toBe('$1,234.50');
-    // formatCurrency is declared to take a number but guards with `amount || 0`.
+    // Declared to take a number, and kept that way so callers holding a
+    // `number | undefined` still have to deal with it. The `amount || 0` guard
+    // is for values that reach a formatter from disk; the cast pins the guard.
     expect(formatCurrency(null as unknown as number)).toBe('$0.00');
   });
 });

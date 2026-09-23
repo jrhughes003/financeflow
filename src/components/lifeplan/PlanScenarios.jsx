@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { format, parseISO } from 'date-fns';
 import {
   ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine,
@@ -7,7 +7,7 @@ import * as chart from '../ui/chartTheme';
 import { Copy, Trash2, Upload, RefreshCw, Dices, AlertTriangle } from 'lucide-react';
 import { formatCurrency } from '../../utils/calculations';
 import { runPlan } from '../../utils/lifeplan/engine';
-import { runMonteCarlo } from '../../utils/lifeplan/montecarlo';
+import { runSimulation } from '../../utils/lifeplan/runSimulation';
 import { buildSnapshot, scenarioFromPlan, normalizePlan } from '../../utils/lifeplan/snapshot';
 import { Card, NumberField, Stat, inputCls } from './ui';
 
@@ -43,6 +43,8 @@ export default function PlanScenarios({ plan, setPlan, state, result }) {
   const [confirmLoad, setConfirmLoad] = useState(null);
   const [mc, setMc] = useState(null);
   const [mcBusy, setMcBusy] = useState(false);
+  const [mcProgress, setMcProgress] = useState({ completed: 0, total: 0 });
+  const cancelRef = useRef(null);
   const [volatility, setVolatility] = useState(12);
   const [trials, setTrials] = useState(300);
 
@@ -88,14 +90,30 @@ export default function PlanScenarios({ plan, setPlan, state, result }) {
     setSelected(s => s.filter(x => x !== id));
   };
 
+  // The simulation runs in a worker, so the window stays usable and the run can
+  // be abandoned. Higher trial counts are the point: the interval at 300 trials
+  // is about ±5 points, and tightening it used to mean freezing the UI longer.
   const runMc = () => {
+    if (mcBusy) { cancelRef.current?.(); return; }
     setMcBusy(true);
-    setTimeout(() => {
-      const snapshot = buildSnapshot(state, plan);
-      setMc(runMonteCarlo(plan, snapshot, { trials: Number(trials), volatilityPct: Number(volatility) }));
-      setMcBusy(false);
-    }, 20);
+    setMcProgress({ completed: 0, total: Number(trials) });
+
+    const snapshot = buildSnapshot(state, plan);
+    const { promise, cancel } = runSimulation(
+      plan, snapshot,
+      { trials: Number(trials), volatilityPct: Number(volatility) },
+      setMcProgress,
+    );
+    cancelRef.current = cancel;
+
+    promise
+      .then(result => { if (!result?.cancelled) setMc(result); })
+      .catch(() => { /* surfaced by the run staying empty */ })
+      .finally(() => { setMcBusy(false); cancelRef.current = null; });
   };
+
+  // Abandon an in-flight run if the user leaves the page.
+  useEffect(() => () => cancelRef.current?.(), []);
 
   const mcData = mc?.bands?.map(b => ({ year: b.year, age: b.age, range: [b.p10, b.p90], p50: b.p50 })) || [];
 
@@ -221,10 +239,30 @@ export default function PlanScenarios({ plan, setPlan, state, result }) {
               {[100, 300, 500, 1000].map(t => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
-          <button onClick={runMc} disabled={mcBusy} className="flex items-center gap-2 px-4 py-2 bg-accent hover:bg-accent-hover disabled:opacity-50 text-ink-inverse rounded-container text-sm font-medium">
-            <Dices className="w-4 h-4" />{mcBusy ? 'Running…' : 'Run'}
+          <button
+            onClick={runMc}
+            className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors h-9 px-3.5 text-sm bg-accent hover:bg-accent-hover text-ink-inverse"
+          >
+            <Dices className="w-4 h-4" />
+            {mcBusy
+              ? `Cancel (${Math.round((mcProgress.completed / Math.max(1, mcProgress.total)) * 100)}%)`
+              : 'Run'}
           </button>
         </div>
+
+        {mcBusy && (
+          <div className="mb-4">
+            <div className="h-1 bg-line-faint rounded-pill overflow-hidden">
+              <div
+                className="h-full bg-accent transition-[width] duration-150"
+                style={{ width: `${(mcProgress.completed / Math.max(1, mcProgress.total)) * 100}%` }}
+              />
+            </div>
+            <p className="text-caption text-ink-muted mt-1.5">
+              {mcProgress.completed} of {mcProgress.total} runs — the window stays usable while this works.
+            </p>
+          </div>
+        )}
 
         {!mc ? (
           <p className="text-sm text-ink-muted">

@@ -10,6 +10,13 @@ updates:
       # could actually break a build.
       minor-and-patch:
         update-types: [minor, patch]
+        # Pre-1.0 packages are excluded because semver calls a 0.x minor bump
+        # "minor" while the ecosystem treats it as breaking. Grouping them hid
+        # @anthropic-ai/sdk 0.32 -> 0.127 — ninety-five releases of the SDK the
+        # AI layer calls directly — inside a PR labelled routine.
+        exclude-patterns:
+          - '@anthropic-ai/sdk'
+          - 'lucide-react'
 
   - package-ecosystem: github-actions
     directory: /

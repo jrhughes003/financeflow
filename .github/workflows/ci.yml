@@ -22,8 +22,8 @@ jobs:
     name: Types and lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 20
           cache: npm
@@ -45,19 +45,20 @@ jobs:
         os: [ubuntu-latest, windows-latest]
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 20
           cache: npm
       - name: Install dependencies
         run: npm ci
-      # better-sqlite3 is a compiled native module and Node and Electron embed
-      # different ABIs, so one installed binary matches only one of them. The
-      # test suite runs under Node, so the binary has to be built for Node —
-      # without this the database tests fail with NODE_MODULE_VERSION errors.
-      - name: Build better-sqlite3 for Node
-        run: npm rebuild better-sqlite3 --build-from-source
+      # No better-sqlite3 rebuild here, deliberately. `npm ci` installs a
+      # prebuilt binary matching this job's Node, which is the ABI the tests
+      # need. Forcing a source build instead is a *local* fix — it is what you
+      # run after `electron-builder install-app-deps` has replaced the binary
+      # with an Electron-ABI one, which cannot happen on a fresh checkout.
+      # It also failed outright on windows-latest, so it was costing reliability
+      # to solve a problem CI does not have. DEVELOPMENT.md covers the local case.
       # `tee` so the summary survives a threshold failure: the numbers are what
       # you need to see when it goes red, and they are the one thing a failing
       # run otherwise buries at the bottom of a log.

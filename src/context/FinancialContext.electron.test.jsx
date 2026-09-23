@@ -6,8 +6,13 @@
 // These tests pin the invariant: nothing is written unless the load succeeded.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, act, waitFor } from '@testing-library/react';
-import React from 'react';
+
+// Each case resets the module registry and re-imports React, testing-library
+// and the whole context graph — the only way to stub `window.api` before
+// storage.js reads it. That is a few seconds of module evaluation per test,
+// charged against the test's own timeout, so the default 5s is not enough
+// once the suite is running everything else in parallel.
+vi.setConfig({ testTimeout: 30000 });
 
 const EMPTY_STATE = {
   transactions: [], budgets: [], incomes: [], savings_goals: [],
@@ -16,25 +21,39 @@ const EMPTY_STATE = {
 };
 
 let captured;
+let view;
 
 /**
  * storage.js reads `window.api` once at module load, so the stub has to be in
- * place before the module graph is imported — hence resetModules + dynamic
- * import rather than a top-level import.
+ * place before the module graph is imported — hence resetModules and dynamic
+ * imports.
+ *
+ * React and @testing-library/react are imported dynamically *too*, and that is
+ * not incidental: resetModules gives the dynamically imported component tree a
+ * fresh React, and a statically imported testing-library would still hold the
+ * previous one. Two React copies render into the same document without
+ * cleaning up after each other — the symptom is duplicate elements and a
+ * `captured` that never gets set.
  */
 async function renderElectron(db) {
   window.api = { isElectron: true, db, ai: {} };
   vi.resetModules();
+
+  const React = (await import('react')).default;
+  const rtl = await import('@testing-library/react');
   const { FinancialProvider, useFinancial } = await import('./FinancialContext.jsx');
 
   function Capture() {
     captured = useFinancial();
-    return <div data-testid="ready">{captured.state.transactions.length}</div>;
+    return React.createElement('div', { 'data-testid': 'ready' }, captured.state.transactions.length);
   }
 
-  await act(async () => {
-    render(<FinancialProvider><Capture /></FinancialProvider>);
+  await rtl.act(async () => {
+    view = rtl.render(
+      React.createElement(FinancialProvider, null, React.createElement(Capture)),
+    );
   });
+  return rtl;
 }
 
 function makeDb(overrides = {}) {
@@ -47,36 +66,41 @@ function makeDb(overrides = {}) {
   };
 }
 
-beforeEach(() => { captured = undefined; localStorage.clear(); });
-afterEach(() => { delete window.api; vi.restoreAllMocks(); });
+beforeEach(() => { captured = undefined; view = undefined; localStorage.clear(); });
+afterEach(() => {
+  view?.unmount();
+  delete window.api;
+  vi.restoreAllMocks();
+  localStorage.clear();
+});
 
 describe('Electron startup', () => {
   it('never writes back when the load failed', async () => {
     const db = makeDb({ loadAll: vi.fn().mockRejectedValue(new Error('database disk image is malformed')) });
-    await renderElectron(db);
+    const rtl = await renderElectron(db);
 
     // The app is blocked, so there is no way to dispatch and nothing to write.
-    await waitFor(() => expect(screen.getByText(/couldn't open your data/i)).toBeInTheDocument());
-    expect(screen.queryByTestId('ready')).toBeNull();
+    await rtl.waitFor(() => expect(view.getByText(/couldn't open your data/i)).toBeInTheDocument());
+    expect(view.queryByTestId('ready')).toBeNull();
     expect(db.saveAll).not.toHaveBeenCalled();
   });
 
   it('shows the failure rather than an empty ledger', async () => {
-    await renderElectron(makeDb({ isInitialized: vi.fn().mockRejectedValue(new Error('locked')) }));
-    await waitFor(() => expect(screen.getByText(/nothing has been/i)).toBeInTheDocument());
-    expect(screen.queryByTestId('ready')).toBeNull();
+    const rtl = await renderElectron(makeDb({ isInitialized: vi.fn().mockRejectedValue(new Error('locked')) }));
+    await rtl.waitFor(() => expect(view.getByText(/nothing has been/i)).toBeInTheDocument());
+    expect(view.queryByTestId('ready')).toBeNull();
   });
 
   it('unlocks persistence once the load succeeds', async () => {
     const db = makeDb({
       loadAll: vi.fn().mockResolvedValue({ ...EMPTY_STATE, transactions: [{ id: 'pre', amount: 5 }] }),
     });
-    await renderElectron(db);
+    const rtl = await renderElectron(db);
 
     expect(captured.state.transactions).toHaveLength(1);
     db.saveAll.mockClear();
 
-    await act(async () => { captured.dispatch({ type: 'ADD_TRANSACTION', payload: { id: 't2', amount: 1 } }); });
+    await rtl.act(async () => { captured.dispatch({ type: 'ADD_TRANSACTION', payload: { id: 't2', amount: 1 } }); });
     expect(db.saveAll).toHaveBeenCalledTimes(1);
     expect(db.saveAll.mock.calls[0][0].transactions).toHaveLength(2);
   });
@@ -98,20 +122,20 @@ describe('Electron startup', () => {
     const db = makeDb({
       loadAll: vi.fn().mockResolvedValue({ ...EMPTY_STATE, _corruptRows: 3 }),
     });
-    await renderElectron(db);
+    const rtl = await renderElectron(db);
 
     expect(captured.state).not.toHaveProperty('_corruptRows');
 
-    await act(async () => { captured.dispatch({ type: 'ADD_TRANSACTION', payload: { id: 't1', amount: 1 } }); });
+    await rtl.act(async () => { captured.dispatch({ type: 'ADD_TRANSACTION', payload: { id: 't1', amount: 1 } }); });
     expect(db.saveAll.mock.calls.at(-1)[0]).not.toHaveProperty('_corruptRows');
   });
 
   it('reports a failing save instead of swallowing it', async () => {
     const db = makeDb({ saveAll: vi.fn().mockRejectedValue(new Error('SQLITE_FULL')) });
     const err = vi.spyOn(console, 'error').mockImplementation(() => {});
-    await renderElectron(db);
+    const rtl = await renderElectron(db);
 
-    await act(async () => { captured.dispatch({ type: 'ADD_TRANSACTION', payload: { id: 't1', amount: 1 } }); });
-    await waitFor(() => expect(err).toHaveBeenCalledWith('Save failed:', expect.any(Error)));
+    await rtl.act(async () => { captured.dispatch({ type: 'ADD_TRANSACTION', payload: { id: 't1', amount: 1 } }); });
+    await rtl.waitFor(() => expect(err).toHaveBeenCalledWith('Save failed:', expect.any(Error)));
   });
 });

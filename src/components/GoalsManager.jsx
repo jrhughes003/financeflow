@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Plus, Edit2, Trash2, Target, Plane, Car, Shield, Home, Star } from 'lucide-react';
-import { format, addMonths, parseISO, differenceInMonths } from 'date-fns';
+import { format, parseISO, differenceInMonths } from 'date-fns';
 import { useFinancial } from '../context/FinancialContext';
 import { Card, PageLede, Stat as UiStat, Money } from './ui';
 import EmptyState from './EmptyState';

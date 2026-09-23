@@ -16,7 +16,6 @@ const pct = (part, whole) => round2((part / whole) * 100);
 const summerTotal = spend(SUMMER).total;
 const summerDining = spend({ ...SUMMER, category: 'dining_out' }).total;
 const ytdCats = byCategory(YTD);
-const ytdTotal = round2(Object.values(ytdCats).reduce((s, v) => s + v, 0));
 const sepCats = byCategory({ start: '2026-09-01', end: '2026-09-30' });
 
 // `figures`     — numbers that must appear (within tolerance) for `correct`.

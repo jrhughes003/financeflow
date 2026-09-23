@@ -9,7 +9,7 @@
 import React from 'react';
 import { AlertTriangle, RotateCcw } from 'lucide-react';
 
-const DB_PATH = 'C:\Users\<you>\AppData\Roaming\FinanceFlow\financeflow.db';
+const DB_PATH = String.raw`C:\Users\<you>\AppData\Roaming\FinanceFlow\financeflow.db`;
 
 export default function LoadFailure({ error }) {
   return (

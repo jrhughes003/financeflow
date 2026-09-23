@@ -6,38 +6,70 @@ on:
   pull_request:
   workflow_dispatch:
 
-jobs:
-  test:
-    name: Tests and build
-    runs-on: ubuntu-latest
+# Read-only is all any of this needs.
+permissions:
+  contents: read
 
+# A newer push to the same ref makes the older run irrelevant.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Lint and types need no native module and no browser, so they run on their
+  # own and fail in seconds rather than behind a source build of better-sqlite3.
+  static:
+    name: Lint
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
+      - run: npm ci
+      - run: npm run lint
 
+  test:
+    name: Tests and build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # The shipped artifact is a Windows installer and the API key is held
+        # by DPAPI there, so Windows is the platform that most needs testing —
+        # it was the one platform never tested.
+        os: [ubuntu-latest, windows-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
       - name: Install dependencies
         run: npm ci
-
       # better-sqlite3 is a compiled native module and Node and Electron embed
       # different ABIs, so one installed binary matches only one of them. The
       # test suite runs under Node, so the binary has to be built for Node —
       # without this the database tests fail with NODE_MODULE_VERSION errors.
       - name: Build better-sqlite3 for Node
         run: npm rebuild better-sqlite3 --build-from-source
-
-      - name: Run tests
-        run: npm test
-
+      - name: Run tests with coverage
+        run: npm run coverage
       - name: Build web bundle
         run: npm run build
-
+      # The Monte Carlo lives in a worker, and the call site swallows a failed
+      # worker and silently runs in-process instead — so a broken worker costs
+      # no test, only speed. The chunk's existence is the guard.
+      - name: Check the simulation worker was bundled
+        shell: bash
+        run: ls dist/assets/ | grep -q 'montecarlo.worker' || { echo 'Monte Carlo worker chunk missing from the bundle'; exit 1; }
       # A regression here is invisible until someone opens the app on a slow
       # connection, so the number is surfaced on every run.
       - name: Report bundle size
+        if: runner.os == 'Linux'
+        shell: bash
         run: |
           echo "### Bundle" >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"

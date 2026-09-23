@@ -36,7 +36,9 @@ export default function PlanProjection({ plan, result }) {
   const [todayDollars, setTodayDollars] = useState(true);
   const [showTable, setShowTable] = useState(false);
 
-  const rows = result.rows || [];
+  // Memoised so the empty fallback keeps one identity; a new [] each render
+  // would re-run the mapping below every time.
+  const rows = useMemo(() => result.rows || [], [result.rows]);
   const data = useMemo(() => rows.map(r => {
     const d = v => (todayDollars ? v / r.inflationIndex : v);
     return {

@@ -6,7 +6,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createRun, runMonteCarlo } from './montecarlo';
 import { runSimulation } from './runSimulation';
-import { createDefaultPlan, buildSnapshot, normalizePlan } from './snapshot';
+import { buildSnapshot, normalizePlan } from './snapshot';
 import generateDemoData from '../demoData';
 
 const TODAY = new Date(2026, 8, 22);

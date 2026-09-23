@@ -5,7 +5,7 @@ import { useFinancial } from '../context/FinancialContext';
 import EmptyState from './EmptyState';
 import { Money, CategoryMark } from './ui';
 import { useUndoableDelete } from '../hooks/useUndoableDelete';
-import { CATEGORIES, getAllCategories, getCategoryById } from '../utils/categorization';
+import { CATEGORIES, getAllCategories } from '../utils/categorization';
 import { useGetCategory } from '../context/FinancialContext';
 import { exportToCSV, importFromCSV } from '../utils/exportUtils';
 import { formatCurrency } from '../utils/calculations';

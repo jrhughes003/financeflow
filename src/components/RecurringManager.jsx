@@ -4,7 +4,8 @@ import { format } from 'date-fns';
 import { useFinancial, useGetCategory } from '../context/FinancialContext';
 import { useUndoableDelete } from '../hooks/useUndoableDelete';
 import { detectRecurringCandidates, isTemplateDue, postTemplate } from '../utils/recurring';
-import { formatCurrency } from '../utils/calculations';
+import { formatCurrency, toMonthlyAmount } from '../utils/calculations';
+import { Card, PageLede, Stat, Money } from './ui';
 
 const FREQ_LABELS = { weekly: 'Weekly', biweekly: 'Every 2 weeks', monthly: 'Monthly', annual: 'Yearly' };
 

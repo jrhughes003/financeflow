@@ -5,7 +5,6 @@ import * as chart from './ui/chartTheme';
 import { useFinancial } from '../context/FinancialContext';
 import { Card, PageLede, Stat, Money } from './ui';
 import { getBudgetStatus, getMonthlyTrend, getConsistentlyOverBudget, formatCurrency } from '../utils/calculations';
-import { getCategoryById } from '../utils/categorization';
 import { useGetCategory } from '../context/FinancialContext';
 
 function StatusBadge({ status }) {

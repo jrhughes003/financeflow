@@ -142,9 +142,6 @@ export default function BudgetManager() {
     setNewCat(''); setNewAmt(''); setNewFlex('10'); setNewRollover(false);
   };
 
-  // Categories that don't have a budget yet
-  const categoriesWithoutBudget = allCategories.filter(c => !budgets.find(b => b.category === c.id));
-
   return (
     <div className="space-y-5 animate-fade-in">
       <div className="flex flex-wrap items-center justify-between gap-2">

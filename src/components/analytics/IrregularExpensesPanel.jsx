@@ -1,7 +1,6 @@
 import React, { useMemo } from 'react';
 import { format, parseISO } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import * as chart from '../ui/chartTheme';
 import { CalendarRange, AlertCircle } from 'lucide-react';
 import { useFinancial, useGetCategory } from '../../context/FinancialContext';
 import { formatCurrency } from '../../utils/calculations';

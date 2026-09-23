@@ -9,10 +9,10 @@ import { useFinancial } from '../context/FinancialContext';
 import { Stat, Money } from './ui';
 import {
   getSpendingByCategory, getMonthlyTrend, detectAnomalies,
-  getBudgetHealthScore, getSpendingByDayOfWeek, getTopMerchants,
+  getBudgetHealthScore, getSpendingByDayOfWeek,
   getTransactionsForPeriod, formatCurrency
 } from '../utils/calculations';
-import { CATEGORIES, getAllCategories, getCategoryById } from '../utils/categorization';
+import { CATEGORIES, getAllCategories } from '../utils/categorization';
 import { useGetCategory } from '../context/FinancialContext';
 import { AlertTriangle, LayoutGrid, CalendarClock, PiggyBank, CalendarDays, ClipboardList } from 'lucide-react';
 import WhatChangedPanel from './analytics/WhatChangedPanel';
@@ -147,7 +147,7 @@ export default function SpendingAnalytics() {
                     onClick={d => setDrillCat(d.id === drillCat ? null : d.id)}
                     cursor="pointer"
                   >
-                    {pieData.map((entry, i) => (
+                    {pieData.map(entry => (
                       <Cell key={entry.id} fill={entry.color} opacity={drillCat && drillCat !== entry.id ? 0.4 : 1} />
                     ))}
                   </Pie>

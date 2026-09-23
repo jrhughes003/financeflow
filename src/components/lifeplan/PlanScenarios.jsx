@@ -48,7 +48,8 @@ export default function PlanScenarios({ plan, setPlan, state, result }) {
   const [volatility, setVolatility] = useState(12);
   const [trials, setTrials] = useState(300);
 
-  const scenarios = plan.scenarios || [];
+  // See PlanProjection: a fresh [] each render would defeat the memo below.
+  const scenarios = useMemo(() => plan.scenarios || [], [plan.scenarios]);
   const toggle = id => setSelected(s => (s.includes(id) ? s.filter(x => x !== id) : [...s, id]));
 
   const comparisons = useMemo(() => {

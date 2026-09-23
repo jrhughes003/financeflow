@@ -255,14 +255,29 @@ describe('goal timeline', () => {
   ];
   const opts = { today: day(2026, 6, 10) };
 
-  it('averages contributions over the trailing window', () => {
-    expect(getGoalMonthlyContribution(txns.slice(0, 2), 'g1', opts)).toBe(100);
+  it('averages contributions over completed months', () => {
+    // May and June each got 150; today is 10 July with nothing posted yet.
+    // July is only a third elapsed, so it isn't counted as a zero month —
+    // otherwise every goal reads "behind" for most of every month.
+    expect(getGoalMonthlyContribution(txns.slice(0, 2), 'g1', opts)).toBe(150);
+  });
+
+  it('counts the current month once its contribution lands', () => {
+    const withJuly = [...txns.slice(0, 2), tx({ kind: 'savings', goalId: 'g1', date: '2026-07-05', amount: 150 })];
+    expect(getGoalMonthlyContribution(withJuly, 'g1', opts)).toBe(150);
+  });
+
+  it('is not dragged down by a contribution scheduled later this month', () => {
+    // Saving on the 26th, asked on the 22nd: the pace is 400, not 267.
+    const monthly = ['2026-05-26', '2026-06-26', '2026-07-26'].map(date =>
+      tx({ kind: 'savings', goalId: 'g1', date, amount: 400 }));
+    expect(getGoalMonthlyContribution(monthly, 'g1', { today: day(2026, 7, 22) })).toBe(400);
   });
 
   it('shows how extra monthly savings shortens the timeline', () => {
     const r = goalTimelineImpact(goal, txns.slice(0, 2), 100, opts);
     expect(r.remaining).toBe(600);
-    expect(r.currentMonths).toBe(6);
+    expect(r.currentMonths).toBe(4); // 600 remaining at the 150/mo completed-month pace
     expect(r.newMonths).toBe(3);
     expect(goalTimelineImpact({ id: 'g2', targetAmount: 500, currentAmount: 0 }, [], 0, opts).currentMonths).toBeNull();
   });

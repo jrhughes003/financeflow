@@ -41,11 +41,15 @@ export default function BudgetComparison() {
 
   const chartData = sorted.map(s => ({
     name: getCategory(s.category).name.split(' ')[0],
-    Budget: Math.round(s.budget),
+    Budget: Math.round(s.effectiveBudget),
     Actual: Math.round(s.actual),
   }));
 
-  const totalBudget = statuses.reduce((s, b) => s + b.budget, 0);
+  // Rollover moves the line a category is judged against, so every figure here
+  // uses the effective budget. Showing the nominal amount beside an
+  // effective-budget percentage reads as a bug (spent $260 of $300 — 158% used).
+  const anyCarry = statuses.some(s => Math.abs(s.carry) >= 0.01);
+  const totalBudget = statuses.reduce((s, b) => s + b.effectiveBudget, 0);
   const totalActual = statuses.reduce((s, b) => s + b.actual, 0);
   const totalVariance = totalBudget - totalActual;
 
@@ -119,7 +123,7 @@ export default function BudgetComparison() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-100">
-                {[['category','Category'],['budget','Budget'],['actual','Actual'],['variance','Variance'],['percentUsed','% Used'],['status','Status']].map(([f, label]) => (
+                {[['category','Category'],['budget', anyCarry ? 'Budget (after rollover)' : 'Budget'],['actual','Actual'],['variance','Variance'],['percentUsed','% Used'],['status','Status']].map(([f, label]) => (
                   <th key={f} onClick={() => handleSort(f)} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none">
                     {label}
                   </th>
@@ -138,7 +142,14 @@ export default function BudgetComparison() {
                         <span className="font-medium text-gray-800">{cat.name}</span>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-gray-600">{formatCurrency(s.budget)}</td>
+                    <td className="px-4 py-3 text-gray-600">
+                      {formatCurrency(s.effectiveBudget)}
+                      {Math.abs(s.carry) >= 0.01 && (
+                        <span className="block text-xs text-gray-400">
+                          {formatCurrency(s.budget)} {s.carry > 0 ? '+' : '−'} {formatCurrency(Math.abs(s.carry))} rolled over
+                        </span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 font-semibold text-gray-800">{formatCurrency(s.actual)}</td>
                     <td className={`px-4 py-3 font-semibold ${s.variance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                       {s.variance >= 0 ? '+' : ''}{formatCurrency(s.variance)}

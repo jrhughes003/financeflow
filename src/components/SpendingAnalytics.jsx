@@ -281,7 +281,7 @@ export default function SpendingAnalytics() {
 
       {/* Budget health trend */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-        <h2 className="text-base font-semibold text-gray-900 mb-4">Budget Health Score — Current Month</h2>
+        <h2 className="text-base font-semibold text-gray-900 mb-4">Budget adherence — current month</h2>
         <div className="flex items-center gap-6">
           <div className="w-20 h-20 rounded-2xl flex items-center justify-center shrink-0" style={{ backgroundColor: health.color + '20' }}>
             <span className="text-4xl font-black" style={{ color: health.color }}>{health.grade}</span>

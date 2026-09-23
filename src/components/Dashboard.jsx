@@ -71,7 +71,7 @@ function HealthGrade({ grade, percent, color }) {
         <span className="text-3xl font-black" style={{ color }}>{grade}</span>
       </div>
       <div>
-        <p className="text-sm text-gray-500">Budget Health Score</p>
+        <p className="text-sm text-gray-500">Budget adherence <span className="text-gray-300">· part of your health score</span></p>
         <p className="text-xl font-bold text-gray-900">{percent}% categories on track</p>
         <p className="text-xs text-gray-400 mt-0.5">Based on this month's spending</p>
       </div>

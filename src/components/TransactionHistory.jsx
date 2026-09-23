@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Search, Filter, Download, Upload, Trash2, Edit2, ChevronUp, ChevronDown, Sparkles } from 'lucide-react';
+import { Search, Filter, Download, Upload, Trash2, Edit2, ChevronUp, ChevronDown, Sparkles , CircleSlash } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { useFinancial } from '../context/FinancialContext';
 import { useUndoableDelete } from '../hooks/useUndoableDelete';
@@ -276,7 +276,19 @@ export default function TransactionHistory() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-2">
-                        <button onClick={() => dispatch({ type: 'MARK_EXCEPTION', payload: t.id })} title="Toggle exception" className="text-xs text-purple-500 hover:text-purple-700 px-1.5 py-0.5 rounded hover:bg-purple-50">exc</button>
+                        <button
+                          onClick={() => dispatch({ type: 'MARK_EXCEPTION', payload: t.id })}
+                          title={t.isException
+                            ? 'Counted as a one-off — click to include it in budgets again'
+                            : 'Mark as a one-off so it stays out of budgets and averages'}
+                          aria-label={t.isException ? 'Include in budgets' : 'Mark as one-off'}
+                          aria-pressed={Boolean(t.isException)}
+                          className={`p-1.5 rounded transition-colors ${t.isException
+                            ? 'text-purple-600 bg-purple-50 hover:bg-purple-100'
+                            : 'text-gray-400 hover:text-purple-600 hover:bg-purple-50'}`}
+                        >
+                          <CircleSlash className="w-3.5 h-3.5" />
+                        </button>
                         <button onClick={() => setEditTx(t)} className="text-gray-400 hover:text-blue-600 transition-colors p-1 rounded hover:bg-blue-50"><Edit2 className="w-3.5 h-3.5" /></button>
                         <button onClick={() => setDeleteId(t.id)} className="text-gray-400 hover:text-red-500 transition-colors p-1 rounded hover:bg-red-50"><Trash2 className="w-3.5 h-3.5" /></button>
                       </div>

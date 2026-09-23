@@ -738,12 +738,25 @@ export function simulateCuts(averages, cuts, income) {
 export function getGoalMonthlyContribution(transactions, goalId, { today = new Date(), lookback = INSIGHT_LOOKBACK_MONTHS } = {}) {
   const contributions = (transactions || []).filter(t => t.kind === 'savings' && t.goalId === goalId && t.date);
   if (!contributions.length) return 0;
-  const since = ymd(subMonths(new Date(today.getFullYear(), today.getMonth(), 1), lookback - 1));
-  const total = sum(contributions.filter(t => t.date >= since).map(t => Number(t.amount) || 0));
+  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+  const currentMonth = format(monthStart, 'yyyy-MM');
+  // The current month is only part-elapsed. People save on a fixed day, so
+  // counting it before that day arrives divides a short total by a whole month
+  // and reports an on-track goal as behind. Until this month's contribution
+  // lands, measure over completed months only.
+  const postedThisMonth = contributions.some(t => t.date.slice(0, 7) === currentMonth);
+  const endMonth = postedThisMonth ? monthStart : subMonths(monthStart, 1);
+
+  const since = ymd(subMonths(endMonth, lookback - 1));
+  const until = ymd(new Date(endMonth.getFullYear(), endMonth.getMonth(), getDaysInMonth(endMonth)));
+  const total = sum(contributions
+    .filter(t => t.date >= since && t.date <= until)
+    .map(t => Number(t.amount) || 0));
+
   // A goal started last month shouldn't have its pace diluted by months before
   // its first contribution.
   const first = contributions.reduce((m, t) => (t.date < m ? t.date : m), contributions[0].date);
-  const monthsActive = differenceInCalendarMonths(today, parseISO(first.slice(0, 10))) + 1;
+  const monthsActive = differenceInCalendarMonths(endMonth, parseISO(first.slice(0, 10))) + 1;
   return roundCents(total / Math.max(1, Math.min(lookback, monthsActive)));
 }
 

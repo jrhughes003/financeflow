@@ -5,6 +5,7 @@ import { isTemplateDue } from './utils/recurring';
 import { getOwedSummary } from './utils/reimbursements';
 import { formatCurrency } from './utils/calculations';
 import Layout from './components/Layout';
+import CommandPalette from './components/CommandPalette';
 import Dashboard from './components/Dashboard';
 import TransactionEntry from './components/TransactionEntry';
 import TransactionHistory from './components/TransactionHistory';
@@ -24,6 +25,7 @@ import LifePlanPage from './components/lifeplan/LifePlanPage';
 function AppContent() {
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [showQuickAdd, setShowQuickAdd] = useState(false);
+  const [showPalette, setShowPalette] = useState(false);
   const { toast } = useToast();
   const { state } = useFinancial();
 
@@ -42,10 +44,14 @@ function AppContent() {
     };
   }, [state.recurringTemplates, state.transactions]);
 
-  // Global keyboard shortcut Ctrl+N = quick add
+  // Global shortcuts: Ctrl+K opens the command palette, Ctrl+N quick-adds.
   useEffect(() => {
     const handler = (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setShowPalette(open => !open);
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n') {
         e.preventDefault();
         setShowQuickAdd(true);
       }
@@ -77,6 +83,12 @@ function AppContent() {
       <Layout currentPage={currentPage} setCurrentPage={setCurrentPage} onQuickAdd={() => setShowQuickAdd(true)} badges={navBadges}>
         {pages[currentPage] || pages.dashboard}
       </Layout>
+      <CommandPalette
+        open={showPalette}
+        onClose={() => setShowPalette(false)}
+        onNavigate={setCurrentPage}
+        onQuickAdd={() => setShowQuickAdd(true)}
+      />
       {showQuickAdd && (
         <TransactionEntry
           isModal

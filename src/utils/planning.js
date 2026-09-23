@@ -196,7 +196,17 @@ const MAX_MONTHS = 600;
  * @returns { strategy, feasible, months, totalInterest, totalPaid, debtFreeDate,
  *            payoffs: [{ id, name, month }], timeline: [{ month, balance }] }
  */
-export function simulateDebtPayoff(debts, { strategy = 'avalanche', extra = 0, today = new Date() } = {}) {
+/** Months from today until a promotional rate expires; Infinity if it never does. */
+function promoMonths(debt, today) {
+  if (!debt.promoUntil || debt.postPromoRate === undefined || debt.postPromoRate === null) return Infinity;
+  const end = parseISO(String(debt.promoUntil).slice(0, 10));
+  if (Number.isNaN(end.getTime())) return Infinity;
+  return Math.max(0, differenceInCalendarMonths(end, today));
+}
+
+export function simulateDebtPayoff(debts, {
+  strategy = 'avalanche', extra = 0, today = new Date(), order: customOrder = null,
+} = {}) {
   const active = (debts || [])
     .filter(d => (Number(d.balance) || 0) > 0)
     .map(d => ({
@@ -208,14 +218,26 @@ export function simulateDebtPayoff(debts, { strategy = 'avalanche', extra = 0, t
       min: Number(d.minimumPayment) || 0,
       // Month index (from today) when payments begin; 0 = already in repayment.
       startMonth: monthsUntilRepayment(d, { today }),
+      // A promotional rate that expires. This is what makes payoff order a real
+      // optimisation rather than a sorted list: 0% until March then 25% should
+      // be cleared before a card that charges 20% the whole way, which neither
+      // avalanche (sorts by today's rate) nor snowball (ignores rates) will do.
+      promoEndsMonth: promoMonths(d, today),
+      postPromoRate: (Number(d.postPromoRate ?? d.interestRate) || 0) / 100 / 12,
+      postPromoApr: Number(d.postPromoRate ?? d.interestRate) || 0,
     }));
 
   const empty = { strategy, feasible: true, months: 0, totalInterest: 0, totalPaid: 0, debtFreeDate: format(today, 'yyyy-MM-dd'), payoffs: [], timeline: [{ month: 0, balance: 0 }] };
   if (!active.length) return empty;
 
-  const order = [...active];
+  let order = [...active];
   if (strategy === 'avalanche') order.sort((a, b) => (b.apr - a.apr) || (a.balance - b.balance));
   else if (strategy === 'snowball') order.sort((a, b) => (a.balance - b.balance) || (b.apr - a.apr));
+  else if (strategy === 'custom' && customOrder) {
+    // An explicit target order, which is what the optimiser searches over.
+    const rank = new Map(customOrder.map((id, i) => [id, i]));
+    order.sort((a, b) => (rank.get(a.id) ?? 1e9) - (rank.get(b.id) ?? 1e9));
+  }
 
   const started = (d, m) => m >= d.startMonth;
   // Budget grows as deferred debts enter repayment; paid-off minimums keep rolling.
@@ -232,7 +254,8 @@ export function simulateDebtPayoff(debts, { strategy = 'avalanche', extra = 0, t
     month++;
     active.forEach(d => {
       if (d.balance <= 0.005) return;
-      const interest = d.balance * d.rate;
+      const rate = month <= d.promoEndsMonth ? d.rate : d.postPromoRate;
+      const interest = d.balance * rate;
       d.balance += interest;
       totalInterest += interest;
     });

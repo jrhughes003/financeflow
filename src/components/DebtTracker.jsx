@@ -12,7 +12,7 @@ const DEBT_TYPES = ['credit_card', 'loan', 'mortgage', 'student_loan', 'auto', '
 const DEBT_LABELS = { credit_card: 'Credit Card', loan: 'Personal Loan', mortgage: 'Mortgage', student_loan: 'Student Loan', auto: 'Auto Loan', other: 'Other' };
 const DEBT_COLORS = { credit_card: 'var(--c-negative)', loan: 'var(--c-data-2)', mortgage: 'var(--c-data-5)', student_loan: 'var(--c-data-1)', auto: 'var(--c-data-6)', other: 'var(--c-ink-muted)' };
 
-const EMPTY_FORM = { name: '', type: 'credit_card', balance: '', interestRate: '', minimumPayment: '', originalBalance: '', repaymentStart: '' };
+const EMPTY_FORM = { name: '', type: 'credit_card', balance: '', interestRate: '', minimumPayment: '', originalBalance: '', repaymentStart: '', promoUntil: '', postPromoRate: '' };
 const fmtMonth = d => format(parseISO(d), 'MMM yyyy');
 
 export default function DebtTracker() {
@@ -30,7 +30,7 @@ export default function DebtTracker() {
   const deferred = debts.filter(d => d.balance > 0 && !isInRepayment(d));
 
   const openEdit = (d) => {
-    setForm({ ...EMPTY_FORM, ...d, balance: String(d.balance), interestRate: String(d.interestRate), minimumPayment: String(d.minimumPayment), originalBalance: String(d.originalBalance || d.balance), repaymentStart: d.repaymentStart || '' });
+    setForm({ ...EMPTY_FORM, ...d, balance: String(d.balance), interestRate: String(d.interestRate), minimumPayment: String(d.minimumPayment), originalBalance: String(d.originalBalance || d.balance), repaymentStart: d.repaymentStart || '', promoUntil: d.promoUntil || '', postPromoRate: d.postPromoRate === undefined ? '' : String(d.postPromoRate) });
     setEditId(d.id);
     setShowForm(true);
   };
@@ -47,6 +47,11 @@ export default function DebtTracker() {
       originalBalance: parseFloat(form.originalBalance) || parseFloat(form.balance) || 0,
       // Optional: loans in deferment (e.g. student loans) — no payments until this date.
       ...(form.repaymentStart ? { repaymentStart: form.repaymentStart } : {}),
+      // A promotional rate only means something with both halves: when it
+      // ends, and what it becomes.
+      ...(form.promoUntil && form.postPromoRate !== ''
+        ? { promoUntil: form.promoUntil, postPromoRate: parseFloat(form.postPromoRate) || 0 }
+        : {}),
     };
     dispatch({ type: editId ? 'UPDATE_DEBT' : 'ADD_DEBT', payload });
     setForm(EMPTY_FORM);
@@ -127,6 +132,17 @@ export default function DebtTracker() {
                 <input type="date" value={form.repaymentStart} onChange={e => setForm(f => ({ ...f, repaymentStart: e.target.value }))}
                   className="w-full h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent" />
                 <p className="text-micro text-ink-muted mt-1">For deferred loans (like student loans in school): no payment is expected before this date. Use 0% for interest-free loans.</p>
+              </div>
+              <div>
+                <label className="label-micro block mb-1.5">Promo rate ends (optional)</label>
+                <input type="date" value={form.promoUntil} onChange={e => setForm(f => ({ ...f, promoUntil: e.target.value }))}
+                  className="w-full h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent" />
+              </div>
+              <div>
+                <label className="label-micro block mb-1.5">Rate after promo (%)</label>
+                <input type="number" step="0.01" value={form.postPromoRate} onChange={e => setForm(f => ({ ...f, postPromoRate: e.target.value }))}
+                  placeholder="e.g. 24.99" className="w-full h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent" />
+                <p className="text-micro text-ink-muted mt-1">For a 0% intro card: the rate above applies until this date, then this one does. The payoff plan will try to clear it first.</p>
               </div>
             </div>
             <div className="flex gap-2">

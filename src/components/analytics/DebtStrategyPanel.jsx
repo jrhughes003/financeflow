@@ -6,6 +6,7 @@ import { Landmark, AlertTriangle, Sparkles } from 'lucide-react';
 import { useFinancial } from '../../context/FinancialContext';
 import { formatCurrency } from '../../utils/calculations';
 import { compareDebtStrategies } from '../../utils/planning';
+import { optimizePayoff } from '../../utils/optimizePayoff';
 import { getSavingsOpportunities } from '../../utils/insights';
 import { requiredPayment, isInRepayment } from '../../utils/accounts';
 
@@ -36,6 +37,11 @@ export default function DebtStrategyPanel() {
   ) * 10, [transactions, budgets, recurringTemplates]);
 
   const cmp = useMemo(() => compareDebtStrategies(owing, { extra }), [owing, extra]);
+
+  // Searched rather than sorted. With fixed rates this lands on avalanche and
+  // says so; it only diverges when a rate changes partway — a promotional 0%
+  // reverting to 25% — which neither heuristic can see.
+  const optimal = useMemo(() => optimizePayoff(owing, { extra }), [owing, extra]);
 
   if (!owing.length) {
     return (
@@ -129,6 +135,31 @@ export default function DebtStrategyPanel() {
           Paying {formatCurrency(extra)}/mo extra with the <span className="font-semibold">{STRATEGIES.find(s => s.key === cmp.recommended).label.toLowerCase()}</span> method
           gets you debt-free <span className="font-semibold">{duration(cmp.monthsSaved)} sooner</span> and saves <span className="font-semibold">{formatCurrency(cmp.interestSaved)}</span> in interest.
           {cmp.recommended === 'snowball' && ' It costs almost the same as avalanche but clears your first debt sooner.'}
+        </p>
+      )}
+
+      {optimal?.feasible && optimal.savingVsAvalanche > 0.5 && (
+        <div className="bg-accent-tint rounded-container p-4 mb-4">
+          <p className="text-sm text-accent-ink">
+            <span className="font-medium">A cheaper order exists.</span> Paying{' '}
+            {optimal.order.map(o => o.name).join(' → ')} costs{' '}
+            <span className="font-medium">{formatCurrency(optimal.savingVsAvalanche)}</span> less interest than
+            avalanche{optimal.exhaustive ? ', and no other order is cheaper' : ''}.
+          </p>
+          <p className="text-caption text-accent-ink/70 mt-1">
+            Avalanche sorts by today's rate, so it misses a promotional rate that is about to revert.
+            {optimal.exhaustive
+              ? ` All ${optimal.searched.toLocaleString()} possible orders were checked.`
+              : ` ${optimal.searched} orders were checked — too many debts to try every one.`}
+          </p>
+        </div>
+      )}
+
+      {optimal?.feasible && optimal.matchesAvalanche && extra > 0 && (
+        <p className="text-caption text-ink-muted mb-4">
+          {optimal.exhaustive
+            ? `Checked all ${optimal.searched.toLocaleString()} payoff orders: avalanche is the cheapest.`
+            : 'Avalanche is the cheapest order found.'}
         </p>
       )}
 

@@ -53,7 +53,7 @@ plaintext only in memory at call time.
 **The financial logic is real, and tested.** Budget rollover, recurring-charge detection,
 duplicate detection, reimbursement-aware spending, goal pacing, debt avalanche/snowball, a
 long-range life plan with Canadian tax treatment (RRSP/TFSA/FHSA, CPP/OAS, first-time-buyer
-rules) and a Monte Carlo simulation. Roughly 17k lines of source and **413 unit tests**.
+rules) and a Monte Carlo simulation. Roughly 19k lines of source and **413 unit tests**.
 Functions that depend on "now" take an explicit date, so they're deterministic under test.
 
 ## Features

@@ -145,6 +145,10 @@ async function query(client, { question, today, categories }, ctx = {}) {
 
   // What was consulted, so the UI can show it and the user can verify it.
   const consulted = [];
+  // Summed across the loop's turns — a tool-using answer costs more than one
+  // call, and anything measuring cost needs the whole total.
+  const usage = { input_tokens: 0, output_tokens: 0 };
+  let servedModel = null;
 
   for (let turn = 0; turn < MAX_QUERY_TURNS; turn += 1) {
     const msg = await client.messages.create({
@@ -155,15 +159,19 @@ async function query(client, { question, today, categories }, ctx = {}) {
       messages,
     });
 
+    usage.input_tokens += msg.usage?.input_tokens || 0;
+    usage.output_tokens += msg.usage?.output_tokens || 0;
+    servedModel = msg.model || servedModel;
+
     const toolUses = (msg.content || []).filter(b => b.type === 'tool_use');
     if (!toolUses.length || msg.stop_reason !== 'tool_use') {
-      return { answer: textOf(msg), consulted };
+      return { answer: textOf(msg), consulted, usage, model: servedModel };
     }
 
     if (!runTool) {
       return {
         answer: textOf(msg) || 'I could not look that up — the local data tools are unavailable.',
-        consulted,
+        consulted, usage, model: servedModel,
       };
     }
 
@@ -192,7 +200,7 @@ async function query(client, { question, today, categories }, ctx = {}) {
 
   return {
     answer: 'That took too many lookups to answer — try asking about a narrower period.',
-    consulted,
+    consulted, usage, model: servedModel,
     truncated: true,
   };
 }

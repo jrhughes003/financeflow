@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Trash2, Edit2, Check, X, Lightbulb, Tag } from 'lucide-react';
 import { useFinancial, useGetCategory } from '../context/FinancialContext';
+import { useUndoableDelete } from '../hooks/useUndoableDelete';
 import { CATEGORIES, getAllCategories } from '../utils/categorization';
 import { getSpendingByCategory, getMonthlyTrend, getBudgetStatus, formatCurrency } from '../utils/calculations';
 import { format } from 'date-fns';
@@ -33,7 +34,7 @@ function BudgetRow({ budget, spending, carry = 0, effectiveBudget, onEdit, onDel
           <button onClick={() => setEditing(e => !e)} className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors">
             <Edit2 className="w-3.5 h-3.5" />
           </button>
-          <button onClick={() => onDelete(budget.id)} className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors">
+          <button onClick={() => onDelete(budget)} aria-label={`Delete ${cat?.name || budget.category} budget`} title="Delete budget" className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors">
             <Trash2 className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -85,6 +86,7 @@ function BudgetRow({ budget, spending, carry = 0, effectiveBudget, onEdit, onDel
 
 export default function BudgetManager() {
   const { state, dispatch } = useFinancial();
+  const removeItem = useUndoableDelete();
   const getCategory = useGetCategory();
   const { transactions, budgets, customCategories = [] } = state;
   const allCategories = getAllCategories(customCategories);
@@ -287,7 +289,7 @@ export default function BudgetManager() {
               effectiveBudget={statusByCategory[b.category]?.effectiveBudget}
               getCategory={getCategory}
               onEdit={payload => dispatch({ type: 'SET_BUDGET', payload })}
-              onDelete={id => dispatch({ type: 'DELETE_BUDGET', payload: id })}
+              onDelete={budget => removeItem({ type: 'budget', item: budget, label: getCategory(budget.category)?.name })}
             />
           ))}
         </div>

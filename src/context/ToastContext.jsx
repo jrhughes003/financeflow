@@ -1,0 +1,79 @@
+// Toasts, with an optional action button.
+//
+// The action is what makes this worth a context rather than local state: every
+// destructive action in the app now removes the record immediately and offers
+// Undo for a few seconds, which is both safer and faster than a confirm dialog
+// nobody reads.
+
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { Undo2, X } from 'lucide-react';
+
+const ToastContext = createContext(null);
+
+const DEFAULT_DURATION = 4000;
+const UNDO_DURATION = 7000; // long enough to notice a mistake and reach the mouse
+
+export function ToastProvider({ children }) {
+  const [toasts, setToasts] = useState([]);
+  const timers = useRef(new Map());
+
+  const dismiss = useCallback((id) => {
+    setToasts(list => list.filter(t => t.id !== id));
+    const timer = timers.current.get(id);
+    if (timer) { clearTimeout(timer); timers.current.delete(id); }
+  }, []);
+
+  const toast = useCallback((message, options = {}) => {
+    const { type = 'success', action = null, duration = action ? UNDO_DURATION : DEFAULT_DURATION } = options;
+    const id = `toast_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    setToasts(list => [...list, { id, message, type, action }]);
+    timers.current.set(id, setTimeout(() => dismiss(id), duration));
+    return id;
+  }, [dismiss]);
+
+  // Clear pending timers if the provider goes away mid-countdown.
+  useEffect(() => () => { timers.current.forEach(clearTimeout); timers.current.clear(); }, []);
+
+  return (
+    <ToastContext.Provider value={{ toast, dismiss }}>
+      {children}
+      <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none" role="status" aria-live="polite">
+        {toasts.map(t => (
+          <div
+            key={t.id}
+            className={`
+              flex items-center gap-3 pl-4 pr-2 py-3 rounded-xl shadow-lg text-sm font-medium
+              pointer-events-auto min-w-[260px]
+              ${t.type === 'error' ? 'bg-red-600 text-white' : t.type === 'neutral' ? 'bg-gray-900 text-white' : 'bg-green-600 text-white'}
+            `}
+          >
+            <span className="flex-1">{t.message}</span>
+            {t.action && (
+              <button
+                onClick={() => { t.action.onClick(); dismiss(t.id); }}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/20 hover:bg-white/30 transition-colors"
+              >
+                <Undo2 className="w-3.5 h-3.5" />
+                {t.action.label}
+              </button>
+            )}
+            <button
+              onClick={() => dismiss(t.id)}
+              aria-label="Dismiss notification"
+              className="p-1 opacity-70 hover:opacity-100"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        ))}
+      </div>
+    </ToastContext.Provider>
+  );
+}
+
+export function useToast() {
+  const ctx = useContext(ToastContext);
+  // Components are rendered inside the provider in the app, but tests may mount
+  // one on its own; a no-op keeps those from crashing.
+  return ctx || { toast: () => {}, dismiss: () => {} };
+}

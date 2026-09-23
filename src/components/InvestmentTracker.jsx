@@ -3,6 +3,7 @@ import { format, parseISO, differenceInCalendarDays, addMonths } from 'date-fns'
 import { Plus, Edit2, Trash2, TrendingUp, RefreshCw, ArrowDownCircle, ArrowUpCircle, X, AlertCircle } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { useFinancial } from '../context/FinancialContext';
+import { useUndoableDelete } from '../hooks/useUndoableDelete';
 import { formatCurrency } from '../utils/calculations';
 import {
   estimateAccountValue, projectAccount, syncToStatement, addAccountEntry, removeAccountEntry, isTrackedAccount,
@@ -194,6 +195,7 @@ function AccountCard({ inv, onUpdate, onEdit, onDelete }) {
 
 export default function InvestmentTracker() {
   const { state, dispatch } = useFinancial();
+  const removeItem = useUndoableDelete();
   const { investments } = state;
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -216,7 +218,7 @@ export default function InvestmentTracker() {
   }));
 
   const update = inv => dispatch({ type: 'UPDATE_INVESTMENT', payload: inv });
-  const remove = id => dispatch({ type: 'DELETE_INVESTMENT', payload: id });
+  const remove = inv => removeItem({ type: 'investment', item: inv });
 
   const openEdit = inv => {
     setForm({
@@ -362,7 +364,7 @@ export default function InvestmentTracker() {
                   <p className="font-bold text-gray-900 text-sm">{formatCurrency(inv.currentValue)}</p>
                   <div className="flex gap-1">
                     <button onClick={() => openEdit(inv)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"><Edit2 className="w-3.5 h-3.5" /></button>
-                    <button onClick={() => remove(inv.id)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg"><Trash2 className="w-3.5 h-3.5" /></button>
+                    <button onClick={() => remove(inv)} aria-label={`Delete ${inv.name}`} title={`Delete ${inv.name}`} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg"><Trash2 className="w-3.5 h-3.5" /></button>
                   </div>
                 </div>
               ))

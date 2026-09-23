@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Search, Filter, Download, Upload, Trash2, Edit2, ChevronUp, ChevronDown, Sparkles } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { useFinancial } from '../context/FinancialContext';
+import { useUndoableDelete } from '../hooks/useUndoableDelete';
 import { CATEGORIES, getAllCategories, getCategoryById } from '../utils/categorization';
 import { useGetCategory } from '../context/FinancialContext';
 import { exportToCSV, importFromCSV } from '../utils/exportUtils';
@@ -24,6 +25,7 @@ function OwedBadge({ t }) {
 
 export default function TransactionHistory() {
   const { state, dispatch } = useFinancial();
+  const removeItem = useUndoableDelete();
   const { transactions, customCategories = [] } = state;
   const getCategory = useGetCategory();
   const allCategories = getAllCategories(customCategories);
@@ -84,7 +86,8 @@ export default function TransactionHistory() {
   };
 
   const handleDelete = (id) => {
-    dispatch({ type: 'DELETE_TRANSACTION', payload: id });
+    const transaction = transactions.find(t => t.id === id);
+    if (transaction) removeItem({ type: 'transaction', item: transaction, label: transaction.merchant });
     setDeleteId(null);
   };
 

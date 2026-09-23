@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Plus, Edit2, Trash2, Target, Plane, Car, Shield, Home, Star } from 'lucide-react';
 import { format, addMonths, parseISO, differenceInMonths } from 'date-fns';
 import { useFinancial } from '../context/FinancialContext';
+import { useUndoableDelete } from '../hooks/useUndoableDelete';
 import { projectGoalCompletion, getGoalProgress, formatCurrency } from '../utils/calculations';
 
 const ICONS = { Shield, Plane, Car, Home, Star, Target };
@@ -42,7 +43,7 @@ function GoalCard({ goal, transactions, onEdit, onDelete }) {
         </div>
         <div className="flex gap-1">
           <button onClick={() => onEdit(goal)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"><Edit2 className="w-3.5 h-3.5" /></button>
-          <button onClick={() => onDelete(goal.id)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg"><Trash2 className="w-3.5 h-3.5" /></button>
+          <button onClick={() => onDelete(goal)} aria-label={`Delete goal ${goal.name}`} title={`Delete ${goal.name}`} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg"><Trash2 className="w-3.5 h-3.5" /></button>
         </div>
       </div>
 
@@ -102,6 +103,7 @@ const EMPTY_FORM = { name: '', targetAmount: '', currentAmount: '', monthlyContr
 
 export default function GoalsManager() {
   const { state, dispatch } = useFinancial();
+  const removeItem = useUndoableDelete();
   const { savings_goals, transactions } = state;
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -199,7 +201,7 @@ export default function GoalsManager() {
         ? <div className="text-center py-12 text-gray-400"><p className="font-medium">No goals yet</p><p className="text-sm mt-1">Create your first savings goal to get started.</p></div>
         : <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {savings_goals.map(g => (
-              <GoalCard key={g.id} goal={g} transactions={transactions} onEdit={openEdit} onDelete={id => dispatch({ type: 'DELETE_GOAL', payload: id })} />
+              <GoalCard key={g.id} goal={g} transactions={transactions} onEdit={openEdit} onDelete={() => removeItem({ type: 'goal', item: g })} />
             ))}
           </div>
       }

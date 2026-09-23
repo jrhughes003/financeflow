@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Edit2, Trash2, PauseCircle } from 'lucide-react';
 import { useFinancial } from '../context/FinancialContext';
+import { useUndoableDelete } from '../hooks/useUndoableDelete';
 import { calculateDebtPayoff, formatCurrency } from '../utils/calculations';
 import { addMonths, format, parseISO } from 'date-fns';
 import { isInRepayment, requiredPayment, monthsUntilRepayment } from '../utils/accounts';
@@ -14,6 +15,7 @@ const fmtMonth = d => format(parseISO(d), 'MMM yyyy');
 
 export default function DebtTracker() {
   const { state, dispatch } = useFinancial();
+  const removeItem = useUndoableDelete();
   const { debts } = state;
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -164,7 +166,7 @@ export default function DebtTracker() {
                       </div>
                       <div className="flex gap-1">
                         <button onClick={() => openEdit(d)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"><Edit2 className="w-3.5 h-3.5" /></button>
-                        <button onClick={() => dispatch({ type: 'DELETE_DEBT', payload: d.id })} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg"><Trash2 className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => removeItem({ type: 'debt', item: d })} aria-label={`Delete ${d.name}`} title={`Delete ${d.name}`} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg"><Trash2 className="w-3.5 h-3.5" /></button>
                       </div>
                     </div>
 

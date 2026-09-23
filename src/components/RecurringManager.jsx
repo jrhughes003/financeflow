@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { RefreshCw, Plus, Trash2, Check, Power } from 'lucide-react';
 import { format } from 'date-fns';
 import { useFinancial, useGetCategory } from '../context/FinancialContext';
+import { useUndoableDelete } from '../hooks/useUndoableDelete';
 import { detectRecurringCandidates, isTemplateDue, postTemplate } from '../utils/recurring';
 import { formatCurrency } from '../utils/calculations';
 
@@ -9,6 +10,7 @@ const FREQ_LABELS = { weekly: 'Weekly', biweekly: 'Every 2 weeks', monthly: 'Mon
 
 export default function RecurringManager() {
   const { state, dispatch } = useFinancial();
+  const removeItem = useUndoableDelete();
   const { transactions, recurringTemplates = [] } = state;
   const getCategory = useGetCategory();
   const today = format(new Date(), 'yyyy-MM-dd');
@@ -98,7 +100,7 @@ export default function RecurringManager() {
                     <button onClick={() => toggleActive(t)} title={inactive ? 'Resume' : 'Pause'} className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg">
                       <Power className="w-3.5 h-3.5" />
                     </button>
-                    <button onClick={() => dispatch({ type: 'DELETE_RECURRING_TEMPLATE', payload: t.id })} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg">
+                    <button onClick={() => removeItem({ type: 'recurring', item: t })} aria-label={`Delete recurring charge ${t.merchant}`} title={`Delete ${t.merchant}`} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg">
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>

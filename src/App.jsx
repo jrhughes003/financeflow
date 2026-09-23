@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { FinancialProvider } from './context/FinancialContext';
+import { ToastProvider, useToast } from './context/ToastContext';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
 import TransactionEntry from './components/TransactionEntry';
@@ -17,31 +18,10 @@ import Settings from './components/Settings';
 import OwedManager from './components/OwedManager';
 import LifePlanPage from './components/lifeplan/LifePlanPage';
 
-function Toast({ toasts, removeToast }) {
-  return (
-    <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none">
-      {toasts.map(t => (
-        <div key={t.id} className={`flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg text-white text-sm font-medium pointer-events-auto animate-fade-in ${t.type === 'error' ? 'bg-red-500' : 'bg-green-500'}`}>
-          {t.message}
-          <button onClick={() => removeToast(t.id)} className="ml-2 opacity-70 hover:opacity-100 text-white">✕</button>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 function AppContent() {
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [showQuickAdd, setShowQuickAdd] = useState(false);
-  const [toasts, setToasts] = useState([]);
-
-  const addToast = useCallback((message, type = 'success') => {
-    const id = Date.now();
-    setToasts(t => [...t, { id, message, type }]);
-    setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 3500);
-  }, []);
-
-  const removeToast = useCallback((id) => setToasts(t => t.filter(x => x.id !== id)), []);
+  const { toast } = useToast();
 
   // Global keyboard shortcut Ctrl+N = quick add
   useEffect(() => {
@@ -83,11 +63,10 @@ function AppContent() {
           isModal
           onClose={() => {
             setShowQuickAdd(false);
-            addToast('Transaction added!');
+            toast('Transaction added');
           }}
         />
       )}
-      <Toast toasts={toasts} removeToast={removeToast} />
     </>
   );
 }
@@ -95,7 +74,9 @@ function AppContent() {
 export default function App() {
   return (
     <FinancialProvider>
-      <AppContent />
+      <ToastProvider>
+        <AppContent />
+      </ToastProvider>
     </FinancialProvider>
   );
 }

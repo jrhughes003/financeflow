@@ -3,6 +3,7 @@ import { Plus, Edit2, Trash2 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { format } from 'date-fns';
 import { useFinancial } from '../context/FinancialContext';
+import { useUndoableDelete } from '../hooks/useUndoableDelete';
 import { getTotalIncome, getTotalExpenses, toMonthlyAmount, formatCurrency } from '../utils/calculations';
 import { getIncomeSources } from '../utils/accounts';
 
@@ -14,6 +15,7 @@ const COLORS = ['#3b82f6','#22c55e','#f59e0b','#ec4899','#8b5cf6','#f97316'];
 
 export default function IncomeManager() {
   const { state, dispatch } = useFinancial();
+  const removeItem = useUndoableDelete();
   const { incomes, transactions } = state;
   const now = new Date();
 
@@ -163,7 +165,7 @@ export default function IncomeManager() {
                     </div>
                     <div className="flex gap-1">
                       <button onClick={() => openEdit(inc)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"><Edit2 className="w-3.5 h-3.5" /></button>
-                      <button onClick={() => dispatch({ type: 'DELETE_INCOME', payload: inc.id })} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg"><Trash2 className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => removeItem({ type: 'income', item: inc })} aria-label={`Delete ${inc.name}`} title={`Delete ${inc.name}`} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg"><Trash2 className="w-3.5 h-3.5" /></button>
                     </div>
                   </div>
                 );

@@ -58,8 +58,27 @@ jobs:
       # without this the database tests fail with NODE_MODULE_VERSION errors.
       - name: Build better-sqlite3 for Node
         run: npm rebuild better-sqlite3 --build-from-source
+      # `tee` so the summary survives a threshold failure: the numbers are what
+      # you need to see when it goes red, and they are the one thing a failing
+      # run otherwise buries at the bottom of a log.
       - name: Run tests with coverage
-        run: npm run coverage
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run coverage 2>&1 | tee coverage-run.txt
+
+      - name: Report coverage
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "### Coverage (${{ matrix.os }})"
+            echo '```'
+            sed -n '/Coverage summary/,/^=\{10,\}$/p' coverage-run.txt || true
+            grep -E '^ERROR: Coverage' coverage-run.txt || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Build web bundle
         run: npm run build
       # The Monte Carlo lives in a worker, and the call site swallows a failed

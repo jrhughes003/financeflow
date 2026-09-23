@@ -23,7 +23,7 @@ const STATUS = {
   ok:    { label: 'On track',    icon: CheckCircle2,  cls: 'text-positive' },
 };
 
-const LINE_COLOR = '#3b82f6';
+const LINE_COLOR = 'var(--c-data-1)';
 
 function Stat({ label, value, sub }) {
   return (
@@ -76,7 +76,7 @@ export default function ForecastPanel() {
   const last = cf.rows[cf.rows.length - 1];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Month-end projection */}
       <div className="bg-surface rounded-container border border-line p-5">
         <div className="flex flex-wrap items-start justify-between gap-3 mb-4">

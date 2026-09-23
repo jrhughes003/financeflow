@@ -10,9 +10,9 @@ import { getSavingsOpportunities } from '../../utils/insights';
 import { requiredPayment, isInRepayment } from '../../utils/accounts';
 
 const STRATEGIES = [
-  { key: 'minimum', label: 'Minimums only', color: '#94a3b8', blurb: 'Pay each debt its minimum, nothing more.' },
-  { key: 'avalanche', label: 'Avalanche', color: '#2563eb', blurb: 'Extra money to the highest interest rate first — least interest paid.' },
-  { key: 'snowball', label: 'Snowball', color: '#f59e0b', blurb: 'Extra money to the smallest balance first — quickest early wins.' },
+  { key: 'minimum', label: 'Minimums only', color: 'var(--c-ink-muted)', blurb: 'Pay each debt its minimum, nothing more.' },
+  { key: 'avalanche', label: 'Avalanche', color: 'var(--c-data-1)', blurb: 'Extra money to the highest interest rate first — least interest paid.' },
+  { key: 'snowball', label: 'Snowball', color: 'var(--c-caution)', blurb: 'Extra money to the smallest balance first — quickest early wins.' },
 ];
 const fmtMonth = d => (d ? format(parseISO(d), 'MMM yyyy') : '—');
 const duration = m => {

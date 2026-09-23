@@ -88,7 +88,7 @@ export default function SavingsPanel() {
 
   if (!averages.months) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-5">
       <DuplicatesPanel />
       <div className="bg-surface rounded-container border border-line p-5">
         <h2 className="text-lg font-semibold text-ink mb-1">Savings Opportunities</h2>
@@ -99,7 +99,7 @@ export default function SavingsPanel() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <DuplicatesPanel />
 
       {/* Opportunities */}

@@ -12,7 +12,7 @@ import { buildSnapshot, scenarioFromPlan, normalizePlan } from '../../utils/life
 import { Card, NumberField, Stat, inputCls } from './ui';
 
 // Fixed order so a scenario keeps its colour when others are toggled off.
-const LINE_COLORS = ['#2563eb', '#f59e0b', '#16a34a', '#db2777', '#0891b2'];
+const LINE_COLORS = ['var(--c-data-1)', 'var(--c-caution)', '#16a34a', '#db2777', '#0891b2'];
 const money = v => formatCurrency(Math.round(v));
 const compact = v => `${v < 0 ? '−' : ''}$${Math.abs(v) >= 1000000 ? `${(Math.abs(v) / 1000000).toFixed(1)}M` : `${Math.round(Math.abs(v) / 1000)}k`}`;
 const fmtDate = s => (s ? format(parseISO(s), 'MMM d, yyyy') : '');

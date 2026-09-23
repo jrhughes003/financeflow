@@ -4,6 +4,7 @@ import { Plus, Edit2, Trash2, TrendingUp, RefreshCw, ArrowDownCircle, ArrowUpCir
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
 import * as chart from './ui/chartTheme';
 import { useFinancial } from '../context/FinancialContext';
+import { Card, PageLede, Stat, Money } from './ui';
 import EmptyState from './EmptyState';
 import { useUndoableDelete } from '../hooks/useUndoableDelete';
 import { formatCurrency } from '../utils/calculations';
@@ -14,7 +15,7 @@ import {
 
 const TYPES = ['stocks', 'bonds', 'crypto', 'retirement', 'real_estate', 'cash', 'other'];
 const TYPE_LABELS = { stocks: 'Stocks', bonds: 'Bonds', crypto: 'Crypto', retirement: 'Retirement', real_estate: 'Real Estate', cash: 'Cash', other: 'Other' };
-const TYPE_COLORS = { stocks: '#3b82f6', bonds: '#22c55e', crypto: '#f59e0b', retirement: '#8b5cf6', real_estate: '#ec4899', cash: '#10b981', other: '#94a3b8' };
+const TYPE_COLORS = { stocks: 'var(--c-data-1)', bonds: 'var(--c-positive)', crypto: 'var(--c-caution)', retirement: 'var(--c-data-5)', real_estate: 'var(--c-data-7)', cash: 'var(--c-data-6)', other: 'var(--c-ink-muted)' };
 
 const todayStr = () => format(new Date(), 'yyyy-MM-dd');
 const fmtDate = d => format(parseISO(d.slice(0, 10)), 'MMM d, yyyy');
@@ -60,7 +61,7 @@ function AccountCard({ inv, onUpdate, onEdit, onDelete }) {
   const est = estimateAccountValue(inv);
   const proj = projectAccount(inv, { months: 600 });
   const w = Number(inv.monthlyWithdrawal) || 0;
-  const color = TYPE_COLORS[inv.type] || '#94a3b8';
+  const color = TYPE_COLORS[inv.type] || 'var(--c-ink-muted)';
   const staleDays = differenceInCalendarDays(new Date(), parseISO(inv.asOfDate));
   const entries = [...(inv.entries || [])].sort((a, b) => b.date.localeCompare(a.date));
 
@@ -216,7 +217,7 @@ export default function InvestmentTracker() {
   const byType = {};
   estimates.forEach(({ inv, est }) => { byType[inv.type] = (byType[inv.type] || 0) + est.value; });
   const pieData = Object.entries(byType).map(([type, value]) => ({
-    name: TYPE_LABELS[type] || type, value: Math.round(value), color: TYPE_COLORS[type] || '#94a3b8', type,
+    name: TYPE_LABELS[type] || type, value: Math.round(value), color: TYPE_COLORS[type] || 'var(--c-ink-muted)', type,
   }));
 
   const update = inv => dispatch({ type: 'UPDATE_INVESTMENT', payload: inv });
@@ -259,7 +260,7 @@ export default function InvestmentTracker() {
       withdrawalDay: Math.min(28, Math.max(1, parseInt(form.withdrawalDay, 10) || 1)),
       withdrawalCountsAsIncome: !!form.withdrawalCountsAsIncome,
       entries: existing?.entries || [],
-      color: TYPE_COLORS[form.type] || '#94a3b8',
+      color: TYPE_COLORS[form.type] || 'var(--c-ink-muted)',
     };
     dispatch({ type: editId ? 'UPDATE_INVESTMENT' : 'ADD_INVESTMENT', payload });
     setForm(EMPTY_FORM);
@@ -270,19 +271,22 @@ export default function InvestmentTracker() {
   return (
     <div className="space-y-5 animate-fade-in">
       {/* Summary */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: 'Total Value (est. today)', value: formatCurrency(totalValue), color: 'text-accent-ink', bg: 'bg-accent-tint' },
-          { label: 'Est. growth since statements', value: `${totalGrowth >= 0 ? '+' : ''}${formatCurrency(totalGrowth)}`, color: 'text-positive', bg: 'bg-positive-tint' },
-          { label: 'Monthly withdrawals', value: formatCurrency(totalMonthlyWithdrawal), color: 'text-ink', bg: 'bg-surface-sunk' },
-          { label: `Projected in ${projYears} years`, value: formatCurrency(projectedTotal), color: 'text-violet-700', bg: 'bg-violet-50' },
-        ].map(({ label, value, color, bg }) => (
-          <div key={label} className={`${bg} rounded-container p-4`}>
-            <p className="text-caption font-medium text-ink-muted mb-1">{label}</p>
-            <p className={`text-lg font-bold ${color}`}>{value}</p>
-          </div>
-        ))}
-      </div>
+      <Card>
+        <PageLede
+          label="Portfolio value, estimated today"
+          supporting={(
+            <>
+              <Stat label="Growth since statements">
+                <Money value={totalGrowth} signed colour />
+              </Stat>
+              <Stat label="Monthly withdrawals"><Money value={totalMonthlyWithdrawal} /></Stat>
+              <Stat label={`Projected in ${projYears} years`}><Money value={projectedTotal} /></Stat>
+            </>
+          )}
+        >
+          <Money value={totalValue} size="display" />
+        </PageLede>
+      </Card>
 
       {/* Holdings */}
       <div className="bg-surface rounded-container border border-line p-5">
@@ -363,8 +367,8 @@ export default function InvestmentTracker() {
               ? <AccountCard key={inv.id} inv={inv} onUpdate={update} onEdit={openEdit} onDelete={remove} />
               : (
                 <div key={inv.id} className="flex items-center gap-3 p-3 rounded-container border border-line">
-                  <div className="w-10 h-10 rounded-container flex items-center justify-center shrink-0" style={{ backgroundColor: (TYPE_COLORS[inv.type] || '#94a3b8') + '20' }}>
-                    <TrendingUp className="w-4 h-4" style={{ color: TYPE_COLORS[inv.type] || '#94a3b8' }} />
+                  <div className="w-10 h-10 rounded-container flex items-center justify-center shrink-0" style={{ backgroundColor: (TYPE_COLORS[inv.type] || 'var(--c-ink-muted)') + '20' }}>
+                    <TrendingUp className="w-4 h-4" style={{ color: TYPE_COLORS[inv.type] || 'var(--c-ink-muted)' }} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-ink text-sm">{inv.name}</p>

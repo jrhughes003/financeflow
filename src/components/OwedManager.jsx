@@ -5,6 +5,7 @@ import { useFinancial, useGetCategory } from '../context/FinancialContext';
 import { formatCurrency } from '../utils/calculations';
 import { getOwedSummary, addRepayment, removeRepayment, setForgiven } from '../utils/reimbursements';
 import TransactionEntry from './TransactionEntry';
+import { Card, PageLede, Stat as UiStat, Money } from './ui';
 
 const fmtDate = d => format(parseISO(d.slice(0, 10)), 'MMM d, yyyy');
 const today = () => format(new Date(), 'yyyy-MM-dd');
@@ -139,13 +140,29 @@ export default function OwedManager() {
     <div className="space-y-5 animate-fade-in">
       {editTx && <TransactionEntry isModal editTransaction={editTx} onClose={() => setEditTx(null)} />}
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Stat label="Owed to you" value={formatCurrency(summary.outstanding)} accent="text-positive"
-          sub={summary.openCount ? `across ${summary.openCount} purchase${summary.openCount > 1 ? 's' : ''}` : 'all settled'} />
-        <Stat label="Oldest unpaid" value={summary.oldestOpenDate ? fmtDate(summary.oldestOpenDate) : '—'}
-          sub={summary.open.length ? age(summary.open[0].ageDays) : null} />
-        <Stat label="Paid back this month" value={formatCurrency(summary.repaidThisMonth)} sub={`${formatCurrency(summary.totalRepaid)} all time`} />
-      </div>
+      <Card>
+        <PageLede
+          label="Owed to you"
+          supporting={(
+            <>
+              <UiStat label="Oldest unpaid" hint={summary.open.length ? age(summary.open[0].ageDays) : null}>
+                {summary.oldestOpenDate ? fmtDate(summary.oldestOpenDate) : '—'}
+              </UiStat>
+              <UiStat label="Paid back this month" hint={`${formatCurrency(summary.totalRepaid)} all time`}>
+                <Money value={summary.repaidThisMonth} />
+              </UiStat>
+            </>
+          )}
+        >
+          <Money value={summary.outstanding} size="display"
+            className={summary.outstanding > 0 ? 'text-positive' : ''} />
+          <p className="text-caption text-ink-muted mt-2">
+            {summary.openCount
+              ? `across ${summary.openCount} purchase${summary.openCount > 1 ? 's' : ''} you fronted`
+              : 'everything is settled'}
+          </p>
+        </PageLede>
+      </Card>
 
       <div className="bg-surface rounded-container border border-line p-5">
         <div className="flex items-start gap-2 mb-4">

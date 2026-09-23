@@ -20,7 +20,7 @@ const EMPTY_FORM = {
   goalId: '',
 };
 
-const PRESET_COLORS = ['#f97316','#22c55e','#3b82f6','#8b5cf6','#f59e0b','#ec4899','#10b981','#0ea5e9','#ef4444','#84cc16'];
+const PRESET_COLORS = ['var(--c-data-2)','var(--c-positive)','var(--c-data-1)','var(--c-data-5)','var(--c-caution)','var(--c-data-7)','var(--c-data-6)','var(--c-data-3)','var(--c-negative)','var(--c-data-6)'];
 
 export default function TransactionEntry({ isModal = false, onClose, editTransaction = null }) {
   const { state, dispatch } = useFinancial();
@@ -380,7 +380,7 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
             type="button"
             onClick={() => setShowNewCat(s => !s)}
             title="Create new category"
-            className="px-3 py-3 border-2 border-dashed border-line-strong rounded-container text-ink-muted hover:border-accent hover:text-accent transition-colors"
+            className="h-9 px-3 border border-dashed border-line-strong rounded-control text-sm text-ink-muted hover:border-accent hover:text-accent transition-colors"
           >
             <Plus className="w-4 h-4" />
           </button>
@@ -473,11 +473,11 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
       {/* Actions */}
       <div className="flex gap-3 pt-2">
         {isModal && (
-          <button type="button" onClick={onClose} className="flex-1 py-3 border-2 border-line-strong text-ink-secondary rounded-container font-medium hover:bg-surface-sunk transition-colors">
+          <button type="button" onClick={onClose} className="flex-1 inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-10 px-4 text-sm border border-line-strong text-ink hover:bg-surface-hover">
             Cancel
           </button>
         )}
-        <button type="submit" className="flex-1 py-3 bg-accent hover:bg-accent-hover text-ink-inverse rounded-container font-semibold transition-colors">
+        <button type="submit" className="flex-1 inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-10 px-4 text-sm bg-accent hover:bg-accent-hover text-ink-inverse">
           {editTransaction ? 'Save Changes' : 'Add Transaction'}
         </button>
       </div>

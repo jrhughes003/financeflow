@@ -3,10 +3,11 @@ import {
   ComposedChart, Area, Line, Bar, BarChart, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine,
 } from 'recharts';
 import * as chart from '../ui/chartTheme';
+import { PageLede, Stat as UiStat } from '../ui';
 import { formatCurrency } from '../../utils/calculations';
 import { Card, Stat } from './ui';
 
-const COLORS = { liquid: '#2563eb', home: '#8b5cf6', debt: '#ef4444', net: '#0f172a', spend: '#f59e0b', tax: '#64748b', income: '#16a34a' };
+const COLORS = { liquid: 'var(--c-data-1)', home: 'var(--c-data-5)', debt: 'var(--c-negative)', net: '#0f172a', spend: 'var(--c-caution)', tax: '#64748b', income: '#16a34a' };
 const money = v => formatCurrency(Math.round(v));
 const compact = v => `${v < 0 ? '−' : ''}$${Math.abs(v) >= 1000000 ? `${(Math.abs(v) / 1000000).toFixed(1)}M` : `${Math.round(Math.abs(v) / 1000)}k`}`;
 
@@ -79,17 +80,33 @@ export default function PlanProjection({ plan, result }) {
         </p>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <Stat label={`At retirement (${retireYear})`} value={ret ? money(dv(ret, ret.netWorth)) : '—'} sub={ret ? `${money(dv(ret, ret.balances.liquid))} in savings` : 'Beyond the plan window'} accent="text-accent-ink" />
-        <Stat label={`At age ${plan.assumptions.endAge}`} value={fin ? money(dv(fin, fin.netWorth)) : '—'} sub={fin ? `${money(dv(fin, fin.balances.liquid))} in savings` : null} />
-        <Stat label="Lifetime tax" value={money(lifetimeTax)} sub="Income tax + CPP/EI over the plan" accent="text-ink-secondary" />
-        <Stat
-          label="Status"
-          value={result.firstShortfall ? `Runs short ${result.firstShortfall.year}` : 'Holds up'}
-          sub={result.firstShortfall ? `age ${result.firstShortfall.year - Number(me.birthYear)}` : `through age ${plan.assumptions.endAge}`}
-          accent={result.firstShortfall ? 'text-caution' : 'text-positive'}
-        />
-      </div>
+      <Card>
+        <PageLede
+          label={`Net worth at retirement (${retireYear})`}
+          supporting={(
+            <>
+              <UiStat label={`At age ${plan.assumptions.endAge}`}
+                hint={fin ? `${money(dv(fin, fin.balances.liquid))} in savings` : null}>
+                {fin ? money(dv(fin, fin.netWorth)) : '—'}
+              </UiStat>
+              <UiStat label="Lifetime tax" hint="Income tax + CPP/EI">
+                {money(lifetimeTax)}
+              </UiStat>
+              <UiStat label="Status"
+                hint={result.firstShortfall ? `age ${result.firstShortfall.year - Number(me.birthYear)}` : `through age ${plan.assumptions.endAge}`}>
+                <span className={result.firstShortfall ? 'text-caution' : 'text-positive'}>
+                  {result.firstShortfall ? `Runs short ${result.firstShortfall.year}` : 'Holds up'}
+                </span>
+              </UiStat>
+            </>
+          )}
+        >
+          <span className="figure-display">{ret ? money(dv(ret, ret.netWorth)) : '—'}</span>
+          <p className="text-caption text-ink-muted mt-2">
+            {ret ? `${money(dv(ret, ret.balances.liquid))} of it in savings` : 'Beyond the plan window'}
+          </p>
+        </PageLede>
+      </Card>
 
       <Card title="Net worth over time" subtitle="Savings and investments, plus home equity, less debts.">
         <ResponsiveContainer width="100%" height={300}>

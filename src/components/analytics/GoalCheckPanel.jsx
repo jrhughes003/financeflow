@@ -76,7 +76,7 @@ export default function GoalCheckPanel() {
                   </span>
                 </div>
                 <div className="h-2 bg-surface-hover rounded-full overflow-hidden">
-                  <div className="h-full rounded-full" style={{ width: `${s.percent}%`, backgroundColor: s.goal.color || '#3b82f6' }} />
+                  <div className="h-full rounded-full" style={{ width: `${s.percent}%`, backgroundColor: s.goal.color || 'var(--c-data-1)' }} />
                 </div>
                 <div className="flex justify-between text-caption text-ink-muted mt-1 mb-2">
                   <span>{formatCurrency(s.currentAmount)} of {formatCurrency(s.goal.targetAmount)}</span>

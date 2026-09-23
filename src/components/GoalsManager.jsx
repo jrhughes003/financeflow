@@ -2,13 +2,14 @@ import React, { useState } from 'react';
 import { Plus, Edit2, Trash2, Target, Plane, Car, Shield, Home, Star } from 'lucide-react';
 import { format, addMonths, parseISO, differenceInMonths } from 'date-fns';
 import { useFinancial } from '../context/FinancialContext';
+import { Card, PageLede, Stat as UiStat, Money } from './ui';
 import EmptyState from './EmptyState';
 import { useUndoableDelete } from '../hooks/useUndoableDelete';
 import { projectGoalCompletion, getGoalProgress, formatCurrency } from '../utils/calculations';
 
 const ICONS = { Shield, Plane, Car, Home, Star, Target };
 const ICON_LIST = ['Target', 'Plane', 'Car', 'Shield', 'Home', 'Star'];
-const COLORS = ['#3b82f6', '#22c55e', '#f59e0b', '#ec4899', '#8b5cf6', '#10b981', '#f97316', '#0ea5e9'];
+const COLORS = ['var(--c-data-1)', 'var(--c-positive)', 'var(--c-caution)', 'var(--c-data-7)', 'var(--c-data-5)', 'var(--c-data-6)', 'var(--c-data-2)', 'var(--c-data-3)'];
 
 function GoalCard({ goal, transactions, onEdit, onDelete }) {
   // Progress is derived: the opening balance plus every savings transaction
@@ -34,8 +35,8 @@ function GoalCard({ goal, transactions, onEdit, onDelete }) {
       )}
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-container flex items-center justify-center" style={{ backgroundColor: (goal.color || '#3b82f6') + '20' }}>
-            <Icon className="w-5 h-5" style={{ color: goal.color || '#3b82f6' }} />
+          <div className="w-11 h-11 rounded-container flex items-center justify-center" style={{ backgroundColor: (goal.color || 'var(--c-data-1)') + '20' }}>
+            <Icon className="w-5 h-5" style={{ color: goal.color || 'var(--c-data-1)' }} />
           </div>
           <div>
             <p className="font-semibold text-ink">{goal.name}</p>
@@ -56,7 +57,7 @@ function GoalCard({ goal, transactions, onEdit, onDelete }) {
         <div className="h-3 bg-surface-hover rounded-full overflow-hidden">
           <div
             className="h-full rounded-full transition-all duration-700"
-            style={{ width: `${pct}%`, backgroundColor: goal.color || '#3b82f6' }}
+            style={{ width: `${pct}%`, backgroundColor: goal.color || 'var(--c-data-1)' }}
           />
         </div>
         <div className="flex justify-between mt-1">
@@ -100,7 +101,7 @@ function GoalCard({ goal, transactions, onEdit, onDelete }) {
   );
 }
 
-const EMPTY_FORM = { name: '', targetAmount: '', currentAmount: '', monthlyContribution: '', targetDate: '', color: '#3b82f6', icon: 'Target' };
+const EMPTY_FORM = { name: '', targetAmount: '', currentAmount: '', monthlyContribution: '', targetDate: '', color: 'var(--c-data-1)', icon: 'Target' };
 
 export default function GoalsManager() {
   const { state, dispatch } = useFinancial();
@@ -136,14 +137,42 @@ export default function GoalsManager() {
     setEditId(null);
   };
 
+  const goalTotals = savings_goals.reduce((acc, g) => {
+    const progress = getGoalProgress(g, transactions);
+    acc.saved += progress.currentAmount;
+    acc.target += Number(g.targetAmount) || 0;
+    acc.monthly += Number(g.monthlyContribution) || 0;
+    return acc;
+  }, { saved: 0, target: 0, monthly: 0 });
+
   const scenarioProjection = scenarioGoal && scenarioAmt
     ? projectGoalCompletion(scenarioGoal, parseFloat(scenarioAmt))
     : null;
 
   return (
     <div className="space-y-5 animate-fade-in">
+      <Card>
+        <PageLede
+          label="Saved toward goals"
+          supporting={(
+            <>
+              <UiStat label="Target total"><Money value={goalTotals.target} /></UiStat>
+              <UiStat label="Still to go"><Money value={Math.max(0, goalTotals.target - goalTotals.saved)} /></UiStat>
+              <UiStat label="Per month"><Money value={goalTotals.monthly} /></UiStat>
+            </>
+          )}
+        >
+          <Money value={goalTotals.saved} size="display" />
+          {goalTotals.target > 0 && (
+            <p className="text-caption text-ink-muted mt-2">
+              {Math.round((goalTotals.saved / goalTotals.target) * 100)}% of everything you're saving for
+            </p>
+          )}
+        </PageLede>
+      </Card>
+
       <div className="flex items-center justify-between">
-        <p className="text-sm text-ink-muted">{savings_goals.length} active goals</p>
+        <p className="text-sm text-ink-muted">{savings_goals.length} active goal{savings_goals.length === 1 ? '' : 's'}</p>
         <button onClick={() => { setShowForm(s => !s); setEditId(null); setForm(EMPTY_FORM); }} className="flex items-center gap-2 px-4 py-2 bg-accent hover:bg-accent-hover text-ink-inverse rounded-container text-sm font-medium">
           <Plus className="w-4 h-4" /> New Goal
         </button>

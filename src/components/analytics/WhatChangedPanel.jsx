@@ -8,8 +8,8 @@ import { getCategoryDeltas } from '../../utils/insights';
 import { useGetCategory } from '../../context/FinancialContext';
 
 // Diverging pair: spending more vs spending less. Neutral text carries the sign too.
-const UP_COLOR = '#f97316';
-const DOWN_COLOR = '#0ea5e9';
+const UP_COLOR = 'var(--c-data-2)';
+const DOWN_COLOR = 'var(--c-data-3)';
 
 const signed = v => `${v > 0 ? '+' : v < 0 ? '−' : ''}${formatCurrency(Math.abs(v))}`;
 const signedPct = p => (p === null ? 'new' : `${p > 0 ? '+' : ''}${Math.round(p)}%`);

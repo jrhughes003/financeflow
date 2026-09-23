@@ -4,6 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import * as chart from './ui/chartTheme';
 import { Download, FileText } from 'lucide-react';
 import { useFinancial } from '../context/FinancialContext';
+import { Card, PageLede, Stat, Money } from './ui';
 import {
   getTotalIncome, getTotalExpenses, getSpendingByCategory,
   getBudgetStatus, getSavingsRate, getNetWorth, getBudgetHealthScore,
@@ -130,7 +131,7 @@ export default function Reports() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-5 animate-fade-in">
       {/* Month selector + export */}
       <div className="flex flex-wrap items-center gap-3">
         <button onClick={() => changeMonth(-1)} className="p-2 rounded-control hover:bg-surface-hover text-ink-secondary">‹</button>
@@ -149,19 +150,20 @@ export default function Reports() {
       {/* Monthly summary */}
       <div className="bg-surface rounded-container border border-line p-5">
         <h2 className="text-lg font-semibold text-ink mb-4">Monthly Report — {format(new Date(year, month, 1), 'MMMM yyyy')}</h2>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
-          {[
-            { label: 'Income', value: formatCurrency(income), color: 'text-positive', bg: 'bg-positive-tint' },
-            { label: 'Expenses', value: formatCurrency(expenses), color: 'text-caution', bg: 'bg-caution-tint' },
-            { label: 'Net Savings', value: formatCurrency(income - expenses), color: income - expenses >= 0 ? 'text-accent' : 'text-negative', bg: 'bg-accent-tint' },
-            { label: 'Savings Rate', value: `${savingsRate.toFixed(1)}%`, color: 'text-ink-secondary', bg: 'bg-surface-sunk' },
-          ].map(({ label, value, color, bg }) => (
-            <div key={label} className={`${bg} rounded-container p-3 text-center`}>
-              <p className="text-caption text-ink-muted mb-1">{label}</p>
-              <p className={`text-lg font-bold ${color}`}>{value}</p>
-            </div>
-          ))}
-        </div>
+        <PageLede
+          label={income - expenses >= 0 ? 'Saved this month' : 'Overspent this month'}
+          className="mb-5"
+          supporting={(
+            <>
+              <Stat label="Income"><Money value={income} /></Stat>
+              <Stat label="Spent"><Money value={expenses} /></Stat>
+              <Stat label="Savings rate">{savingsRate.toFixed(1)}%</Stat>
+            </>
+          )}
+        >
+          <Money value={Math.abs(income - expenses)} size="display"
+            className={income - expenses >= 0 ? 'text-positive' : 'text-negative'} />
+        </PageLede>
 
         {/* Budget health */}
         <div className="flex items-center gap-3 mb-5 bg-surface-sunk rounded-container p-3">

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Edit2, Trash2, PauseCircle , Landmark } from 'lucide-react';
 import { useFinancial } from '../context/FinancialContext';
+import { Card, PageLede, Stat, Money } from './ui';
 import EmptyState from './EmptyState';
 import { useUndoableDelete } from '../hooks/useUndoableDelete';
 import { calculateDebtPayoff, formatCurrency } from '../utils/calculations';
@@ -9,7 +10,7 @@ import { isInRepayment, requiredPayment, monthsUntilRepayment } from '../utils/a
 
 const DEBT_TYPES = ['credit_card', 'loan', 'mortgage', 'student_loan', 'auto', 'other'];
 const DEBT_LABELS = { credit_card: 'Credit Card', loan: 'Personal Loan', mortgage: 'Mortgage', student_loan: 'Student Loan', auto: 'Auto Loan', other: 'Other' };
-const DEBT_COLORS = { credit_card: '#ef4444', loan: '#f97316', mortgage: '#8b5cf6', student_loan: '#3b82f6', auto: '#10b981', other: '#94a3b8' };
+const DEBT_COLORS = { credit_card: 'var(--c-negative)', loan: 'var(--c-data-2)', mortgage: 'var(--c-data-5)', student_loan: 'var(--c-data-1)', auto: 'var(--c-data-6)', other: 'var(--c-ink-muted)' };
 
 const EMPTY_FORM = { name: '', type: 'credit_card', balance: '', interestRate: '', minimumPayment: '', originalBalance: '', repaymentStart: '' };
 const fmtMonth = d => format(parseISO(d), 'MMM yyyy');
@@ -56,19 +57,22 @@ export default function DebtTracker() {
   return (
     <div className="space-y-5 animate-fade-in">
       {/* Summary */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="bg-negative-tint rounded-container p-4">
-          <p className="text-caption font-medium text-ink-muted mb-1">Total Debt</p>
-          <p className="text-xl font-bold text-negative">{formatCurrency(totalDebt)}</p>
-        </div>
-        <div className="bg-caution-tint rounded-container p-4">
-          <p className="text-caption font-medium text-ink-muted mb-1">Payments Due Monthly</p>
-          <p className="text-xl font-bold text-caution">{formatCurrency(totalMinPayment)}</p>
-          {deferred.length > 0 && (
-            <p className="text-caption text-ink-muted mt-0.5">{deferred.length} loan{deferred.length > 1 ? 's' : ''} deferred — not due yet</p>
+      <Card>
+        <PageLede
+          label="Total owed"
+          supporting={(
+            <>
+              <Stat label="Due monthly"
+                hint={deferred.length ? `${deferred.length} loan${deferred.length > 1 ? 's' : ''} deferred` : null}>
+                <Money value={totalMinPayment} />
+              </Stat>
+              <Stat label="Debts">{debts.length}</Stat>
+            </>
           )}
-        </div>
-      </div>
+        >
+          <Money value={totalDebt} size="display" />
+        </PageLede>
+      </Card>
 
       {/* Debt cards */}
       <div className="bg-surface rounded-container border border-line p-5">
@@ -151,7 +155,7 @@ export default function DebtTracker() {
                 const payoff = calculateDebtPayoff(d.balance, d.interestRate, d.minimumPayment);
                 const extra = parseFloat(extraPayment[d.id]) || 0;
                 const payoffExtra = extra > 0 ? calculateDebtPayoff(d.balance, d.interestRate, d.minimumPayment + extra) : null;
-                const color = DEBT_COLORS[d.type] || '#94a3b8';
+                const color = DEBT_COLORS[d.type] || 'var(--c-ink-muted)';
 
                 return (
                   <div key={d.id} className="border border-line rounded-container p-4">

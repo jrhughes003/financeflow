@@ -27,6 +27,11 @@ export default function RecurringManager() {
 
   const dueTemplates = recurringTemplates.filter(t => isTemplateDue(t, today));
 
+  // What the tracked charges add up to in a month, whatever their cadence.
+  const monthlyRecurring = recurringTemplates
+    .filter(t => t.active !== false)
+    .reduce((sum, t) => sum + toMonthlyAmount(Number(t.amount) || 0, t.frequency), 0);
+
   const addTemplate = (candidate) => {
     dispatch({
       type: 'ADD_RECURRING_TEMPLATE',
@@ -66,6 +71,24 @@ export default function RecurringManager() {
           </button>
         </div>
       )}
+
+      <Card>
+        <PageLede
+          label="Recurring, per month"
+          supporting={(
+            <>
+              <Stat label="Templates">{recurringTemplates.length}</Stat>
+              <Stat label="Due now">{dueTemplates.length}</Stat>
+              <Stat label="Detected, not yet tracked">{candidates.length}</Stat>
+            </>
+          )}
+        >
+          <Money value={monthlyRecurring} size="display" />
+          <p className="text-caption text-ink-muted mt-2">
+            <Money value={monthlyRecurring * 12} size="caption" className="text-ink-secondary" /> a year
+          </p>
+        </PageLede>
+      </Card>
 
       {/* Active templates */}
       <div className="bg-surface rounded-container border border-line p-5">

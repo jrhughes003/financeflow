@@ -7,7 +7,7 @@ import { CATEGORIES, getAllCategories } from '../utils/categorization';
 import { getSpendingByCategory, getMonthlyTrend, getBudgetStatus, formatCurrency } from '../utils/calculations';
 import { format } from 'date-fns';
 
-const PRESET_COLORS = ['#f97316','#22c55e','#3b82f6','#8b5cf6','#f59e0b','#ec4899','#10b981','#0ea5e9','#ef4444','#84cc16'];
+const PRESET_COLORS = ['var(--c-data-2)','var(--c-positive)','var(--c-data-1)','var(--c-data-5)','var(--c-caution)','var(--c-data-7)','var(--c-data-6)','var(--c-data-3)','var(--c-negative)','var(--c-data-6)'];
 
 function BudgetRow({ budget, spending, carry = 0, effectiveBudget, onEdit, onDelete, getCategory }) {
   const [editing, setEditing] = useState(false);
@@ -17,7 +17,7 @@ function BudgetRow({ budget, spending, carry = 0, effectiveBudget, onEdit, onDel
   const limit = budget.rollover ? (effectiveBudget ?? budget.amount) : budget.amount;
   const pct = limit > 0 ? Math.min((spending / limit) * 100, 120) : 0;
   const status = pct > 100 + (budget.flex || 0) ? 'danger' : pct >= 80 ? 'warning' : 'good';
-  const barColor = status === 'danger' ? '#ef4444' : status === 'warning' ? '#f59e0b' : '#22c55e';
+  const barColor = status === 'danger' ? 'var(--c-negative)' : status === 'warning' ? 'var(--c-caution)' : 'var(--c-positive)';
 
   const save = () => {
     onEdit({ ...budget, amount: parseFloat(form.amount) || 0, flex: parseFloat(form.flex) || 0, rollover: form.rollover });

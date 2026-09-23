@@ -3,6 +3,7 @@ import { format } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import * as chart from './ui/chartTheme';
 import { useFinancial } from '../context/FinancialContext';
+import { Card, PageLede, Stat, Money } from './ui';
 import { getBudgetStatus, getMonthlyTrend, getConsistentlyOverBudget, formatCurrency } from '../utils/calculations';
 import { getCategoryById } from '../utils/categorization';
 import { useGetCategory } from '../context/FinancialContext';
@@ -65,7 +66,7 @@ export default function BudgetComparison() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-5 animate-fade-in">
       {/* Month selector */}
       <div className="flex items-center gap-3">
         <button onClick={() => changeMonth(-1)} className="p-2 rounded-control hover:bg-surface-hover text-ink-secondary">‹</button>
@@ -74,18 +75,26 @@ export default function BudgetComparison() {
       </div>
 
       {/* Summary totals */}
-      <div className="grid grid-cols-3 gap-4">
-        {[
-          { label: 'Total Budget', value: formatCurrency(totalBudget), color: 'text-accent', bg: 'bg-accent-tint' },
-          { label: 'Total Actual', value: formatCurrency(totalActual), color: 'text-caution', bg: 'bg-caution-tint' },
-          { label: totalVariance >= 0 ? 'Remaining' : 'Over Budget', value: formatCurrency(Math.abs(totalVariance)), color: totalVariance >= 0 ? 'text-positive' : 'text-negative', bg: totalVariance >= 0 ? 'bg-positive-tint' : 'bg-negative-tint' },
-        ].map(({ label, value, color, bg }) => (
-          <div key={label} className={`${bg} rounded-container p-4`}>
-            <p className="text-caption font-medium text-ink-muted mb-1">{label}</p>
-            <p className={`text-xl font-bold ${color}`}>{value}</p>
-          </div>
-        ))}
-      </div>
+      <Card>
+        <PageLede
+          label="Spent this month"
+          supporting={(
+            <>
+              <Stat label={anyCarry ? 'Budget after rollover' : 'Budget'}><Money value={totalBudget} /></Stat>
+              <Stat label={totalVariance >= 0 ? 'Remaining' : 'Over budget'}>
+                <Money value={Math.abs(totalVariance)} className={totalVariance >= 0 ? 'text-positive' : 'text-negative'} />
+              </Stat>
+            </>
+          )}
+        >
+          <Money value={totalActual} size="display" />
+          {totalBudget > 0 && (
+            <p className="text-caption text-ink-muted mt-2">
+              {Math.round((totalActual / totalBudget) * 100)}% of budget used
+            </p>
+          )}
+        </PageLede>
+      </Card>
 
       {/* Bar chart */}
       {chartData.length > 0 && (
@@ -125,7 +134,7 @@ export default function BudgetComparison() {
             <thead>
               <tr className="bg-surface-sunk border-b border-line">
                 {[['category','Category'],['budget', anyCarry ? 'Budget (after rollover)' : 'Budget'],['actual','Actual'],['variance','Variance'],['percentUsed','% Used'],['status','Status']].map(([f, label]) => (
-                  <th key={f} onClick={() => handleSort(f)} className="px-4 py-3 text-left text-caption font-semibold text-ink-muted uppercase tracking-wider cursor-pointer hover:bg-surface-hover select-none">
+                  <th key={f} onClick={() => handleSort(f)} className="label-micro font-medium py-2 px-3 text-left cursor-pointer hover:text-ink select-none">
                     {label}
                   </th>
                 ))}
@@ -137,13 +146,13 @@ export default function BudgetComparison() {
                 const rowBg = s.status === 'danger' ? 'bg-negative-tint' : s.status === 'warning' ? 'bg-caution-tint' : '';
                 return (
                   <tr key={s.category} className={`border-b border-line-faint ${rowBg}`}>
-                    <td className="px-4 py-3">
+                    <td className="px-3 h-row">
                       <div className="flex items-center gap-2">
                         <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: cat.color }} />
                         <span className="font-medium text-ink">{cat.name}</span>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-ink-secondary">
+                    <td className="px-3 h-row text-ink-secondary">
                       {formatCurrency(s.effectiveBudget)}
                       {Math.abs(s.carry) >= 0.01 && (
                         <span className="block text-caption text-ink-muted">
@@ -151,24 +160,24 @@ export default function BudgetComparison() {
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-3 font-semibold text-ink">{formatCurrency(s.actual)}</td>
+                    <td className="px-3 h-row font-medium text-ink">{formatCurrency(s.actual)}</td>
                     <td className={`px-4 py-3 font-semibold ${s.variance >= 0 ? 'text-positive' : 'text-negative'}`}>
                       {s.variance >= 0 ? '+' : ''}{formatCurrency(s.variance)}
                     </td>
-                    <td className="px-4 py-3 text-ink-secondary">{s.percentUsed.toFixed(0)}%</td>
-                    <td className="px-4 py-3"><StatusBadge status={s.status} /></td>
+                    <td className="px-3 h-row text-ink-secondary">{s.percentUsed.toFixed(0)}%</td>
+                    <td className="px-3 h-row"><StatusBadge status={s.status} /></td>
                   </tr>
                 );
               })}
               {/* Totals row */}
               <tr className="bg-surface-sunk font-semibold border-t-2 border-line-strong">
-                <td className="px-4 py-3 text-ink">Totals</td>
-                <td className="px-4 py-3 text-ink">{formatCurrency(totalBudget)}</td>
-                <td className="px-4 py-3 text-ink">{formatCurrency(totalActual)}</td>
+                <td className="px-3 h-row text-ink">Totals</td>
+                <td className="px-3 h-row text-ink">{formatCurrency(totalBudget)}</td>
+                <td className="px-3 h-row text-ink">{formatCurrency(totalActual)}</td>
                 <td className={`px-4 py-3 ${totalVariance >= 0 ? 'text-positive' : 'text-negative'}`}>
                   {totalVariance >= 0 ? '+' : ''}{formatCurrency(totalVariance)}
                 </td>
-                <td className="px-4 py-3 text-ink-secondary">{totalBudget > 0 ? ((totalActual / totalBudget) * 100).toFixed(0) : 0}%</td>
+                <td className="px-3 h-row text-ink-secondary">{totalBudget > 0 ? ((totalActual / totalBudget) * 100).toFixed(0) : 0}%</td>
                 <td></td>
               </tr>
             </tbody>

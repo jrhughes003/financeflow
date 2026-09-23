@@ -4,6 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import * as chart from './ui/chartTheme';
 import { format } from 'date-fns';
 import { useFinancial } from '../context/FinancialContext';
+import { Card, PageLede, Stat, Money } from './ui';
 import EmptyState from './EmptyState';
 import { useUndoableDelete } from '../hooks/useUndoableDelete';
 import { getTotalIncome, getTotalExpenses, toMonthlyAmount, formatCurrency } from '../utils/calculations';
@@ -12,8 +13,8 @@ import { getIncomeSources } from '../utils/accounts';
 const FREQUENCIES = ['weekly', 'biweekly', 'semi-monthly', 'monthly', 'annual'];
 const FREQ_LABELS = { weekly: 'Weekly', biweekly: 'Biweekly', 'semi-monthly': 'Semi-monthly', monthly: 'Monthly', annual: 'Annual' };
 
-const EMPTY_FORM = { name: '', amount: '', frequency: 'monthly', source: 'employer', color: '#3b82f6' };
-const COLORS = ['#3b82f6','#22c55e','#f59e0b','#ec4899','#8b5cf6','#f97316'];
+const EMPTY_FORM = { name: '', amount: '', frequency: 'monthly', source: 'employer', color: 'var(--c-data-1)' };
+const COLORS = ['var(--c-data-1)','var(--c-positive)','var(--c-caution)','var(--c-data-7)','var(--c-data-5)','var(--c-data-2)'];
 
 export default function IncomeManager() {
   const { state, dispatch } = useFinancial();
@@ -61,21 +62,25 @@ export default function IncomeManager() {
 
   return (
     <div className="space-y-5 animate-fade-in">
-      {/* Summary cards */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="bg-positive-tint rounded-container p-4">
-          <p className="text-caption font-medium text-ink-muted mb-1">Total Monthly Income</p>
-          <p className="text-xl font-bold text-positive">{formatCurrency(totalMonthly)}</p>
-        </div>
-        <div className="bg-caution-tint rounded-container p-4">
-          <p className="text-caption font-medium text-ink-muted mb-1">This Month's Spending</p>
-          <p className="text-xl font-bold text-caution">{formatCurrency(totalExpenses)}</p>
-        </div>
-        <div className={`rounded-container p-4 ${netAvailable >= 0 ? 'bg-accent-tint' : 'bg-negative-tint'}`}>
-          <p className="text-caption font-medium text-ink-muted mb-1">Net Available</p>
-          <p className={`text-xl font-bold ${netAvailable >= 0 ? 'text-accent-ink' : 'text-negative'}`}>{formatCurrency(netAvailable)}</p>
-        </div>
-      </div>
+      {/* Summary */}
+      <Card>
+        <PageLede
+          label="Monthly income"
+          supporting={(
+            <>
+              <Stat label="Spent this month"><Money value={totalExpenses} /></Stat>
+              <Stat label="Net available">
+                <Money value={netAvailable} colour />
+              </Stat>
+            </>
+          )}
+        >
+          <Money value={totalMonthly} size="display" />
+          <p className="text-caption text-ink-muted mt-2">
+            across {incomes.length + accountIncomes.length} source{incomes.length + accountIncomes.length === 1 ? '' : 's'}
+          </p>
+        </PageLede>
+      </Card>
 
       {/* Income vs Expenses chart */}
       <div className="bg-surface rounded-container border border-line p-5">
@@ -88,7 +93,7 @@ export default function IncomeManager() {
             <Tooltip {...chart.tooltip} formatter={v => formatCurrency(v)} />
             <Bar dataKey="amount" radius={[6,6,0,0]} fill={chart.SERIES.primary} name="Amount">
               {chartData.map((entry, i) => (
-                <rect key={i} fill={i === 0 ? '#22c55e' : i === 1 ? '#f97316' : '#3b82f6'} />
+                <rect key={i} fill={i === 0 ? 'var(--c-positive)' : i === 1 ? 'var(--c-data-2)' : 'var(--c-data-1)'} />
               ))}
             </Bar>
           </BarChart>
@@ -164,7 +169,7 @@ export default function IncomeManager() {
                 const monthly = toMonthlyAmount(inc.amount, inc.frequency);
                 return (
                   <div key={inc.id} className="flex items-center gap-4 p-3 rounded-container border border-line hover:bg-surface-sunk">
-                    <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: inc.color || '#3b82f6' }} />
+                    <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: inc.color || 'var(--c-data-1)' }} />
                     <div className="flex-1">
                       <p className="font-medium text-ink text-sm">{inc.name}</p>
                       <p className="text-caption text-ink-muted">{FREQ_LABELS[inc.frequency]} · {formatCurrency(inc.amount)}</p>

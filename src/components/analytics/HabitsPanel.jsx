@@ -9,10 +9,10 @@ import { getSpendingCalendar, getMonthRhythm, getPurchaseSizeBreakdown } from '.
 import { percentile } from '../../utils/planning';
 
 // Sequential single-hue ramp (light → dark) for daily spend.
-const RAMP = ['#dbeafe', '#93c5fd', '#60a5fa', '#3b82f6', '#1d4ed8'];
+const RAMP = ['#dbeafe', '#93c5fd', '#60a5fa', 'var(--c-data-1)', '#1d4ed8'];
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const COUNT_COLOR = '#94a3b8';
-const SPEND_COLOR = '#2563eb';
+const COUNT_COLOR = 'var(--c-ink-muted)';
+const SPEND_COLOR = 'var(--c-data-1)';
 
 function Stat({ label, value, sub, icon: Icon }) {
   return (
@@ -61,7 +61,7 @@ export default function HabitsPanel() {
   const late = rhythm.segments[2].perDay;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Calendar */}
       <div className="bg-surface rounded-container border border-line p-5">
         <div className="flex flex-wrap items-start justify-between gap-3 mb-4">

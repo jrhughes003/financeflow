@@ -71,7 +71,7 @@ export default function Dashboard({ onQuickAdd, onNavigate }) {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in max-w-6xl">
+    <div className="space-y-5 animate-fade-in max-w-6xl">
       {/* The question this page answers is "how much have I spent", so that
           figure leads and everything else supports it. */}
       <Card>

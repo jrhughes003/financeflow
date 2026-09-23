@@ -6,6 +6,7 @@ import {
 } from 'recharts';
 import * as chart from './ui/chartTheme';
 import { useFinancial } from '../context/FinancialContext';
+import { Stat, Money } from './ui';
 import {
   getSpendingByCategory, getMonthlyTrend, detectAnomalies,
   getBudgetHealthScore, getSpendingByDayOfWeek, getTopMerchants,
@@ -85,7 +86,7 @@ export default function SpendingAnalytics() {
   })() : null;
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-5 animate-fade-in">
       {/* Section tabs */}
       <div className="flex flex-wrap bg-surface-hover rounded-container p-1 w-fit max-w-full">
         {TABS.map(({ id, label, icon: Icon }) => (
@@ -181,19 +182,10 @@ export default function SpendingAnalytics() {
             <h2 className="text-lg font-semibold text-ink">{getCategory(drillCat).name} — Deep Dive</h2>
             <button onClick={() => setDrillCat(null)} className="text-caption text-ink-muted hover:text-ink-secondary">✕ Close</button>
           </div>
-          <div className="grid grid-cols-3 gap-4 mb-4">
-            <div className="bg-surface-sunk rounded-container p-3 text-center">
-              <p className="text-caption text-ink-muted">Total Spent</p>
-              <p className="text-lg font-bold text-ink">{formatCurrency(drillData.total)}</p>
-            </div>
-            <div className="bg-surface-sunk rounded-container p-3 text-center">
-              <p className="text-caption text-ink-muted">Transactions</p>
-              <p className="text-lg font-bold text-ink">{drillData.transactions.length}</p>
-            </div>
-            <div className="bg-surface-sunk rounded-container p-3 text-center">
-              <p className="text-caption text-ink-muted">Avg per Tx</p>
-              <p className="text-lg font-bold text-ink">{formatCurrency(drillData.avg)}</p>
-            </div>
+          <div className="flex flex-wrap gap-8 mb-5 pb-4 border-b border-line-faint">
+            <Stat label="Total spent"><Money value={drillData.total} /></Stat>
+            <Stat label="Transactions">{drillData.transactions.length}</Stat>
+            <Stat label="Average"><Money value={drillData.avg} /></Stat>
           </div>
           {/* Only worth showing when at least one transaction has a subcategory. */}
           {drillData.subcategories.some(sc => sc.name !== 'Unspecified') && (

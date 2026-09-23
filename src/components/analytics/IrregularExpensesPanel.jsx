@@ -7,8 +7,8 @@ import { useFinancial, useGetCategory } from '../../context/FinancialContext';
 import { formatCurrency } from '../../utils/calculations';
 import { detectIrregularExpenses } from '../../utils/insights';
 
-const BILL_COLOR = '#2563eb';
-const SEASON_COLOR = '#f59e0b';
+const BILL_COLOR = 'var(--c-data-1)';
+const SEASON_COLOR = 'var(--c-caution)';
 const FREQ = { quarterly: 'Every 3 months', semiannual: 'Every 6 months', annual: 'Yearly' };
 const fmt = d => format(parseISO(d), 'MMM d, yyyy');
 

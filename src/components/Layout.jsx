@@ -217,7 +217,7 @@ export default function Layout({ currentPage, setCurrentPage, onQuickAdd, childr
         </nav>
 
         {/* Footer */}
-        <div className="px-4 py-3 border-t border-line">
+        <div className="px-4 py-2.5 border-t border-line">
           <p className="text-caption text-ink-muted text-center">Your data stays on your device</p>
         </div>
       </aside>
@@ -252,7 +252,7 @@ export default function Layout({ currentPage, setCurrentPage, onQuickAdd, childr
         </header>
 
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6 bg-canvas">
+        <main className="flex-1 overflow-y-auto p-4 lg:p-5 bg-canvas">
           {children}
         </main>
       </div>

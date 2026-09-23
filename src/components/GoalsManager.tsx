@@ -6,12 +6,21 @@ import { Card, PageLede, Stat as UiStat, Money } from './ui';
 import EmptyState from './EmptyState';
 import { useUndoableDelete } from '../hooks/useUndoableDelete';
 import { projectGoalCompletion, getGoalProgress, formatCurrency } from '../utils/calculations';
+import type { LucideIcon } from 'lucide-react';
+import type { Goal, Transaction } from '../types/domain';
 
-const ICONS = { Shield, Plane, Car, Home, Star, Target };
+const ICONS: Record<string, LucideIcon> = { Shield, Plane, Car, Home, Star, Target };
 const ICON_LIST = ['Target', 'Plane', 'Car', 'Shield', 'Home', 'Star'];
 const COLORS = ['var(--c-data-1)', 'var(--c-positive)', 'var(--c-caution)', 'var(--c-data-7)', 'var(--c-data-5)', 'var(--c-data-6)', 'var(--c-data-2)', 'var(--c-data-3)'];
 
-function GoalCard({ goal, transactions, onEdit, onDelete }) {
+interface GoalCardProps {
+  goal: Goal;
+  transactions: Transaction[];
+  onEdit: (goal: Goal) => void;
+  onDelete: (goal: Goal) => void;
+}
+
+function GoalCard({ goal, transactions, onEdit, onDelete }: GoalCardProps) {
   // Progress is derived: the opening balance plus every savings transaction
   // logged against this goal (kind: 'savings', goalId === goal.id).
   const progress = getGoalProgress(goal, transactions);
@@ -19,7 +28,7 @@ function GoalCard({ goal, transactions, onEdit, onDelete }) {
   const derivedGoal = { ...goal, currentAmount };
   const pct = progress.percent;
   const remaining = goal.targetAmount - currentAmount;
-  const Icon = ICONS[goal.icon] || Target;
+  const Icon = ICONS[goal.icon ?? ''] || Target;
   const projection = projectGoalCompletion(derivedGoal, goal.monthlyContribution);
   const targetDate = parseISO(goal.targetDate);
   const monthsLeft = differenceInMonths(targetDate, new Date());
@@ -101,7 +110,20 @@ function GoalCard({ goal, transactions, onEdit, onDelete }) {
   );
 }
 
-const EMPTY_FORM = { name: '', targetAmount: '', currentAmount: '', monthlyContribution: '', targetDate: '', color: 'var(--c-data-1)', icon: 'Target' };
+/** The edit form. Mirrors Goal, but every figure is the raw input string and
+ *  the spread in openEdit carries the id of the goal being edited. */
+interface GoalForm {
+  id?: string;
+  name: string;
+  targetAmount: string;
+  currentAmount: string;
+  monthlyContribution: string;
+  targetDate: string;
+  color?: string;
+  icon?: string;
+}
+
+const EMPTY_FORM: GoalForm = { name: '', targetAmount: '', currentAmount: '', monthlyContribution: '', targetDate: '', color: 'var(--c-data-1)', icon: 'Target' };
 
 export default function GoalsManager() {
   const { state, dispatch } = useFinancial();
@@ -109,11 +131,11 @@ export default function GoalsManager() {
   const { savings_goals, transactions } = state;
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
-  const [editId, setEditId] = useState(null);
-  const [scenarioGoal, setScenarioGoal] = useState(null);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [scenarioGoal, setScenarioGoal] = useState<Goal | null>(null);
   const [scenarioAmt, setScenarioAmt] = useState('');
 
-  const openEdit = (goal) => {
+  const openEdit = (goal: Goal) => {
     setForm({ ...goal, targetAmount: String(goal.targetAmount), currentAmount: String(goal.currentAmount), monthlyContribution: String(goal.monthlyContribution) });
     setEditId(goal.id);
     setShowForm(true);
@@ -121,7 +143,7 @@ export default function GoalsManager() {
 
   const handleSave = () => {
     if (!form.name || !form.targetAmount || !form.targetDate) return;
-    const payload = {
+    const payload: Goal = {
       id: editId || `g_${Date.now()}`,
       name: form.name,
       targetAmount: parseFloat(form.targetAmount) || 0,

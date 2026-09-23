@@ -9,11 +9,23 @@ import EmptyState from './EmptyState';
 import { useUndoableDelete } from '../hooks/useUndoableDelete';
 import { getTotalIncome, getTotalExpenses, toMonthlyAmount, formatCurrency } from '../utils/calculations';
 import { getIncomeSources } from '../utils/accounts';
+import type { Income, IncomeFrequency } from '../types/domain';
 
-const FREQUENCIES = ['weekly', 'biweekly', 'semi-monthly', 'monthly', 'annual'];
+const FREQUENCIES: IncomeFrequency[] = ['weekly', 'biweekly', 'semi-monthly', 'monthly', 'annual'];
 const FREQ_LABELS = { weekly: 'Weekly', biweekly: 'Biweekly', 'semi-monthly': 'Semi-monthly', monthly: 'Monthly', annual: 'Annual' };
 
-const EMPTY_FORM = { name: '', amount: '', frequency: 'monthly', source: 'employer', color: 'var(--c-data-1)' };
+/** The edit form. Mirrors Income, but `amount` is the raw input string and the
+ *  spread in openEdit carries the id of the record being edited. */
+interface IncomeForm {
+  id?: string;
+  name?: string;
+  amount: string;
+  frequency: IncomeFrequency;
+  source?: string;
+  color?: string;
+}
+
+const EMPTY_FORM: IncomeForm = { name: '', amount: '', frequency: 'monthly', source: 'employer', color: 'var(--c-data-1)' };
 const COLORS = ['var(--c-data-1)','var(--c-positive)','var(--c-caution)','var(--c-data-7)','var(--c-data-5)','var(--c-data-2)'];
 
 export default function IncomeManager() {
@@ -24,7 +36,7 @@ export default function IncomeManager() {
 
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
-  const [editId, setEditId] = useState(null);
+  const [editId, setEditId] = useState<string | null>(null);
 
   // Scheduled withdrawals from tracked accounts count as income (set on the Investments page).
   const accountIncomes = getIncomeSources([], state.investments);
@@ -32,7 +44,7 @@ export default function IncomeManager() {
   const totalExpenses = getTotalExpenses(transactions, now.getMonth(), now.getFullYear());
   const netAvailable = totalMonthly - totalExpenses;
 
-  const openEdit = (inc) => {
+  const openEdit = (inc: Income) => {
     setForm({ ...inc, amount: String(inc.amount) });
     setEditId(inc.id);
     setShowForm(true);
@@ -40,7 +52,7 @@ export default function IncomeManager() {
 
   const handleSave = () => {
     if (!form.name || !form.amount) return;
-    const payload = {
+    const payload: Income = {
       id: editId || `i_${Date.now()}`,
       name: form.name,
       amount: parseFloat(form.amount),
@@ -90,7 +102,7 @@ export default function IncomeManager() {
             <CartesianGrid {...chart.grid} />
             <XAxis dataKey="name" {...chart.xAxis} tick={{ fontSize: 12 }} />
             <YAxis tick={{ fontSize: 12 }} tickFormatter={v => `$${v}`} />
-            <Tooltip {...chart.tooltip} formatter={v => formatCurrency(v)} />
+            <Tooltip {...chart.tooltip} formatter={v => formatCurrency(chart.asNumber(v))} />
             <Bar dataKey="amount" radius={[6,6,0,0]} fill={chart.SERIES.primary} name="Amount">
               {chartData.map((entry, i) => (
                 <rect key={i} fill={i === 0 ? 'var(--c-positive)' : i === 1 ? 'var(--c-data-2)' : 'var(--c-data-1)'} />
@@ -122,7 +134,7 @@ export default function IncomeManager() {
               </div>
               <div>
                 <label className="label-micro block mb-1.5">Frequency</label>
-                <select value={form.frequency} onChange={e => setForm(f => ({ ...f, frequency: e.target.value }))} className="w-full h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent">
+                <select value={form.frequency} onChange={e => setForm(f => ({ ...f, frequency: e.target.value as IncomeFrequency }))} className="w-full h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent">
                   {FREQUENCIES.map(f => <option key={f} value={f}>{FREQ_LABELS[f]}</option>)}
                 </select>
               </div>

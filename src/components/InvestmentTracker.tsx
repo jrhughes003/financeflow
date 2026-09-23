@@ -12,27 +12,58 @@ import {
   estimateAccountValue, projectAccount, syncToStatement, addAccountEntry, removeAccountEntry, isTrackedAccount,
   entryCountsAfterStatement,
 } from '../utils/accounts';
+import type { Investment, IsoDate } from '../types/domain';
 
 const TYPES = ['stocks', 'bonds', 'crypto', 'retirement', 'real_estate', 'cash', 'other'];
-const TYPE_LABELS = { stocks: 'Stocks', bonds: 'Bonds', crypto: 'Crypto', retirement: 'Retirement', real_estate: 'Real Estate', cash: 'Cash', other: 'Other' };
-const TYPE_COLORS = { stocks: 'var(--c-data-1)', bonds: 'var(--c-positive)', crypto: 'var(--c-caution)', retirement: 'var(--c-data-5)', real_estate: 'var(--c-data-7)', cash: 'var(--c-data-6)', other: 'var(--c-ink-muted)' };
+// Keyed by Investment.type, which is a free string - an imported account can
+// carry a type these maps have never heard of, so every read falls back.
+const TYPE_LABELS: Record<string, string> = { stocks: 'Stocks', bonds: 'Bonds', crypto: 'Crypto', retirement: 'Retirement', real_estate: 'Real Estate', cash: 'Cash', other: 'Other' };
+const TYPE_COLORS: Record<string, string> = { stocks: 'var(--c-data-1)', bonds: 'var(--c-positive)', crypto: 'var(--c-caution)', retirement: 'var(--c-data-5)', real_estate: 'var(--c-data-7)', cash: 'var(--c-data-6)', other: 'var(--c-ink-muted)' };
 
-const todayStr = () => format(new Date(), 'yyyy-MM-dd');
-const fmtDate = d => format(parseISO(d.slice(0, 10)), 'MMM d, yyyy');
-const duration = m => {
-  const y = Math.floor(m / 12), r = m % 12;
+const todayStr = (): IsoDate => format(new Date(), 'yyyy-MM-dd');
+// anchorDate and depletionDate are both optional on their results: an untracked
+// account has no statement, and a sustainable one never depletes.
+const fmtDate = (d: IsoDate | null | undefined): string =>
+  (d ? format(parseISO(d.slice(0, 10)), 'MMM d, yyyy') : '—');
+// depletedMonth is null when the balance never runs out. The caller below only
+// asks in the other case, but the projection is one object, not a union.
+const duration = (m: number | null): string => {
+  const months = m ?? 0;
+  const y = Math.floor(months / 12), r = months % 12;
   return [y && `${y} yr`, r && `${r} mo`].filter(Boolean).join(' ') || '0 mo';
 };
 const STALE_DAYS = 45;
 
-const EMPTY_FORM = {
+/** The account form. Every number is the text in its input until it is saved. */
+interface AccountForm {
+  name: string;
+  type: string;
+  currentValue: string;
+  asOfDate: IsoDate;
+  costBasis: string;
+  annualReturn: string;
+  monthlyWithdrawal: string;
+  withdrawalDay: string;
+  withdrawalCountsAsIncome: boolean;
+}
+
+const EMPTY_FORM: AccountForm = {
   name: '', type: 'stocks', currentValue: '', asOfDate: todayStr(), costBasis: '', annualReturn: '7',
   monthlyWithdrawal: '', withdrawalDay: '1', withdrawalCountsAsIncome: true,
 };
 const inputCls = 'w-full px-3 py-2 border border-line-strong rounded-control text-sm bg-surface focus:outline-none focus:border-accent';
 
 // Inline "amount + date" form used for statement sync and logging entries.
-function AmountDateForm({ label, amountLabel, submitLabel, defaultAmount = '', onSubmit, onCancel, hint }) {
+function AmountDateForm({ label, amountLabel, submitLabel, defaultAmount = '', onSubmit, onCancel, hint }: {
+  label: React.ReactNode;
+  amountLabel: string;
+  submitLabel: string;
+  defaultAmount?: string;
+  /** The amount is the raw input text; the callers parse it. */
+  onSubmit: (values: { amount: string; date: IsoDate }) => void;
+  onCancel: () => void;
+  hint?: React.ReactNode;
+}) {
   const [amount, setAmount] = useState(defaultAmount);
   const [date, setDate] = useState(todayStr());
   const ok = parseFloat(amount) > 0;
@@ -56,18 +87,26 @@ function AmountDateForm({ label, amountLabel, submitLabel, defaultAmount = '', o
   );
 }
 
-function AccountCard({ inv, onUpdate, onEdit, onDelete }) {
-  const [mode, setMode] = useState(null); // 'sync' | 'withdrawal' | 'deposit'
+function AccountCard({ inv, onUpdate, onEdit, onDelete }: {
+  inv: Investment;
+  onUpdate: (inv: Investment) => void;
+  onEdit: (inv: Investment) => void;
+  onDelete: (inv: Investment) => void;
+}) {
+  const [mode, setMode] = useState<'sync' | 'withdrawal' | 'deposit' | null>(null);
   const est = estimateAccountValue(inv);
   const proj = projectAccount(inv, { months: 600 });
   const w = Number(inv.monthlyWithdrawal) || 0;
   const color = TYPE_COLORS[inv.type] || 'var(--c-ink-muted)';
-  const staleDays = differenceInCalendarDays(new Date(), parseISO(inv.asOfDate));
+  // Only tracked accounts reach this card, so asOfDate is there; falling back
+  // to today reports "not stale" rather than throwing if one ever isn't.
+  const staleDays = differenceInCalendarDays(new Date(), parseISO(inv.asOfDate || todayStr()));
   const entries = [...(inv.entries || [])].sort((a, b) => b.date.localeCompare(a.date));
 
   // Chart: until the money runs out, or 10 years, whichever is sooner (min 2 years).
+  // Named `series` because `chart` is the chartTheme import.
   const horizon = proj.depletedMonth ? Math.max(24, proj.depletedMonth) : 120;
-  const chart = proj.timeline.filter(p => p.month <= horizon && (p.month % 3 === 0 || p.month === proj.depletedMonth))
+  const series = proj.timeline.filter(p => p.month <= horizon && (p.month % 3 === 0 || p.month === proj.depletedMonth))
     .map(p => ({ ...p, label: format(addMonths(new Date(), p.month), 'MMM yyyy') }));
 
   return (
@@ -92,7 +131,7 @@ function AccountCard({ inv, onUpdate, onEdit, onDelete }) {
           </div>
           <div className="flex gap-1">
             <button onClick={() => onEdit(inv)} title="Edit" className="p-1.5 text-ink-muted hover:text-accent hover:bg-accent-tint rounded-control"><Edit2 className="w-3.5 h-3.5" /></button>
-            <button onClick={() => onDelete(inv.id)} title="Delete" className="p-1.5 text-ink-muted hover:text-negative hover:bg-negative-tint rounded-control"><Trash2 className="w-3.5 h-3.5" /></button>
+            <button onClick={() => onDelete(inv)} title="Delete" className="p-1.5 text-ink-muted hover:text-negative hover:bg-negative-tint rounded-control"><Trash2 className="w-3.5 h-3.5" /></button>
           </div>
         </div>
       </div>
@@ -116,7 +155,7 @@ function AccountCard({ inv, onUpdate, onEdit, onDelete }) {
           label="Enter the balance from your latest statement"
           amountLabel="Statement balance" submitLabel="Update balance" defaultAmount=""
           hint="Growth and withdrawals are estimated from this date forward. Earlier logged entries stay as history."
-          onSubmit={({ amount, date }) => { onUpdate(syncToStatement(inv, { balance: amount, date })); setMode(null); }}
+          onSubmit={({ amount, date }) => { onUpdate(syncToStatement(inv, { balance: Number(amount), date })); setMode(null); }}
           onCancel={() => setMode(null)}
         />
       ) : mode === 'withdrawal' || mode === 'deposit' ? (
@@ -125,7 +164,7 @@ function AccountCard({ inv, onUpdate, onEdit, onDelete }) {
           amountLabel={mode === 'withdrawal' ? 'Withdrawal amount' : 'Deposit amount'}
           submitLabel={mode === 'withdrawal' ? 'Log withdrawal' : 'Log deposit'}
           hint={mode === 'withdrawal' ? 'Lowers the balance. Only the regular monthly withdrawal counts as income.' : null}
-          onSubmit={({ amount, date }) => { onUpdate(addAccountEntry(inv, { type: mode, amount, date })); setMode(null); }}
+          onSubmit={({ amount, date }) => { onUpdate(addAccountEntry(inv, { type: mode, amount: Number(amount), date })); setMode(null); }}
           onCancel={() => setMode(null)}
         />
       ) : (
@@ -154,11 +193,11 @@ function AccountCard({ inv, onUpdate, onEdit, onDelete }) {
                 : <>At {formatCurrency(w)}/mo and {inv.annualReturn}% growth, this lasts about <span className="font-semibold">{duration(proj.depletedMonth)}</span> — until {fmtDate(proj.depletionDate)}. Growth alone supports about {formatCurrency(proj.sustainableMonthly)}/mo indefinitely.</>}
           </p>
           <ResponsiveContainer width="100%" height={160}>
-            <LineChart data={chart} margin={{ top: 5, right: 10, left: 5, bottom: 5 }}>
+            <LineChart data={series} margin={{ top: 5, right: 10, left: 5, bottom: 5 }}>
               <CartesianGrid {...chart.grid} />
               <XAxis dataKey="label" {...chart.xAxis} tick={{ fontSize: 10 }} interval="preserveStartEnd" minTickGap={40} />
               <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `$${Math.round(v / 1000)}k`} width={40} />
-              <Tooltip formatter={v => [formatCurrency(v), 'Projected balance']} />
+              <Tooltip formatter={v => [formatCurrency(chart.asNumber(v)), 'Projected balance']} />
               <Line dataKey="balance" stroke={color} strokeWidth={2} dot={false} isAnimationActive={false} />
             </LineChart>
           </ResponsiveContainer>
@@ -201,8 +240,8 @@ export default function InvestmentTracker() {
   const removeItem = useUndoableDelete();
   const { investments } = state;
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState(EMPTY_FORM);
-  const [editId, setEditId] = useState(null);
+  const [form, setForm] = useState<AccountForm>(EMPTY_FORM);
+  const [editId, setEditId] = useState<string | null>(null);
   const [projYears, setProjYears] = useState(10);
 
   const estimates = useMemo(() => investments.map(inv => ({ inv, est: estimateAccountValue(inv) })), [investments]);
@@ -214,16 +253,16 @@ export default function InvestmentTracker() {
     [investments, projYears],
   );
 
-  const byType = {};
+  const byType: Record<string, number> = {};
   estimates.forEach(({ inv, est }) => { byType[inv.type] = (byType[inv.type] || 0) + est.value; });
   const pieData = Object.entries(byType).map(([type, value]) => ({
     name: TYPE_LABELS[type] || type, value: Math.round(value), color: TYPE_COLORS[type] || 'var(--c-ink-muted)', type,
   }));
 
-  const update = inv => dispatch({ type: 'UPDATE_INVESTMENT', payload: inv });
-  const remove = inv => removeItem({ type: 'investment', item: inv });
+  const update = (inv: Investment) => dispatch({ type: 'UPDATE_INVESTMENT', payload: inv });
+  const remove = (inv: Investment) => removeItem({ type: 'investment', item: inv });
 
-  const openEdit = inv => {
+  const openEdit = (inv: Investment) => {
     setForm({
       ...EMPTY_FORM,
       ...inv,
@@ -397,8 +436,8 @@ export default function InvestmentTracker() {
                   <Pie data={pieData} cx="50%" cy="50%" outerRadius={90} dataKey="value" paddingAngle={pieData.length > 1 ? 2 : 0} stroke={pieData.length > 1 ? '#fff' : 'none'} isAnimationActive={false}>
                     {pieData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
                   </Pie>
-                  <Tooltip {...chart.tooltip} formatter={v => formatCurrency(v)} />
-                  <Legend formatter={(val, entry) => `${val}: ${totalValue > 0 ? ((entry.payload.value / totalValue) * 100).toFixed(1) : 0}%`} />
+                  <Tooltip {...chart.tooltip} formatter={v => formatCurrency(chart.asNumber(v))} />
+                  <Legend formatter={(val, entry) => `${val}: ${totalValue > 0 ? (((entry.payload?.value ?? 0) / totalValue) * 100).toFixed(1) : 0}%`} />
                 </PieChart>
               </ResponsiveContainer>
             )}

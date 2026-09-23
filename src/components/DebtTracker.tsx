@@ -7,29 +7,50 @@ import { useUndoableDelete } from '../hooks/useUndoableDelete';
 import { calculateDebtPayoff, formatCurrency } from '../utils/calculations';
 import { addMonths, format, parseISO } from 'date-fns';
 import { isInRepayment, requiredPayment, monthsUntilRepayment } from '../utils/accounts';
+import type { Debt, IsoDate } from '../types/domain';
 
 const DEBT_TYPES = ['credit_card', 'loan', 'mortgage', 'student_loan', 'auto', 'other'];
-const DEBT_LABELS = { credit_card: 'Credit Card', loan: 'Personal Loan', mortgage: 'Mortgage', student_loan: 'Student Loan', auto: 'Auto Loan', other: 'Other' };
-const DEBT_COLORS = { credit_card: 'var(--c-negative)', loan: 'var(--c-data-2)', mortgage: 'var(--c-data-5)', student_loan: 'var(--c-data-1)', auto: 'var(--c-data-6)', other: 'var(--c-ink-muted)' };
+// Keyed by Debt.type, which is a free string — an imported debt can carry a
+// type these maps have never heard of, so both reads fall back.
+const DEBT_LABELS: Record<string, string> = { credit_card: 'Credit Card', loan: 'Personal Loan', mortgage: 'Mortgage', student_loan: 'Student Loan', auto: 'Auto Loan', other: 'Other' };
+const DEBT_COLORS: Record<string, string> = { credit_card: 'var(--c-negative)', loan: 'var(--c-data-2)', mortgage: 'var(--c-data-5)', student_loan: 'var(--c-data-1)', auto: 'var(--c-data-6)', other: 'var(--c-ink-muted)' };
 
-const EMPTY_FORM = { name: '', type: 'credit_card', balance: '', interestRate: '', minimumPayment: '', originalBalance: '', repaymentStart: '', promoUntil: '', postPromoRate: '' };
-const fmtMonth = d => format(parseISO(d), 'MMM yyyy');
+/** The form's fields are the text in its inputs; the numbers are parsed on save. */
+interface DebtForm {
+  name: string;
+  type: string;
+  balance: string;
+  interestRate: string;
+  minimumPayment: string;
+  originalBalance: string;
+  repaymentStart: string;
+  promoUntil: string;
+  postPromoRate: string;
+}
+
+const EMPTY_FORM: DebtForm = { name: '', type: 'credit_card', balance: '', interestRate: '', minimumPayment: '', originalBalance: '', repaymentStart: '', promoUntil: '', postPromoRate: '' };
+// A deferred debt always has a repaymentStart, but the type only says it may,
+// so this tolerates its absence rather than asserting it away. The offset is
+// for "and then paid off in N months", which reads off the same date.
+const fmtMonth = (d: IsoDate | undefined, offset = 0): string =>
+  (d ? format(addMonths(parseISO(d), offset), 'MMM yyyy') : '—');
 
 export default function DebtTracker() {
   const { state, dispatch } = useFinancial();
   const removeItem = useUndoableDelete();
   const { debts } = state;
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState(EMPTY_FORM);
-  const [editId, setEditId] = useState(null);
-  const [extraPayment, setExtraPayment] = useState({});
+  const [form, setForm] = useState<DebtForm>(EMPTY_FORM);
+  const [editId, setEditId] = useState<string | null>(null);
+  // Debt id → the extra-per-month text typed against it.
+  const [extraPayment, setExtraPayment] = useState<Record<string, string>>({});
 
   const totalDebt = debts.reduce((s, d) => s + d.balance, 0);
   // Deferred loans (repayment not started yet) have no payment due right now.
   const totalMinPayment = debts.reduce((s, d) => s + requiredPayment(d), 0);
   const deferred = debts.filter(d => d.balance > 0 && !isInRepayment(d));
 
-  const openEdit = (d) => {
+  const openEdit = (d: Debt) => {
     setForm({ ...EMPTY_FORM, ...d, balance: String(d.balance), interestRate: String(d.interestRate), minimumPayment: String(d.minimumPayment), originalBalance: String(d.originalBalance || d.balance), repaymentStart: d.repaymentStart || '', promoUntil: d.promoUntil || '', postPromoRate: d.postPromoRate === undefined ? '' : String(d.postPromoRate) });
     setEditId(d.id);
     setShowForm(true);
@@ -163,10 +184,17 @@ export default function DebtTracker() {
                 onAction={() => setShowForm(true)}
               />
             : debts.map(d => {
-                // Clamp to 0–100: a balance above the original (or a missing
-                // original) shouldn't produce a negative or >100% bar.
-                const paidOff = d.originalBalance > 0
-                  ? Math.max(0, Math.min(100, ((d.originalBalance - d.balance) / d.originalBalance) * 100))
+                // Clamp to 0–100: a balance above the original shouldn't
+                // produce a negative or >100% bar.
+                //
+                // originalBalance is optional on records written before the
+                // field existed, and it falls back to the current balance —
+                // the same default the add and edit forms already apply, and
+                // the one that reads correctly: nothing paid off yet. Zero
+                // would report the whole balance as negative progress.
+                const original = d.originalBalance ?? d.balance;
+                const paidOff = original > 0
+                  ? Math.max(0, Math.min(100, ((original - d.balance) / original) * 100))
                   : 0;
                 const payoff = calculateDebtPayoff(d.balance, d.interestRate, d.minimumPayment);
                 const extra = parseFloat(extraPayment[d.id]) || 0;
@@ -199,7 +227,7 @@ export default function DebtTracker() {
                     </div>
 
                     <div className="flex justify-between text-sm mb-1.5">
-                      <span className="text-ink-muted">{formatCurrency(d.originalBalance - d.balance)} paid off</span>
+                      <span className="text-ink-muted">{formatCurrency(original - d.balance)} paid off</span>
                       <span className="font-bold text-ink">{formatCurrency(d.balance)} remaining</span>
                     </div>
                     <div className="h-2.5 bg-surface-hover rounded-full overflow-hidden mb-3">
@@ -209,7 +237,7 @@ export default function DebtTracker() {
                     {!isInRepayment(d) ? (
                       <div className="bg-surface-sunk rounded-control p-3 text-caption text-ink-secondary">
                         {d.minimumPayment > 0 && payoff?.months
-                          ? <>Nothing due until {fmtMonth(d.repaymentStart)}. Then at {formatCurrency(d.minimumPayment)}/mo it's paid off in <strong>{payoff.months} months</strong> — around {format(addMonths(parseISO(d.repaymentStart), payoff.months - 1), 'MMM yyyy')}{Number(d.interestRate) === 0 ? ', with no interest.' : '.'}</>
+                          ? <>Nothing due until {fmtMonth(d.repaymentStart)}. Then at {formatCurrency(d.minimumPayment)}/mo it's paid off in <strong>{payoff.months} months</strong> — around {fmtMonth(d.repaymentStart, payoff.months - 1)}{Number(d.interestRate) === 0 ? ', with no interest.' : '.'}</>
                           : d.minimumPayment > 0
                             ? <>Nothing due until {fmtMonth(d.repaymentStart)}. At {formatCurrency(d.minimumPayment)}/mo the interest outpaces the payment, so the balance would never fall.</>
                             : <>Nothing due until {fmtMonth(d.repaymentStart)}. Add the expected monthly payment to see when it'll be paid off.</>}
@@ -223,8 +251,11 @@ export default function DebtTracker() {
                       </div>
                     ) : payoff && (
                       <div className="bg-surface-sunk rounded-control p-3 text-caption space-y-1">
-                        <p className="text-ink-secondary">At minimum payment: payoff in <strong>{payoff.months} months</strong> · Total interest: <strong className="text-negative">{formatCurrency(payoff.totalInterest)}</strong></p>
-                        {payoff.months > 12 && (
+                        {/* months and totalInterest are null together, when the payment never
+                            clears the balance — the branches above have already
+                            ruled that out, but the type is one object, not a union. */}
+                        <p className="text-ink-secondary">At minimum payment: payoff in <strong>{payoff.months} months</strong> · Total interest: <strong className="text-negative">{formatCurrency(payoff.totalInterest ?? 0)}</strong></p>
+                        {(payoff.months ?? 0) > 12 && (
                           <div className="flex items-center gap-2 mt-1.5">
                             <span className="text-ink-muted shrink-0">Extra/mo:</span>
                             <input
@@ -236,7 +267,7 @@ export default function DebtTracker() {
                             />
                             {payoffExtra?.months && (
                               <span className="text-positive font-medium">
-                                → {payoffExtra.months} months ({payoff.months - payoffExtra.months} faster, save {formatCurrency(payoff.totalInterest - payoffExtra.totalInterest)})
+                                → {payoffExtra.months} months ({(payoff.months ?? 0) - payoffExtra.months} faster, save {formatCurrency((payoff.totalInterest ?? 0) - (payoffExtra.totalInterest ?? 0))})
                               </span>
                             )}
                           </div>

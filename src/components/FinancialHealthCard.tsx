@@ -3,15 +3,19 @@ import { HeartPulse, ChevronDown } from 'lucide-react';
 import { useFinancial } from '../context/FinancialContext';
 import { getFinancialHealth, getHealthTrend, healthLabel } from '../utils/healthScore';
 
+type TrendPoint = ReturnType<typeof getHealthTrend>[number];
+/** A month that actually scored. The sparkline is only ever given these. */
+type ScoredTrendPoint = TrendPoint & { score: number };
+
 // Six months of score, drawn on a fixed 0-100 scale so the slope means
 // something. Each month carries a title, which is the hover detail a chart
 // tooltip would have given.
-function Sparkline({ points }) {
+function Sparkline({ points }: { points: ScoredTrendPoint[] }) {
   const w = 152;
   const h = 44;
   const pad = 4;
   const step = points.length > 1 ? (w - pad * 2) / (points.length - 1) : 0;
-  const y = score => h - pad - (Math.max(0, Math.min(100, score)) / 100) * (h - pad * 2);
+  const y = (score: number) => h - pad - (Math.max(0, Math.min(100, score)) / 100) * (h - pad * 2);
   const coords = points.map((p, i) => [pad + i * step, y(p.score)]);
   const path = coords.map(([x, yy], i) => `${i ? 'L' : 'M'}${x.toFixed(1)} ${yy.toFixed(1)}`).join(' ');
 
@@ -30,7 +34,7 @@ function Sparkline({ points }) {
 }
 
 // Score ring: stroke length encodes the 0–100 score; the number sits inside.
-function Ring({ score, color }) {
+function Ring({ score, color }: { score: number | null; color: string }) {
   const r = 34;
   const c = 2 * Math.PI * r;
   const filled = score === null ? 0 : (score / 100) * c;
@@ -55,7 +59,9 @@ export default function FinancialHealthCard() {
   const [open, setOpen] = useState(false);
   const health = useMemo(() => getFinancialHealth(state), [state]);
   const trend = useMemo(() => getHealthTrend(state), [state]);
-  const scoredTrend = trend.filter(t => t.score !== null);
+  // A predicate rather than a plain filter: the months with no score are what
+  // the change and the sparkline below would otherwise have to guard against.
+  const scoredTrend = trend.filter((t): t is ScoredTrendPoint => t.score !== null);
   const change = scoredTrend.length >= 2 ? scoredTrend[scoredTrend.length - 1].score - scoredTrend[0].score : null;
   const weakest = health.components.filter(c => c.available && c.tip).sort((a, b) => a.score - b.score)[0];
 

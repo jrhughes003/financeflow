@@ -4,8 +4,10 @@ import { format } from 'date-fns';
 import { useFinancial, useGetCategory } from '../context/FinancialContext';
 import { useUndoableDelete } from '../hooks/useUndoableDelete';
 import { detectRecurringCandidates, isTemplateDue, postTemplate } from '../utils/recurring';
+import type { RecurringCandidate } from '../utils/recurring';
 import { formatCurrency, toMonthlyAmount } from '../utils/calculations';
 import { Card, PageLede, Stat, Money } from './ui';
+import type { RecurringTemplate } from '../types/domain';
 
 const FREQ_LABELS = { weekly: 'Weekly', biweekly: 'Every 2 weeks', monthly: 'Monthly', annual: 'Yearly' };
 
@@ -33,7 +35,7 @@ export default function RecurringManager() {
     .filter(t => t.active !== false)
     .reduce((sum, t) => sum + toMonthlyAmount(Number(t.amount) || 0, t.frequency), 0);
 
-  const addTemplate = (candidate) => {
+  const addTemplate = (candidate: RecurringCandidate) => {
     dispatch({
       type: 'ADD_RECURRING_TEMPLATE',
       payload: {
@@ -48,7 +50,7 @@ export default function RecurringManager() {
     });
   };
 
-  const post = (template) => {
+  const post = (template: RecurringTemplate) => {
     const { transaction, template: updated } = postTemplate(template, today);
     dispatch({ type: 'ADD_TRANSACTION', payload: transaction });
     dispatch({ type: 'UPDATE_RECURRING_TEMPLATE', payload: updated });
@@ -56,7 +58,7 @@ export default function RecurringManager() {
 
   const postAllDue = () => dueTemplates.forEach(post);
 
-  const toggleActive = (t) =>
+  const toggleActive = (t: RecurringTemplate) =>
     dispatch({ type: 'UPDATE_RECURRING_TEMPLATE', payload: { ...t, active: t.active === false ? true : false } });
 
   return (

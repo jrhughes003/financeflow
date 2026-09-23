@@ -13,9 +13,24 @@ import { PAGE_SIZE } from '../utils/constants';
 import { runAi, taxonomy, aiSupported } from '../ai/ai';
 import TransactionEntry from './TransactionEntry';
 import { getOwedStatus } from '../utils/reimbursements';
+import type { IsoDate, Transaction } from '../types/domain';
+
+/** The columns the table can sort on. Each one is a key of Transaction. */
+type SortField = 'date' | 'merchant' | 'category' | 'amount';
+
+/**
+ * One row from the AI `extract` feature. Nothing validates what comes back,
+ * so every field is optional and the mapping below supplies the fallbacks.
+ */
+interface ExtractedRow {
+  date?: IsoDate;
+  merchant?: string;
+  amount?: number;
+  category?: string;
+}
 
 // Small status pill for fronted purchases.
-function OwedBadge({ t }) {
+function OwedBadge({ t }: { t: Transaction }) {
   const s = getOwedStatus(t);
   if (!s) return null;
   const label = s.status === 'settled' ? 'Paid back'
@@ -28,7 +43,7 @@ function OwedBadge({ t }) {
 export default function TransactionHistory() {
   const { state, dispatch } = useFinancial();
   const removeItem = useUndoableDelete();
-  const importRef = useRef(null);
+  const importRef = useRef<HTMLInputElement | null>(null);
   const { transactions, customCategories = [] } = state;
   const getCategory = useGetCategory();
   const allCategories = getAllCategories(customCategories);
@@ -41,11 +56,11 @@ export default function TransactionHistory() {
   const [filterMinAmt, setFilterMinAmt] = useState('');
   const [filterMaxAmt, setFilterMaxAmt] = useState('');
   const [showFilters, setShowFilters] = useState(false);
-  const [sortField, setSortField] = useState('date');
-  const [sortDir, setSortDir] = useState('desc');
+  const [sortField, setSortField] = useState<SortField>('date');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [page, setPage] = useState(1);
-  const [editTx, setEditTx] = useState(null);
-  const [deleteId, setDeleteId] = useState(null);
+  const [editTx, setEditTx] = useState<Transaction | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   // AI receipt / statement paste
   const [showPaste, setShowPaste] = useState(false);
@@ -69,7 +84,7 @@ export default function TransactionHistory() {
     if (filterMinAmt) list = list.filter(t => t.amount >= parseFloat(filterMinAmt));
     if (filterMaxAmt) list = list.filter(t => t.amount <= parseFloat(filterMaxAmt));
     list.sort((a, b) => {
-      let va = a[sortField], vb = b[sortField];
+      let va: string | number = a[sortField], vb: string | number = b[sortField];
       if (sortField === 'amount') { va = a.amount; vb = b.amount; }
       if (sortField === 'date') { va = a.date; vb = b.date; }
       if (va < vb) return sortDir === 'asc' ? -1 : 1;
@@ -83,19 +98,19 @@ export default function TransactionHistory() {
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const total = filtered.reduce((s, t) => s + t.amount, 0);
 
-  const handleSort = (field) => {
+  const handleSort = (field: SortField) => {
     if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
     else { setSortField(field); setSortDir('asc'); }
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = (id: string) => {
     const transaction = transactions.find(t => t.id === id);
     if (transaction) removeItem({ type: 'transaction', item: transaction, label: transaction.merchant });
     setDeleteId(null);
   };
 
-  const handleImport = async (e) => {
-    const file = e.target.files[0];
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
     if (!file) return;
     try {
       const txs = await importFromCSV(file);
@@ -114,7 +129,10 @@ export default function TransactionHistory() {
       setPasteMsg(res.error === 'no_key' ? 'Add an API key in Settings first.' : 'Could not parse that text.');
       return;
     }
-    const parsed = (res.data?.transactions || []).filter(t => t && t.amount > 0).map((t, i) => ({
+    // runAi resolves to `unknown` data; the extract feature answers with a
+    // transactions array, read defensively because nothing has checked it.
+    const rows = (res.data as { transactions?: (ExtractedRow | null)[] } | undefined)?.transactions || [];
+    const parsed: Transaction[] = rows.filter((t): t is ExtractedRow => Boolean(t) && (t?.amount ?? 0) > 0).map((t, i) => ({
       id: `ai_${Date.now()}_${i}_${Math.random().toString(36).slice(2, 6)}`,
       date: t.date || new Date().toISOString().slice(0, 10),
       merchant: t.merchant || 'Unknown',
@@ -130,7 +148,7 @@ export default function TransactionHistory() {
     setPasteText(''); setShowPaste(false);
   };
 
-  const SortIcon = ({ field }) => sortField === field
+  const SortIcon = ({ field }: { field: SortField }) => sortField === field
     ? (sortDir === 'asc' ? <ChevronUp className="w-3 h-3 inline ml-1" /> : <ChevronDown className="w-3 h-3 inline ml-1" />)
     : null;
 
@@ -240,7 +258,7 @@ export default function TransactionHistory() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-surface-sunk border-b border-line">
-                {[['date','Date'],['merchant','Merchant'],['category','Category'],['amount','Amount']].map(([field, label]) => (
+                {([['date','Date'],['merchant','Merchant'],['category','Category'],['amount','Amount']] as const).map(([field, label]) => (
                   <th key={field} onClick={() => handleSort(field)} className={`label-micro font-medium py-2 px-3 cursor-pointer hover:text-ink select-none ${field === 'amount' ? 'text-right' : 'text-left'}`}>
                     {label}<SortIcon field={field} />
                   </th>

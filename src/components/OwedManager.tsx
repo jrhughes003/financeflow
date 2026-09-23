@@ -6,19 +6,30 @@ import { formatCurrency } from '../utils/calculations';
 import { getOwedSummary, addRepayment, removeRepayment, setForgiven } from '../utils/reimbursements';
 import TransactionEntry from './TransactionEntry';
 import { Card, PageLede, Stat as UiStat, Money } from './ui';
+import type { Category, IsoDate, Transaction } from '../types/domain';
 
-const fmtDate = d => format(parseISO(d.slice(0, 10)), 'MMM d, yyyy');
-const today = () => format(new Date(), 'yyyy-MM-dd');
-const age = days => (days === 0 ? 'today' : days === 1 ? 'yesterday' : days < 60 ? `${days} days ago` : `${Math.round(days / 30)} months ago`);
+/** One fronted purchase as the summary reports it, open or settled. */
+type OwedItem = ReturnType<typeof getOwedSummary>['open'][number];
+/** The four states a fronted purchase can be in. */
+type OwedStatus = OwedItem['status'];
 
-const STATUS = {
+const fmtDate = (d: IsoDate): string => format(parseISO(d.slice(0, 10)), 'MMM d, yyyy');
+const today = (): IsoDate => format(new Date(), 'yyyy-MM-dd');
+const age = (days: number): string => (days === 0 ? 'today' : days === 1 ? 'yesterday' : days < 60 ? `${days} days ago` : `${Math.round(days / 30)} months ago`);
+
+const STATUS: Record<OwedStatus, { label: string; cls: string }> = {
   open: { label: 'Not paid back', cls: 'bg-caution-tint text-caution' },
   partial: { label: 'Partly paid back', cls: 'bg-sky-50 text-sky-700' },
   settled: { label: 'Paid back', cls: 'bg-positive-tint text-positive' },
   forgiven: { label: 'Forgiven', cls: 'bg-surface-hover text-ink-secondary' },
 };
 
-function Stat({ label, value, sub, accent }) {
+function Stat({ label, value, sub, accent }: {
+  label: React.ReactNode;
+  value: React.ReactNode;
+  sub?: React.ReactNode;
+  accent?: string;
+}) {
   return (
     <div className="bg-surface rounded-container border border-line p-4">
       <p className="text-caption font-medium text-ink-muted mb-1">{label}</p>
@@ -29,7 +40,7 @@ function Stat({ label, value, sub, accent }) {
 }
 
 // Payment chips with an undo button each.
-function Payments({ item, onUndo }) {
+function Payments({ item, onUndo }: { item: OwedItem; onUndo: (tx: Transaction, id: string) => void }) {
   if (!item.payments.length) return null;
   return (
     <div className="flex flex-wrap gap-1.5 mt-2">
@@ -45,8 +56,13 @@ function Payments({ item, onUndo }) {
   );
 }
 
-function OpenItem({ item, getCategory, onUpdate, onEdit }) {
-  const [mode, setMode] = useState(null); // null | 'partial' | 'forgive'
+function OpenItem({ item, getCategory, onUpdate, onEdit }: {
+  item: OwedItem;
+  getCategory: (id: string) => Category;
+  onUpdate: (t: Transaction) => void;
+  onEdit: (t: Transaction) => void;
+}) {
+  const [mode, setMode] = useState<'partial' | 'forgive' | null>(null);
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState(today());
   const { t } = item;
@@ -131,10 +147,10 @@ function OpenItem({ item, getCategory, onUpdate, onEdit }) {
 export default function OwedManager() {
   const { state, dispatch } = useFinancial();
   const getCategory = useGetCategory();
-  const [editTx, setEditTx] = useState(null);
+  const [editTx, setEditTx] = useState<Transaction | null>(null);
   const [showClosed, setShowClosed] = useState(false);
   const summary = useMemo(() => getOwedSummary(state.transactions), [state.transactions]);
-  const update = t => dispatch({ type: 'UPDATE_TRANSACTION', payload: t });
+  const update = (t: Transaction) => dispatch({ type: 'UPDATE_TRANSACTION', payload: t });
 
   return (
     <div className="space-y-5 animate-fade-in">

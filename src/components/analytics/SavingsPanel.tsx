@@ -30,7 +30,7 @@ function describe(
   // is one object rather than a union, so the checker cannot see that. These
   // keep the copy readable without asserting a guarantee nothing proves.
   const money = (n: number | undefined): string => formatCurrency(n ?? 0);
-  const cat = (id: string | undefined): string => (id ? catName(id) : 'This category');
+  const cat = (id: string | null | undefined): string => (id ? catName(id) : 'This category');
 
   switch (o.type) {
     case 'over_budget':

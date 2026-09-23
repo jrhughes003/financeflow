@@ -7,8 +7,40 @@ import { runAi, taxonomy, aiSupported } from '../ai/ai';
 import { train, classify } from '../utils/ml/categorizer';
 import { owedFromSplit, getOwedStatus, buildOwed } from '../utils/reimbursements';
 import { formatCurrency } from '../utils/calculations';
+import type { Category, IsoDate, Transaction, TransactionKind } from '../types/domain';
 
-const EMPTY_FORM = {
+/**
+ * The entry form. Every number is the text in its input until it is saved:
+ * `amount` is parsed and `tags` split on submit.
+ */
+interface EntryForm {
+  date: IsoDate;
+  merchant: string;
+  amount: string;
+  category: string;
+  subcategory: string;
+  notes: string;
+  tags: string;
+  isException: boolean;
+  kind: TransactionKind;
+  goalId: string;
+}
+
+/** The fields validate() can reject, each with the message to show. */
+type FormErrors = Partial<Record<'amount' | 'merchant' | 'category' | 'goalId' | 'owed', string>>;
+
+/**
+ * What the AI `parse_entry` feature fills in. Nothing validates the reply, so
+ * every field is optional and the merge below falls back to what is typed.
+ */
+interface ParsedEntry {
+  date?: IsoDate;
+  merchant?: string;
+  amount?: number;
+  category?: string;
+}
+
+const EMPTY_FORM: EntryForm = {
   date: format(new Date(), 'yyyy-MM-dd'),
   merchant: '',
   amount: '',
@@ -23,27 +55,31 @@ const EMPTY_FORM = {
 
 const PRESET_COLORS = ['var(--c-data-2)','var(--c-positive)','var(--c-data-1)','var(--c-data-5)','var(--c-caution)','var(--c-data-7)','var(--c-data-6)','var(--c-data-3)','var(--c-negative)','var(--c-data-6)'];
 
-export default function TransactionEntry({ isModal = false, onClose, editTransaction = null }) {
+export default function TransactionEntry({ isModal = false, onClose, editTransaction = null }: {
+  isModal?: boolean;
+  onClose?: () => void;
+  editTransaction?: Transaction | null;
+}) {
   const { state, dispatch } = useFinancial();
   const customCategories = state.customCategories || [];
   const savingsGoals = state.savings_goals || [];
   const allCategories = getAllCategories(customCategories);
 
-  const [form, setForm] = useState(editTransaction
+  const [form, setForm] = useState<EntryForm>(editTransaction
     ? { ...EMPTY_FORM, ...editTransaction, tags: (editTransaction.tags || []).join(', '), amount: String(editTransaction.amount) }
     : EMPTY_FORM
   );
   const isSavings = form.kind === 'savings';
   const [suggestion, setSuggestion] = useState('');
   const [showNotes, setShowNotes] = useState(false);
-  const [errors, setErrors] = useState({});
+  const [errors, setErrors] = useState<FormErrors>({});
 
   // "They owe me" — fronted purchases. Kept out of `form` so these UI fields
   // never leak onto the saved transaction; the saved shape is `owed` only.
   const existingOwed = editTransaction?.owed;
   const existingStatus = editTransaction ? getOwedStatus(editTransaction) : null;
   const [owedEnabled, setOwedEnabled] = useState(!!existingStatus);
-  const [owedMode, setOwedMode] = useState(existingOwed && !existingOwed.people ? 'exact' : 'split');
+  const [owedMode, setOwedMode] = useState<'exact' | 'split'>(existingOwed && !existingOwed.people ? 'exact' : 'split');
   const [owedPeople, setOwedPeople] = useState(String(existingOwed?.people || 2));
   const [owedExact, setOwedExact] = useState(existingOwed && !existingOwed.people ? String(existingOwed.amount) : '');
   const owedValue = owedMode === 'split'
@@ -66,7 +102,9 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
     });
     setNlBusy(false);
     if (res.ok && res.data) {
-      const d = res.data;
+      // runAi resolves to `unknown` data; parse_entry answers with these four
+      // fields, read defensively because nothing has checked the reply.
+      const d = res.data as ParsedEntry;
       setForm(f => ({
         ...f,
         kind: 'expense',
@@ -77,7 +115,9 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
       }));
       setNlText('');
     } else {
-      setNlError(res.error === 'no_key' ? 'Add an API key in Settings first.' : 'Could not parse that — enter manually.');
+      // This branch is also reached on ok-but-empty, where there is no error
+      // to read; that falls through to the generic message exactly as before.
+      setNlError(!res.ok && res.error === 'no_key' ? 'Add an API key in Settings first.' : 'Could not parse that — enter manually.');
     }
   };
 
@@ -86,14 +126,14 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
   const [newCatName, setNewCatName] = useState('');
   const [newCatColor, setNewCatColor] = useState('#6366f1');
 
-  const amountRef = useRef(null);
+  const amountRef = useRef<HTMLInputElement | null>(null);
   useEffect(() => { if (amountRef.current) amountRef.current.focus(); }, []);
 
   // Learned merchant→category memory (from past user choices), kept in settings.
   const hints = state.settings?.merchantCategoryHints || {};
-  const hintKey = (m) => (m || '').toLowerCase().trim();
+  const hintKey = (m: string | undefined): string => (m || '').toLowerCase().trim();
 
-  const handleMerchantChange = (val) => {
+  const handleMerchantChange = (val: string) => {
     setForm(f => ({ ...f, merchant: val }));
     if (val.length >= 3) {
       // 1) a learned correction wins, 2) then the keyword matcher.
@@ -130,8 +170,11 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
 
     if (!aiEnabled) return;
     const res = await runAi('categorize', { merchant: form.merchant.trim(), categories: taxonomy(customCategories) });
-    if (res.ok && res.data?.category && res.data.category !== 'products') {
-      setSuggestion(res.data.category);
+    if (!res.ok) return;
+    // Same as above: the reply is `unknown`, and only its category is used.
+    const suggested = (res.data as { category?: string } | undefined)?.category;
+    if (suggested && suggested !== 'products') {
+      setSuggestion(suggested);
     }
   };
 
@@ -143,7 +186,7 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
   const handleCreateCategory = () => {
     if (!newCatName.trim()) return;
     const id = newCatName.trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
-    const newCat = {
+    const newCat: Category = {
       id,
       name: newCatName.trim(),
       color: newCatColor,
@@ -158,7 +201,7 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
   };
 
   const validate = () => {
-    const e = {};
+    const e: FormErrors = {};
     if (!form.amount || isNaN(parseFloat(form.amount)) || parseFloat(form.amount) <= 0) e.amount = 'Enter a valid amount';
     if (isSavings) {
       if (!form.goalId) e.goalId = 'Choose a goal to contribute to';
@@ -176,11 +219,11 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
     return Object.keys(e).length === 0;
   };
 
-  const handleSubmit = (ev) => {
+  const handleSubmit = (ev: React.FormEvent<HTMLFormElement>) => {
     ev.preventDefault();
     if (!validate()) return;
     const goal = savingsGoals.find(g => g.id === form.goalId);
-    const txData = {
+    const txData: Transaction = {
       ...form,
       id: editTransaction ? editTransaction.id : `tx_${Date.now()}_${Math.random().toString(36).slice(2)}`,
       amount: parseFloat(form.amount),
@@ -196,7 +239,9 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
     const owed = isSavings ? undefined : buildOwed(existingOwed, {
       enabled: owedEnabled,
       amount: owedValue,
-      people: owedMode === 'split' ? owedPeople : null,
+      // buildOwed coerces with Number(); passing it the same way keeps the
+      // "2.5 people" and "not a number" cases behaving as they did.
+      people: owedMode === 'split' ? Number(owedPeople) : null,
     });
     if (owed) txData.owed = owed;
     else delete txData.owed;
@@ -246,7 +291,7 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
       {/* Type toggle: expense vs savings contribution */}
       {savingsGoals.length > 0 && (
         <div className="flex gap-2 p-1 bg-surface-hover rounded-container">
-          {[['expense', 'Expense'], ['savings', 'Savings']].map(([val, label]) => (
+          {([['expense', 'Expense'], ['savings', 'Savings']] as const).map(([val, label]) => (
             <button
               key={val}
               type="button"
@@ -294,7 +339,7 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
           {owedEnabled && (
             <div className="px-3 pb-3 space-y-2">
               <div className="flex gap-1 p-1 bg-surface rounded-control border border-line-strong text-caption font-medium">
-                {[['split', 'Split evenly'], ['exact', 'Exact amount']].map(([val, label]) => (
+                {([['split', 'Split evenly'], ['exact', 'Exact amount']] as const).map(([val, label]) => (
                   <button key={val} type="button" onClick={() => setOwedMode(val)}
                     className={`flex-1 py-1.5 rounded-control transition-colors ${owedMode === val ? 'bg-positive text-ink-inverse' : 'text-ink-muted hover:text-ink-secondary'}`}>
                     {label}

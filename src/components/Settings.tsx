@@ -12,8 +12,8 @@ export default function Settings() {
   const [status, setStatus] = useState({ encryptionAvailable: false, hasKey: false });
   const [keyInput, setKeyInput] = useState('');
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState(null);
-  const fileRef = useRef(null);
+  const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+  const fileRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => { getAiStatus().then(setStatus); }, []);
 
@@ -40,7 +40,7 @@ export default function Settings() {
     setMsg({ type: 'ok', text: 'API key removed. AI features disabled.' });
   };
 
-  const toggleAi = (on) => dispatch({ type: 'UPDATE_SETTINGS', payload: { aiEnabled: on } });
+  const toggleAi = (on: boolean) => dispatch({ type: 'UPDATE_SETTINGS', payload: { aiEnabled: on } });
 
   // Replaces everything with generated sample data — handy for trying the app out
   // (and for taking screenshots without exposing real finances).
@@ -54,7 +54,7 @@ export default function Settings() {
     setMsg({ type: 'ok', text: 'Demo data loaded — about 8 months of sample history.' });
   };
 
-  const handleImport = (e) => {
+  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     importFromJSON(file)

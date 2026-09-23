@@ -3,16 +3,38 @@ import { Plus, Trash2, Users, Briefcase, Home, Wallet, Settings2 } from 'lucide-
 import { formatCurrency } from '../../utils/calculations';
 import { estimateAccountValue } from '../../utils/accounts';
 import { BUCKETS, newId } from '../../utils/lifeplan/snapshot';
+import type {
+  AccountMapping, LifePlan, PersonId, PlanAssumptions, PlanIncome, PlanLiving, PlanPerson,
+} from '../../types/lifeplan';
+import type { AppState } from '../../types/state';
+import type { PlanSnapshot } from '../../types/projection';
 import { Card, Field, NumberField, TextField, MonthField, SelectField, Toggle, inputCls } from './ui';
 
-const PERSON_LABEL = { me: 'You', partner: 'Partner' };
+const PERSON_LABEL: Record<PersonId, string> = { me: 'You', partner: 'Partner' };
 
-export default function PlanSetup({ plan, setPlan, state, snapshot }) {
-  const update = patch => setPlan({ ...plan, ...patch });
-  const setPerson = (id, patch) => update({ people: plan.people.map(p => (p.id === id ? { ...p, ...patch } : p)) });
-  const setLiving = patch => update({ living: { ...plan.living, ...patch } });
-  const setAssumptions = patch => update({ assumptions: { ...plan.assumptions, ...patch } });
-  const setIncome = (id, patch) => update({ incomes: plan.incomes.map(i => (i.id === id ? { ...i, ...patch } : i)) });
+/**
+ * A patch from one of the form fields.
+ *
+ * Not a `Partial<...>` of the record being patched: NumberField hands back the
+ * raw input string, so a numeric field is patched with a string and the engine
+ * coerces it on read. The casts below re-assert the record's own type, which
+ * spreading an open-ended patch over it otherwise loses.
+ */
+type FieldPatch = Record<string, string | number | boolean | undefined>;
+
+interface PlanSetupProps {
+  plan: LifePlan;
+  setPlan: (next: LifePlan) => void;
+  state: AppState;
+  snapshot: PlanSnapshot;
+}
+
+export default function PlanSetup({ plan, setPlan, state, snapshot }: PlanSetupProps) {
+  const update = (patch: Partial<LifePlan>) => setPlan({ ...plan, ...patch });
+  const setPerson = (id: PersonId, patch: FieldPatch) => update({ people: plan.people.map(p => (p.id === id ? { ...p, ...patch } as PlanPerson : p)) });
+  const setLiving = (patch: FieldPatch) => update({ living: { ...plan.living, ...patch } as PlanLiving });
+  const setAssumptions = (patch: FieldPatch) => update({ assumptions: { ...plan.assumptions, ...patch } as PlanAssumptions });
+  const setIncome = (id: string, patch: FieldPatch) => update({ incomes: plan.incomes.map(i => (i.id === id ? { ...i, ...patch } as PlanIncome : i)) });
   const people = plan.people.filter(p => p.id === 'me' || p.enabled);
 
   const addIncome = () => update({
@@ -148,8 +170,8 @@ export default function PlanSetup({ plan, setPlan, state, snapshot }) {
         ) : (
           <div className="space-y-2">
             {state.investments.map(inv => {
-              const map = plan.accountMap[inv.id] || {};
-              const setMap = patch => update({ accountMap: { ...plan.accountMap, [inv.id]: { bucket: 'nonreg', owner: 'me', ...map, ...patch } } });
+              const map: Partial<AccountMapping> = plan.accountMap[inv.id] || {};
+              const setMap = (patch: FieldPatch) => update({ accountMap: { ...plan.accountMap, [inv.id]: { bucket: 'nonreg', owner: 'me', ...map, ...patch } as AccountMapping } });
               return (
                 <div key={inv.id} className="flex flex-wrap items-center gap-3 border border-line rounded-container p-3">
                   <div className="flex-1 min-w-40">

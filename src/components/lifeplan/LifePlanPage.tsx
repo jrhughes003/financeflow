@@ -1,6 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import { SlidersHorizontal, Flag, LineChart as LineChartIcon, GitCompare, AlertTriangle, CheckCircle2, Info } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { useFinancial } from '../../context/FinancialContext';
+import type { LifePlan } from '../../types/lifeplan';
+import { needsSetup } from '../../types/projection';
 import { formatCurrency } from '../../utils/calculations';
 import { runPlan } from '../../utils/lifeplan/engine';
 import { normalizePlan, buildSnapshot } from '../../utils/lifeplan/snapshot';
@@ -20,8 +23,16 @@ const TABS = [
 export function usePlan() {
   const { state, dispatch } = useFinancial();
   const plan = useMemo(() => normalizePlan(state.settings?.lifePlan), [state.settings?.lifePlan]);
-  const setPlan = next => dispatch({ type: 'UPDATE_SETTINGS', payload: { lifePlan: next } });
-  return [plan, setPlan, state];
+  const setPlan = (next: LifePlan) => dispatch({ type: 'UPDATE_SETTINGS', payload: { lifePlan: next } });
+  // `as const` so the three slots keep their own types instead of collapsing
+  // into a union when destructured.
+  return [plan, setPlan, state] as const;
+}
+
+interface PlanStatus {
+  tone: 'ok' | 'warn' | 'info';
+  icon: LucideIcon;
+  text: string;
 }
 
 export default function LifePlanPage() {
@@ -32,13 +43,13 @@ export default function LifePlanPage() {
   const result = useMemo(() => runPlan(plan, snapshot), [plan, snapshot]);
 
   const me = plan.people.find(p => p.id === 'me');
-  const retireYear = me.birthYear ? Number(me.birthYear) + Number(me.retireAge || 65) : null;
-  const status = result.needsSetup
+  const retireYear = me?.birthYear ? Number(me.birthYear) + Number(me.retireAge || 65) : null;
+  const status: PlanStatus = needsSetup(result)
     ? { tone: 'info', icon: Info, text: 'Add your birth year below to start the projection.' }
     : result.firstShortfall
       ? {
         tone: 'warn', icon: AlertTriangle,
-        text: `Money runs out in ${result.firstShortfall.year} (age ${result.firstShortfall.year - Number(me.birthYear)}). Adjust spending, income, or the timing of your plans below.`,
+        text: `Money runs out in ${result.firstShortfall.year} (age ${result.firstShortfall.year - Number(me?.birthYear)}). Adjust spending, income, or the timing of your plans below.`,
       }
       : {
         tone: 'ok', icon: CheckCircle2,

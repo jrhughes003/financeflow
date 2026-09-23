@@ -6,8 +6,12 @@ import { useFinancial } from '../context/FinancialContext';
 import { Card, PageLede, Stat, Money } from './ui';
 import { getBudgetStatus, getMonthlyTrend, getConsistentlyOverBudget, formatCurrency } from '../utils/calculations';
 import { useGetCategory } from '../context/FinancialContext';
+import type { BudgetStatusName } from '../types/analysis';
 
-function StatusBadge({ status }) {
+/** The columns the detail table can sort on. */
+type SortField = 'category' | 'budget' | 'actual' | 'variance' | 'percentUsed' | 'status';
+
+function StatusBadge({ status }: { status: BudgetStatusName }) {
   if (status === 'danger') return <span className="px-2 py-0.5 bg-negative-tint text-negative rounded-full text-caption font-medium">Over Budget</span>;
   if (status === 'warning') return <span className="px-2 py-0.5 bg-caution-tint text-caution rounded-full text-caption font-medium">Approaching</span>;
   return <span className="px-2 py-0.5 bg-positive-tint text-positive rounded-full text-caption font-medium">On Track</span>;
@@ -20,22 +24,22 @@ export default function BudgetComparison() {
   const now = new Date();
   const [month, setMonth] = useState(now.getMonth());
   const [year, setYear] = useState(now.getFullYear());
-  const [sortField, setSortField] = useState('category');
-  const [sortDir, setSortDir] = useState('asc');
+  const [sortField, setSortField] = useState<SortField>('category');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
   const statuses = getBudgetStatus(budgets, transactions, month, year);
   const trend = getMonthlyTrend(transactions, 6);
 
   // Sort
   const sorted = [...statuses].sort((a, b) => {
-    let va = a[sortField], vb = b[sortField];
+    let va: string | number = a[sortField], vb: string | number = b[sortField];
     if (sortField === 'category') { va = getCategory(a.category).name; vb = getCategory(b.category).name; }
     if (va < vb) return sortDir === 'asc' ? -1 : 1;
     if (va > vb) return sortDir === 'asc' ? 1 : -1;
     return 0;
   });
 
-  const handleSort = (f) => {
+  const handleSort = (f: SortField) => {
     if (sortField === f) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
     else { setSortField(f); setSortDir('asc'); }
   };
@@ -58,7 +62,7 @@ export default function BudgetComparison() {
   // months). Batched: computes each month's statuses once instead of 3× per budget.
   const consistentlyOver = getConsistentlyOverBudget(budgets, transactions, month, year);
 
-  const changeMonth = (delta) => {
+  const changeMonth = (delta: number) => {
     const d = new Date(year, month + delta, 1);
     setMonth(d.getMonth());
     setYear(d.getFullYear());
@@ -104,7 +108,7 @@ export default function BudgetComparison() {
               <CartesianGrid {...chart.grid} />
               <XAxis dataKey="name" {...chart.xAxis} tick={{ fontSize: 12 }} />
               <YAxis tick={{ fontSize: 12 }} tickFormatter={v => `$${v}`} />
-              <Tooltip {...chart.tooltip} formatter={v => formatCurrency(v)} />
+              <Tooltip {...chart.tooltip} formatter={v => formatCurrency(chart.asNumber(v))} />
               <Legend />
               <Bar dataKey="Budget" fill={chart.SERIES.primary} radius={[4,4,0,0]} />
               <Bar dataKey="Actual" fill={chart.SERIES.secondary} radius={[4,4,0,0]} />
@@ -132,7 +136,7 @@ export default function BudgetComparison() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-surface-sunk border-b border-line">
-                {[['category','Category'],['budget', anyCarry ? 'Budget (after rollover)' : 'Budget'],['actual','Actual'],['variance','Variance'],['percentUsed','% Used'],['status','Status']].map(([f, label]) => (
+                {([['category','Category'],['budget', anyCarry ? 'Budget (after rollover)' : 'Budget'],['actual','Actual'],['variance','Variance'],['percentUsed','% Used'],['status','Status']] as [SortField, string][]).map(([f, label]) => (
                   <th key={f} onClick={() => handleSort(f)} className="label-micro font-medium py-2 px-3 text-left cursor-pointer hover:text-ink select-none">
                     {label}
                   </th>
@@ -202,7 +206,9 @@ export default function BudgetComparison() {
                   <tr key={b.id} className="border-t border-line-faint">
                     <td className="px-3 py-2 font-medium text-ink-secondary">{cat.name}</td>
                     {trend.map(m => {
-                      const amt = m[b.category] || 0;
+                      // A trend row carries `label` beside the category totals, so its
+                      // index signature admits a string; a category key is always a number.
+                      const amt = (m[b.category] as number) || 0;
                       const over = amt > b.amount && b.amount > 0;
                       return (
                         <td key={m.label} className={`px-3 py-2 text-right ${over ? 'text-negative font-semibold' : 'text-ink-secondary'}`}>

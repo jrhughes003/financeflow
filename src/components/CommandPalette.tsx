@@ -14,8 +14,29 @@ import {
 import { useFinancial } from '../context/FinancialContext';
 import { formatCurrency } from '../utils/calculations';
 import { exportToCSV } from '../utils/exportUtils';
+import type { LucideIcon } from 'lucide-react';
+import type { PageId } from '../types/navigation';
 
-const PAGES = [
+/** One row of the list: a page, an action, or a merchant hit. */
+interface PaletteItem {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  kind: string;
+  /** A shortcut for an action, a total for a merchant. */
+  hint?: string;
+  keywords?: string;
+  run: () => void;
+}
+
+interface CommandPaletteProps {
+  open: boolean;
+  onClose: () => void;
+  onNavigate: (page: PageId) => void;
+  onQuickAdd: () => void;
+}
+
+const PAGES: { id: PageId; label: string; icon: LucideIcon; keywords: string }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, keywords: 'home overview summary' },
   { id: 'transactions', label: 'Transactions', icon: CreditCard, keywords: 'ledger history spending list' },
   { id: 'owed', label: 'Owed to Me', icon: HandCoins, keywords: 'split repayment friends borrowed' },
@@ -34,7 +55,7 @@ const PAGES = [
 
 // Subsequence match, so "plah" finds "Plan Ahead" and "trans" finds
 // Transactions. Cheap, predictable, and good enough for a list this size.
-function fuzzyScore(haystack, needle) {
+function fuzzyScore(haystack: string, needle: string): number {
   if (!needle) return 0;
   const text = haystack.toLowerCase();
   const query = needle.toLowerCase();
@@ -52,12 +73,12 @@ function fuzzyScore(haystack, needle) {
   return 400 - gaps;
 }
 
-export default function CommandPalette({ open, onClose, onNavigate, onQuickAdd }) {
+export default function CommandPalette({ open, onClose, onNavigate, onQuickAdd }: CommandPaletteProps) {
   const { state } = useFinancial();
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
-  const inputRef = useRef(null);
-  const listRef = useRef(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const listRef = useRef<HTMLUListElement | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -71,7 +92,8 @@ export default function CommandPalette({ open, onClose, onNavigate, onQuickAdd }
   }, [open]);
 
   const results = useMemo(() => {
-    const actions = [
+    // No `kind` yet: these are tagged as actions where they join the scored list.
+    const actions: Omit<PaletteItem, 'kind'>[] = [
       {
         id: 'action-add', label: 'Add a transaction', hint: 'Ctrl+N', icon: Plus,
         keywords: 'new expense record entry', run: () => onQuickAdd(),
@@ -83,14 +105,14 @@ export default function CommandPalette({ open, onClose, onNavigate, onQuickAdd }
       },
     ];
 
-    const pages = PAGES.map(p => ({
+    const pages: PaletteItem[] = PAGES.map(p => ({
       ...p, kind: 'page', run: () => onNavigate(p.id),
     }));
 
     // Merchant search: jumps to the ledger, and shows what it would find first.
-    const merchants = [];
+    const merchants: PaletteItem[] = [];
     if (query.trim().length >= 2) {
-      const totals = new Map();
+      const totals = new Map<string, { total: number; count: number }>();
       (state.transactions || []).forEach(t => {
         if (!t.merchant || t.kind === 'savings') return;
         if (!t.merchant.toLowerCase().includes(query.trim().toLowerCase())) return;
@@ -125,13 +147,13 @@ export default function CommandPalette({ open, onClose, onNavigate, onQuickAdd }
 
   if (!open) return null;
 
-  const choose = (item) => {
+  const choose = (item: PaletteItem | undefined) => {
     if (!item) return;
     onClose();
     item.run();
   };
 
-  const onKeyDown = (e) => {
+  const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'ArrowDown') { e.preventDefault(); setActive(i => Math.min(i + 1, results.length - 1)); }
     else if (e.key === 'ArrowUp') { e.preventDefault(); setActive(i => Math.max(i - 1, 0)); }
     else if (e.key === 'Enter') { e.preventDefault(); choose(results[active]); }

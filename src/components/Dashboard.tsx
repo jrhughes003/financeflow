@@ -12,10 +12,24 @@ import { getIncomeSources } from '../utils/accounts';
 import {
   Card, CardHeader, Button, IconButton, Money, Stat, Badge, Meter, PageLede, CategoryMark,
 } from './ui';
+import type { BudgetStatus } from '../types/analysis';
+import type { PageId } from '../types/navigation';
+
+interface BudgetLineProps {
+  item: BudgetStatus;
+  getCategory: ReturnType<typeof useGetCategory>;
+}
+
+// Both handlers are optional because the component renders their controls only
+// when it has them; App always supplies both.
+interface DashboardProps {
+  onQuickAdd?: () => void;
+  onNavigate?: (page: PageId) => void;
+}
 
 // One line per budget: the category, what's left, and a rule showing how far in
 // the month has gone. A card per category buried the comparison that matters.
-function BudgetLine({ item, getCategory }) {
+function BudgetLine({ item, getCategory }: BudgetLineProps) {
   const cat = getCategory(item.category);
   const over = item.status === 'danger';
   return (
@@ -41,7 +55,7 @@ function BudgetLine({ item, getCategory }) {
   );
 }
 
-export default function Dashboard({ onQuickAdd, onNavigate }) {
+export default function Dashboard({ onQuickAdd, onNavigate }: DashboardProps) {
   const { state } = useFinancial();
   const now = new Date();
   const [month, setMonth] = useState(now.getMonth());
@@ -64,7 +78,7 @@ export default function Dashboard({ onQuickAdd, onNavigate }) {
   const budgetTotal = budgetStatuses.reduce((s, b) => s + b.effectiveBudget, 0);
   const monthLabel = format(new Date(year, month, 1), 'MMMM yyyy');
 
-  const changeMonth = (delta) => {
+  const changeMonth = (delta: number) => {
     const d = new Date(year, month + delta, 1);
     setMonth(d.getMonth());
     setYear(d.getFullYear());

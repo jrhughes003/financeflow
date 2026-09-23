@@ -5,17 +5,29 @@ import {
 import * as chart from '../ui/chartTheme';
 import { PageLede, Stat as UiStat } from '../ui';
 import { formatCurrency } from '../../utils/calculations';
+import type { LifePlan } from '../../types/lifeplan';
+import type { PlanOutcome, PlanRow } from '../../types/projection';
+import { needsSetup } from '../../types/projection';
 import { Card, Stat } from './ui';
 
 const COLORS = { liquid: 'var(--c-data-1)', home: 'var(--c-data-5)', debt: 'var(--c-negative)', net: '#0f172a', spend: 'var(--c-caution)', tax: '#64748b', income: '#16a34a' };
-const money = v => formatCurrency(Math.round(v));
-const compact = v => `${v < 0 ? '−' : ''}$${Math.abs(v) >= 1000000 ? `${(Math.abs(v) / 1000000).toFixed(1)}M` : `${Math.round(Math.abs(v) / 1000)}k`}`;
+const money = (v: number): string => formatCurrency(Math.round(v));
+const compact = (v: number): string => `${v < 0 ? '−' : ''}$${Math.abs(v) >= 1000000 ? `${(Math.abs(v) / 1000000).toFixed(1)}M` : `${Math.round(Math.abs(v) / 1000)}k`}`;
 
-function ChartTooltip({ active, payload, label, rows, todayDollars }) {
+interface ChartTooltipProps {
+  /** Recharts fills these three in; the two below are passed at the call site. */
+  active?: boolean;
+  payload?: unknown[];
+  label?: string | number;
+  rows: PlanRow[];
+  todayDollars: boolean;
+}
+
+function ChartTooltip({ active, payload, label, rows, todayDollars }: ChartTooltipProps) {
   if (!active || !payload?.length) return null;
   const row = rows.find(r => r.year === label);
   if (!row) return null;
-  const d = v => (todayDollars ? v / row.inflationIndex : v);
+  const d = (v: number) => (todayDollars ? v / row.inflationIndex : v);
   return (
     <div className="bg-surface border border-line-strong rounded-control p-3 text-caption space-y-0.5">
       <p className="font-semibold text-ink mb-1">{row.year} · age {row.ages.me}{row.ages.partner !== undefined && ` / ${row.ages.partner}`}</p>
@@ -32,15 +44,18 @@ function ChartTooltip({ active, payload, label, rows, todayDollars }) {
   );
 }
 
-export default function PlanProjection({ plan, result }) {
+export default function PlanProjection({ plan, result }: { plan: LifePlan; result: PlanOutcome }) {
   const [todayDollars, setTodayDollars] = useState(true);
   const [showTable, setShowTable] = useState(false);
 
+  // There are no rows on the needs-setup marker, and the hooks below run
+  // before the early return that handles it.
+  const resultRows = needsSetup(result) ? undefined : result.rows;
   // Memoised so the empty fallback keeps one identity; a new [] each render
   // would re-run the mapping below every time.
-  const rows = useMemo(() => result.rows || [], [result.rows]);
+  const rows = useMemo(() => resultRows || [], [resultRows]);
   const data = useMemo(() => rows.map(r => {
-    const d = v => (todayDollars ? v / r.inflationIndex : v);
+    const d = (v: number) => (todayDollars ? v / r.inflationIndex : v);
     return {
       year: r.year,
       age: r.ages.me,
@@ -54,15 +69,15 @@ export default function PlanProjection({ plan, result }) {
     };
   }), [rows, todayDollars]);
 
-  if (result.needsSetup) {
+  if (needsSetup(result)) {
     return <Card><p className="text-sm text-ink-muted text-center py-8">Add your birth year in Setup to see the projection.</p></Card>;
   }
 
   const me = plan.people.find(p => p.id === 'me');
-  const retireYear = Number(me.birthYear) + Number(me.retireAge || 65);
+  const retireYear = Number(me?.birthYear) + Number(me?.retireAge || 65);
   const ret = result.retirementRow;
   const fin = result.finalRow;
-  const dv = (row, v) => (row && todayDollars ? v / row.inflationIndex : v);
+  const dv = (row: PlanRow | null, v: number) => (row && todayDollars ? v / row.inflationIndex : v);
   const lifetimeTax = rows.reduce((s, r) => s + (todayDollars ? r.tax / r.inflationIndex : r.tax), 0);
   const eventYears = rows.filter(r => r.events.length);
 
@@ -70,7 +85,7 @@ export default function PlanProjection({ plan, result }) {
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex bg-surface-hover rounded-control p-0.5 text-caption font-medium">
-          {[[true, "Today's dollars"], [false, 'Future dollars']].map(([val, label]) => (
+          {([[true, "Today's dollars"], [false, 'Future dollars']] as const).map(([val, label]) => (
             <button key={label} onClick={() => setTodayDollars(val)}
               className={`px-3 py-1.5 rounded-control transition-colors ${todayDollars === val ? 'bg-surface  text-accent' : 'text-ink-muted hover:text-ink-secondary'}`}>
               {label}
@@ -95,7 +110,7 @@ export default function PlanProjection({ plan, result }) {
                 {money(lifetimeTax)}
               </UiStat>
               <UiStat label="Status"
-                hint={result.firstShortfall ? `age ${result.firstShortfall.year - Number(me.birthYear)}` : `through age ${plan.assumptions.endAge}`}>
+                hint={result.firstShortfall ? `age ${result.firstShortfall.year - Number(me?.birthYear)}` : `through age ${plan.assumptions.endAge}`}>
                 <span className={result.firstShortfall ? 'text-caution' : 'text-positive'}>
                   {result.firstShortfall ? `Runs short ${result.firstShortfall.year}` : 'Holds up'}
                 </span>
@@ -166,7 +181,7 @@ export default function PlanProjection({ plan, result }) {
               </thead>
               <tbody>
                 {rows.map(r => {
-                  const d = v => (todayDollars ? v / r.inflationIndex : v);
+                  const d = (v: number) => (todayDollars ? v / r.inflationIndex : v);
                   // Money set aside out of your own pocket (investments +
                   // RRSP/FHSA contributions, less the employer's match) minus what was drawn.
                   const netSaved = r.invested + r.contributions - r.employerMatch - r.withdrawals;

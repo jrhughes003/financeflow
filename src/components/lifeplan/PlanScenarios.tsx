@@ -9,63 +9,82 @@ import { formatCurrency } from '../../utils/calculations';
 import { runPlan } from '../../utils/lifeplan/engine';
 import { runSimulation } from '../../utils/lifeplan/runSimulation';
 import { buildSnapshot, scenarioFromPlan, normalizePlan } from '../../utils/lifeplan/snapshot';
+import type { LifePlan, PlanScenario } from '../../types/lifeplan';
+import type { AppState } from '../../types/state';
+import type { PlanOutcome, PlanRow, SimulationResult } from '../../types/projection';
+import { needsSetup } from '../../types/projection';
 import { Card, NumberField, Stat, inputCls } from './ui';
 
 // Fixed order so a scenario keeps its colour when others are toggled off.
 const LINE_COLORS = ['var(--c-data-1)', 'var(--c-caution)', '#16a34a', '#db2777', '#0891b2'];
-const money = v => formatCurrency(Math.round(v));
-const compact = v => `${v < 0 ? '−' : ''}$${Math.abs(v) >= 1000000 ? `${(Math.abs(v) / 1000000).toFixed(1)}M` : `${Math.round(Math.abs(v) / 1000)}k`}`;
-const fmtDate = s => (s ? format(parseISO(s), 'MMM d, yyyy') : '');
+const money = (v: number): string => formatCurrency(Math.round(v));
+const compact = (v: number): string => `${v < 0 ? '−' : ''}$${Math.abs(v) >= 1000000 ? `${(Math.abs(v) / 1000000).toFixed(1)}M` : `${Math.round(Math.abs(v) / 1000)}k`}`;
+const fmtDate = (s: string | null | undefined): string => (s ? format(parseISO(s), 'MMM d, yyyy') : '');
 
-function summarize(plan, state, label) {
+function summarize(plan: LifePlan, state: AppState, label: string) {
   const snapshot = buildSnapshot(state, plan);
   const res = runPlan(plan, snapshot, {});
+  // A saved scenario can be missing a birth year even when the current plan
+  // has one, so this run may come back as the needs-setup marker.
+  const projection = needsSetup(res) ? null : res;
   const me = plan.people.find(p => p.id === 'me');
-  const retireYear = me.birthYear ? Number(me.birthYear) + Number(me.retireAge || 65) : null;
-  const today$ = (row, v) => (row ? v / row.inflationIndex : 0);
+  const retireYear = me?.birthYear ? Number(me.birthYear) + Number(me.retireAge || 65) : null;
+  const today$ = (row: PlanRow | null, v: number) => (row ? v / row.inflationIndex : 0);
   return {
     label,
     plan,
     snapshot,
     res,
     retireYear,
-    retirementNetWorth: res.retirementRow ? today$(res.retirementRow, res.retirementRow.netWorth) : null,
-    endNetWorth: res.finalRow ? today$(res.finalRow, res.finalRow.netWorth) : null,
-    lifetimeTax: (res.rows || []).reduce((s, r) => s + r.tax / r.inflationIndex, 0),
-    firstShortfall: res.firstShortfall,
+    retirementNetWorth: projection?.retirementRow ? today$(projection.retirementRow, projection.retirementRow.netWorth) : null,
+    endNetWorth: projection?.finalRow ? today$(projection.finalRow, projection.finalRow.netWorth) : null,
+    lifetimeTax: (projection?.rows || []).reduce((s, r) => s + r.tax / r.inflationIndex, 0),
+    firstShortfall: projection?.firstShortfall,
     houses: (plan.events || []).filter(e => e.type === 'house' && e.enabled !== false && e.date),
   };
 }
 
-export default function PlanScenarios({ plan, setPlan, state, result }) {
+type Comparison = ReturnType<typeof summarize>;
+
+interface PlanScenariosProps {
+  plan: LifePlan;
+  setPlan: (next: LifePlan) => void;
+  state: AppState;
+  result: PlanOutcome;
+}
+
+export default function PlanScenarios({ plan, setPlan, state, result }: PlanScenariosProps) {
   const [name, setName] = useState('');
-  const [selected, setSelected] = useState([]);
-  const [confirmLoad, setConfirmLoad] = useState(null);
-  const [mc, setMc] = useState(null);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [confirmLoad, setConfirmLoad] = useState<string | null>(null);
+  const [mc, setMc] = useState<SimulationResult | null>(null);
   const [mcBusy, setMcBusy] = useState(false);
   const [mcProgress, setMcProgress] = useState({ completed: 0, total: 0 });
-  const cancelRef = useRef(null);
-  const [volatility, setVolatility] = useState(12);
-  const [trials, setTrials] = useState(300);
+  const cancelRef = useRef<(() => void) | null>(null);
+  // Both fields hand back the raw input string, which `Number(...)` coerces
+  // at every read below.
+  const [volatility, setVolatility] = useState<number | string>(12);
+  const [trials, setTrials] = useState<number | string>(300);
 
   // See PlanProjection: a fresh [] each render would defeat the memo below.
   const scenarios = useMemo(() => plan.scenarios || [], [plan.scenarios]);
-  const toggle = id => setSelected(s => (s.includes(id) ? s.filter(x => x !== id) : [...s, id]));
+  const toggle = (id: string) => setSelected(s => (s.includes(id) ? s.filter(x => x !== id) : [...s, id]));
 
+  const planNeedsSetup = needsSetup(result);
   const comparisons = useMemo(() => {
-    if (result.needsSetup) return [];
+    if (planNeedsSetup) return [];
     const picked = scenarios.filter(sc => selected.includes(sc.id));
     return [
       summarize(plan, state, 'Current plan'),
       ...picked.map(sc => summarize(normalizePlan(sc.plan), state, sc.name)),
     ];
-  }, [plan, state, scenarios, selected, result.needsSetup]);
+  }, [plan, state, scenarios, selected, planNeedsSetup]);
 
   const chartData = useMemo(() => {
     if (comparisons.length < 2) return [];
-    const years = new Map();
+    const years = new Map<number, Record<string, number>>();
     comparisons.forEach((c, i) => {
-      (c.res.rows || []).forEach(r => {
+      (needsSetup(c.res) ? [] : c.res.rows || []).forEach(r => {
         const row = years.get(r.year) || { year: r.year };
         row[`s${i}`] = Math.round(r.netWorth / r.inflationIndex);
         years.set(r.year, row);
@@ -78,15 +97,15 @@ export default function PlanScenarios({ plan, setPlan, state, result }) {
     setPlan({ ...plan, scenarios: [...scenarios, scenarioFromPlan(plan, name.trim() || `Scenario ${scenarios.length + 1}`)] });
     setName('');
   };
-  const updateFromCurrent = id => setPlan({
+  const updateFromCurrent = (id: string) => setPlan({
     ...plan,
     scenarios: scenarios.map(sc => (sc.id === id ? { ...scenarioFromPlan(plan, sc.name), id: sc.id } : sc)),
   });
-  const load = sc => {
+  const load = (sc: PlanScenario) => {
     setPlan({ ...normalizePlan(sc.plan), scenarios });
     setConfirmLoad(null);
   };
-  const remove = id => {
+  const remove = (id: string) => {
     setPlan({ ...plan, scenarios: scenarios.filter(sc => sc.id !== id) });
     setSelected(s => s.filter(x => x !== id));
   };
@@ -108,7 +127,14 @@ export default function PlanScenarios({ plan, setPlan, state, result }) {
     cancelRef.current = cancel;
 
     promise
-      .then(result => { if (!result?.cancelled) setMc(result); })
+      // Named `res` rather than `result`, which is the component's own prop.
+      .then(res => {
+        // Cancelling resolves with { cancelled: true } rather than rejecting.
+        if (!res || 'cancelled' in res) return;
+        // The needs-setup marker cannot arrive here — this card sits behind
+        // the projection's own needs-setup guard below.
+        setMc(res as SimulationResult);
+      })
       .catch(() => { /* surfaced by the run staying empty */ })
       .finally(() => { setMcBusy(false); cancelRef.current = null; });
   };
@@ -118,7 +144,7 @@ export default function PlanScenarios({ plan, setPlan, state, result }) {
 
   const mcData = mc?.bands?.map(b => ({ year: b.year, age: b.age, range: [b.p10, b.p90], p50: b.p50 })) || [];
 
-  if (result.needsSetup) {
+  if (planNeedsSetup) {
     return <Card><p className="text-sm text-ink-muted text-center py-8">Add your birth year in Setup first.</p></Card>;
   }
 
@@ -194,13 +220,13 @@ export default function PlanScenarios({ plan, setPlan, state, result }) {
                 </tr>
               </thead>
               <tbody>
-                {[
+                {([
                   ['Status', c => (c.firstShortfall ? `Runs short ${c.firstShortfall.year}` : 'Holds up')],
                   ['Net worth at retirement', c => (c.retirementNetWorth === null ? '—' : money(c.retirementNetWorth))],
                   [`Net worth at the end`, c => (c.endNetWorth === null ? '—' : money(c.endNetWorth))],
                   ['Lifetime tax', c => money(c.lifetimeTax)],
                   ['Home purchase', c => (c.houses.length ? c.houses.map(h => `${h.name}: ${h.date}`).join(', ') : 'none')],
-                ].map(([label, get]) => (
+                ] as [string, (c: Comparison) => string][]).map(([label, get]) => (
                   <tr key={label} className="border-b border-line-faint">
                     <td className="py-2 text-ink-secondary">{label}</td>
                     {comparisons.map(c => <td key={c.label} className="py-2 text-right text-ink">{get(c)}</td>)}
@@ -216,8 +242,9 @@ export default function PlanScenarios({ plan, setPlan, state, result }) {
               <XAxis dataKey="year" {...chart.xAxis} tick={{ fontSize: 11 }} interval="preserveStartEnd" minTickGap={40} />
               <YAxis {...chart.yAxis} tick={{ fontSize: 11 }} tickFormatter={compact} width={55} />
               <ReferenceLine y={0} stroke="var(--c-ink-muted)" />
-              <Tooltip formatter={(v, n) => [money(v), comparisons[Number(n.slice(1))]?.label || n]} labelFormatter={y => `${y}`} />
-              <Legend wrapperStyle={{ fontSize: 12 }} formatter={n => comparisons[Number(n.slice(1))]?.label || n} />
+              {/* The series keys are `s0`, `s1`, … — the index maps back to the comparison. */}
+              <Tooltip formatter={(v, n) => [money(chart.asNumber(v)), comparisons[Number(String(n).slice(1))]?.label || n]} labelFormatter={y => `${y}`} />
+              <Legend wrapperStyle={{ fontSize: 12 }} formatter={n => comparisons[Number(String(n).slice(1))]?.label || n} />
               {comparisons.map((c, i) => (
                 <Line key={c.label} dataKey={`s${i}`} name={`s${i}`} stroke={LINE_COLORS[i % LINE_COLORS.length]} strokeWidth={2} dot={false} isAnimationActive={false} />
               ))}
@@ -296,7 +323,7 @@ export default function PlanScenarios({ plan, setPlan, state, result }) {
                 <XAxis dataKey="year" {...chart.xAxis} tick={{ fontSize: 11 }} interval="preserveStartEnd" minTickGap={40} />
                 <YAxis {...chart.yAxis} tick={{ fontSize: 11 }} tickFormatter={compact} width={55} />
                 <ReferenceLine y={0} stroke="var(--c-ink-muted)" />
-                <Tooltip formatter={(v, n) => [Array.isArray(v) ? `${money(v[0])} – ${money(v[1])}` : money(v), n === 'range' ? 'Middle 80% of outcomes' : 'Typical (median)']} />
+                <Tooltip formatter={(v, n) => [Array.isArray(v) ? `${money(Number(v[0]))} – ${money(Number(v[1]))}` : money(chart.asNumber(v)), n === 'range' ? 'Middle 80% of outcomes' : 'Typical (median)']} />
                 <Legend wrapperStyle={{ fontSize: 12 }} formatter={n => (n === 'range' ? 'Middle 80% of outcomes' : 'Typical (median)')} />
                 <Area dataKey="range" stroke="none" fill={chart.SERIES.primary} fillOpacity={0.15} isAnimationActive={false} />
                 <Line dataKey="p50" stroke={chart.SERIES.primary} strokeWidth={2} dot={false} isAnimationActive={false} />

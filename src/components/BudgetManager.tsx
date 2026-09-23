@@ -6,12 +6,28 @@ import { useUndoableDelete } from '../hooks/useUndoableDelete';
 import { CATEGORIES, getAllCategories } from '../utils/categorization';
 import { getSpendingByCategory, getMonthlyTrend, getBudgetStatus, formatCurrency } from '../utils/calculations';
 import { format } from 'date-fns';
+import type { Budget, Money } from '../types/domain';
 
 const PRESET_COLORS = ['var(--c-data-2)','var(--c-positive)','var(--c-data-1)','var(--c-data-5)','var(--c-caution)','var(--c-data-7)','var(--c-data-6)','var(--c-data-3)','var(--c-negative)','var(--c-data-6)'];
 
-function BudgetRow({ budget, spending, carry = 0, effectiveBudget, onEdit, onDelete, getCategory }) {
+interface BudgetRowProps {
+  budget: Budget;
+  spending: Money;
+  carry?: Money;
+  /** Absent when this category has no rollover-adjusted status for the month. */
+  effectiveBudget?: Money;
+  onEdit: (budget: Budget) => void;
+  onDelete: (budget: Budget) => void;
+  getCategory: ReturnType<typeof useGetCategory>;
+}
+
+function BudgetRow({ budget, spending, carry = 0, effectiveBudget, onEdit, onDelete, getCategory }: BudgetRowProps) {
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({ amount: budget.amount, flex: budget.flex || 0, rollover: budget.rollover || false });
+  // The two number fields start as the stored numbers and become input strings
+  // once edited, which is why save() re-parses them.
+  const [form, setForm] = useState<{ amount: number | string; flex: number | string; rollover: boolean }>(
+    { amount: budget.amount, flex: budget.flex || 0, rollover: budget.rollover || false },
+  );
   const cat = getCategory(budget.category);
   // Measure usage against the rollover-adjusted limit when rollover is on.
   const limit = budget.rollover ? (effectiveBudget ?? budget.amount) : budget.amount;
@@ -20,7 +36,7 @@ function BudgetRow({ budget, spending, carry = 0, effectiveBudget, onEdit, onDel
   const barColor = status === 'danger' ? 'var(--c-negative)' : status === 'warning' ? 'var(--c-caution)' : 'var(--c-positive)';
 
   const save = () => {
-    onEdit({ ...budget, amount: parseFloat(form.amount) || 0, flex: parseFloat(form.flex) || 0, rollover: form.rollover });
+    onEdit({ ...budget, amount: parseFloat(String(form.amount)) || 0, flex: parseFloat(String(form.flex)) || 0, rollover: form.rollover });
     setEditing(false);
   };
 
@@ -103,9 +119,11 @@ export default function BudgetManager() {
   );
 
   // Smart suggestions from 3-month average
-  const suggestions = {};
+  const suggestions: Record<string, number> = {};
   allCategories.forEach(cat => {
-    const avg = trend.reduce((s, m) => s + (m[cat.id] || 0), 0) / 3;
+    // A trend row carries `label` beside the category totals, so its index
+    // signature admits a string; a category key is always a number.
+    const avg = trend.reduce((s, m) => s + ((m[cat.id] as number) || 0), 0) / 3;
     if (avg > 0) suggestions[cat.id] = Math.ceil(avg / 10) * 10;
   });
 

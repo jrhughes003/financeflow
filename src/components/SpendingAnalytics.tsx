@@ -41,8 +41,8 @@ export default function SpendingAnalytics() {
   const now = new Date();
   const [month, setMonth] = useState(now.getMonth());
   const [year, setYear] = useState(now.getFullYear());
-  const [drillCat, setDrillCat] = useState(null);
-  const [hiddenLines, setHiddenLines] = useState({});
+  const [drillCat, setDrillCat] = useState<string | null>(null);
+  const [hiddenLines, setHiddenLines] = useState<Record<string, boolean>>({});
   const [tab, setTab] = useState('overview');
 
   const spending = getSpendingByCategory(transactions, month, year);
@@ -63,9 +63,11 @@ export default function SpendingAnalytics() {
     .slice(0, 9);
 
   // Major categories for line chart
-  const majorCats = allCategories.filter(c => trend.some(m => m[c.id] > 0)).slice(0, 6);
+  // A trend row carries `label` beside the category totals, so its index
+  // signature admits a string; a category key is always a number.
+  const majorCats = allCategories.filter(c => trend.some(m => (m[c.id] as number) > 0)).slice(0, 6);
 
-  const changeMonth = (delta) => {
+  const changeMonth = (delta: number) => {
     const d = new Date(year, month + delta, 1);
     setMonth(d.getMonth());
     setYear(d.getFullYear());
@@ -74,10 +76,10 @@ export default function SpendingAnalytics() {
   // Category drill-down
   const drillData = drillCat ? (() => {
     const catTx = getTransactionsForPeriod(transactions, month, year).filter(t => t.category === drillCat);
-    const merchants = {};
+    const merchants: Record<string, number> = {};
     catTx.forEach(t => { merchants[t.merchant] = (merchants[t.merchant] || 0) + t.amount; });
     return {
-      transactions: catTx.sort((a, b) => new Date(b.date) - new Date(a.date)),
+      transactions: catTx.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
       merchants: Object.entries(merchants).sort((a, b) => b[1] - a[1]).slice(0, 6),
       total: catTx.reduce((s, t) => s + t.amount, 0),
       subcategories: getSubcategoryBreakdown(catTx),
@@ -151,8 +153,8 @@ export default function SpendingAnalytics() {
                       <Cell key={entry.id} fill={entry.color} opacity={drillCat && drillCat !== entry.id ? 0.4 : 1} />
                     ))}
                   </Pie>
-                  <Tooltip {...chart.tooltip} formatter={v => formatCurrency(v)} />
-                  <Legend formatter={(value, entry) => `${value}: ${formatCurrency(entry.payload.value)}`} />
+                  <Tooltip {...chart.tooltip} formatter={v => formatCurrency(chart.asNumber(v))} />
+                  <Legend formatter={(value, entry) => `${value}: ${formatCurrency(chart.asNumber(entry?.payload?.value))}`} />
                 </PieChart>
               </ResponsiveContainer>
             )
@@ -168,7 +170,7 @@ export default function SpendingAnalytics() {
               <CartesianGrid {...chart.grid} />
               <XAxis dataKey="name" {...chart.xAxis} tick={{ fontSize: 12 }} />
               <YAxis tick={{ fontSize: 12 }} tickFormatter={v => `$${v}`} />
-              <Tooltip {...chart.tooltip} formatter={v => formatCurrency(v)} />
+              <Tooltip {...chart.tooltip} formatter={v => formatCurrency(chart.asNumber(v))} />
               <Bar dataKey="total" fill={chart.SERIES.primary} radius={[4,4,0,0]} name="Total Spent" />
             </BarChart>
           </ResponsiveContainer>
@@ -253,7 +255,7 @@ export default function SpendingAnalytics() {
             <CartesianGrid {...chart.grid} />
             <XAxis dataKey="label" {...chart.xAxis} tick={{ fontSize: 11 }} />
             <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `$${v}`} />
-            <Tooltip {...chart.tooltip} formatter={v => formatCurrency(v)} />
+            <Tooltip {...chart.tooltip} formatter={v => formatCurrency(chart.asNumber(v))} />
             {majorCats.map(cat => (
               !hiddenLines[cat.id] && (
                 <Line

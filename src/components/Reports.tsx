@@ -14,10 +14,22 @@ import { exportToCSV, exportToJSON } from '../utils/exportUtils';
 import { withEffectiveAmount } from '../utils/reimbursements';
 import { getIncomeSources } from '../utils/accounts';
 import { runAi, buildSummary, taxonomy, aiSupported } from '../ai/ai';
+import type { AppState } from '../types/state';
+
+/** One local lookup the model made while answering. */
+interface ConsultedTool {
+  tool: string;
+  input?: unknown;
+}
+
+// runAi is typed AiResult<unknown> because the bridge cannot know which feature
+// was asked for, so each call site names the shape that feature returns.
+interface InsightsData { narrative: string }
+interface QueryData { answer: string; consulted?: ConsultedTool[] }
 
 // Plain-language names for the local lookups an answer used, so the user can see
 // what was consulted on their machine rather than taking the answer on trust.
-const TOOL_LABELS = {
+const TOOL_LABELS: Record<string, string> = {
   get_spending: 'spending totals',
   get_merchant_spending: 'spending at a merchant',
   get_budget_status: 'budget vs actual',
@@ -40,14 +52,14 @@ export default function Reports() {
   const [narrative, setNarrative] = useState('');
   const [question, setQuestion] = useState('');
   const [answer, setAnswer] = useState('');
-  const [consulted, setConsulted] = useState([]);
+  const [consulted, setConsulted] = useState<ConsultedTool[]>([]);
   const [aiErr, setAiErr] = useState('');
 
   const generateInsights = async () => {
     setAiBusy(true); setAiErr(''); setNarrative('');
     const res = await runAi('insights', { summary: buildSummary(state, month, year) });
     setAiBusy(false);
-    if (res.ok) setNarrative(res.data.narrative);
+    if (res.ok) setNarrative((res.data as InsightsData).narrative);
     else setAiErr(res.error === 'no_key' ? 'Add an API key in Settings first.' : 'Insights unavailable right now.');
   };
 
@@ -62,8 +74,9 @@ export default function Reports() {
     });
     setAiBusy(false);
     if (res.ok) {
-      setAnswer(res.data.answer);
-      setConsulted(res.data.consulted || []);
+      const data = res.data as QueryData;
+      setAnswer(data.answer);
+      setConsulted(data.consulted || []);
     } else {
       setAiErr(res.error === 'no_key' ? 'Add an API key in Settings first.' : 'Could not answer right now.');
     }
@@ -102,14 +115,14 @@ export default function Reports() {
       .map(withEffectiveAmount)
     : [];
   const customTotal = customTx.reduce((s, t) => s + t.amount, 0);
-  const customByCategory = {};
+  const customByCategory: Record<string, number> = {};
   customTx.forEach(t => { customByCategory[t.category] = (customByCategory[t.category] || 0) + t.amount; });
   const customTopCats = Object.entries(customByCategory)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5)
     .map(([id, value]) => ({ name: getCategory(id).name, value: Math.round(value), color: getCategory(id).color }));
 
-  const changeMonth = (delta) => {
+  const changeMonth = (delta: number) => {
     const d = new Date(year, month + delta, 1);
     setMonth(d.getMonth());
     setYear(d.getFullYear());
@@ -124,7 +137,13 @@ export default function Reports() {
   };
 
   const handleExportJSON = () => {
-    exportToJSON({ transactions, budgets, incomes, savings_goals, investments, debts }, 'financeflow_backup.json');
+    // The whole state, not a hand-picked literal. This used to list six
+    // collections and leave out recurringTemplates, customCategories and
+    // settings — and settings is where the entire Plan Ahead configuration
+    // lives. Restoring such a file succeeds silently, because the importer
+    // fills anything missing with an empty array, so the omission read as a
+    // wipe rather than an error.
+    exportToJSON(state, 'financeflow_backup.json');
   };
 
   return (
@@ -182,7 +201,7 @@ export default function Reports() {
                 <CartesianGrid {...chart.grid} horizontal={false} vertical />
                 <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={v => `$${v}`} />
                 <YAxis {...chart.yAxis} type="category" dataKey="name" tick={{ fontSize: 12 }} width={60} />
-                <Tooltip {...chart.tooltip} formatter={v => formatCurrency(v)} />
+                <Tooltip {...chart.tooltip} formatter={v => formatCurrency(chart.asNumber(v))} />
                 <Bar dataKey="value" radius={[0,4,4,0]} name="Amount">
                   {topCats.map((entry, i) => <Cell key={i} fill={entry.color} />)}
                 </Bar>
@@ -275,7 +294,7 @@ export default function Reports() {
             <CartesianGrid {...chart.grid} />
             <XAxis dataKey="label" {...chart.xAxis} tick={{ fontSize: 11 }} />
             <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `$${v}`} />
-            <Tooltip {...chart.tooltip} formatter={v => formatCurrency(v)} />
+            <Tooltip {...chart.tooltip} formatter={v => formatCurrency(chart.asNumber(v))} />
             <Bar dataKey="total" fill={chart.SERIES.primary} radius={[4,4,0,0]} name="Monthly Spending" />
           </BarChart>
         </ResponsiveContainer>

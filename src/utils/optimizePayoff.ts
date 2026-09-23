@@ -18,7 +18,8 @@
 // what makes "optimal" a claim rather than a hope:
 //
 //   n debts → n! orderings, each simulated over up to MAX_MONTHS.
-//   8 debts is 40,320 orderings — fine. 12 would be 479 million — not.
+//   8 debts is 40,320 orderings — expensive but affordable. 12 would be 479
+//   million — not.
 //
 // So past a threshold it switches to a greedy construction with lookahead:
 // build the order one position at a time, each time trying every remaining debt
@@ -31,7 +32,16 @@ import { monthsUntilRepayment } from './accounts';
 import type { Debt, Money } from '../types/domain';
 import type { PayoffOptions, PayoffSimulation } from '../types/analysis';
 
-// 8! = 40,320 simulations runs in well under a second; 9! = 362,880 does not.
+// Measured, because this line used to claim 8! runs "well under a second" and
+// it does not: 48-76ms at 6 debts, 0.4-0.8s at 7, and 1.4-3.9s at 8 depending
+// on how long the schedules run. 9! would be an order of magnitude worse again.
+//
+// The limit stays at 8 rather than dropping to 6 because the greedy fallback
+// was measured too: over 25 randomised 8-debt sets it took ~3ms but matched the
+// cheapest order only 5 times, costing 2.6% more interest on average and 22% at
+// worst. Giving that up to save a second would be the wrong trade — so the
+// search runs in src/workers/payoff.worker.ts instead, where the second is not
+// taken out of the render path.
 export const EXHAUSTIVE_LIMIT = 8;
 
 /** One ordering, scored. Infinity when the plan never clears at this payment. */

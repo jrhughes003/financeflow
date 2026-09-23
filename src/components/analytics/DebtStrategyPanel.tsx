@@ -1,14 +1,15 @@
 import * as chart from '../ui/chartTheme';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { format, parseISO } from 'date-fns';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { Landmark, AlertTriangle, Sparkles } from 'lucide-react';
 import { useFinancial } from '../../context/FinancialContext';
 import { formatCurrency } from '../../utils/calculations';
 import { compareDebtStrategies } from '../../utils/planning';
-import { optimizePayoff } from '../../utils/optimizePayoff';
+import { runOptimize } from '../../utils/runOptimize';
 import { getSavingsOpportunities } from '../../utils/insights';
 import { requiredPayment, isInRepayment } from '../../utils/accounts';
+import type { PayoffOptimization, RunningOptimize } from '../../types/worker';
 
 /** The three comparable strategies. `custom` is the optimiser's, not a card. */
 type StrategyKey = 'minimum' | 'avalanche' | 'snowball';
@@ -44,7 +45,31 @@ export default function DebtStrategyPanel() {
   // Searched rather than sorted. With fixed rates this lands on avalanche and
   // says so; it only diverges when a rate changes partway — a promotional 0%
   // reverting to 25% — which neither heuristic can see.
-  const optimal = useMemo(() => optimizePayoff(owing, { extra }), [owing, extra]);
+  //
+  // It used to be a bare useMemo, which put an exhaustive search over every
+  // payoff order on the render path: 1.4s at eight debts, once per $10 step of
+  // the slider above. It now runs in a worker, and the debounce matters as much
+  // as the worker does — a single drag fires dozens of changes, and without it
+  // they queue behind each other and the panel falls minutes behind the slider.
+  const [optimal, setOptimal] = useState<PayoffOptimization>(null);
+  const [searching, setSearching] = useState(false);
+
+  useEffect(() => {
+    if (owing.length < 2) { setOptimal(null); setSearching(false); return; }
+    setSearching(true);
+    let run: RunningOptimize | null = null;
+    const timer = setTimeout(() => {
+      run = runOptimize(owing, { extra });
+      run.promise
+        .then(result => {
+          if (result && 'cancelled' in result) return; // superseded
+          setOptimal(result);
+          setSearching(false);
+        })
+        .catch(() => { setSearching(false); });
+    }, 250);
+    return () => { clearTimeout(timer); run?.cancel(); };
+  }, [owing, extra]);
 
   if (!owing.length) {
     return (
@@ -139,6 +164,10 @@ export default function DebtStrategyPanel() {
           gets you debt-free <span className="font-semibold">{duration(cmp.monthsSaved)} sooner</span> and saves <span className="font-semibold">{formatCurrency(cmp.interestSaved)}</span> in interest.
           {cmp.recommended === 'snowball' && ' It costs almost the same as avalanche but clears your first debt sooner.'}
         </p>
+      )}
+
+      {searching && !optimal && (
+        <p className="text-caption text-ink-muted mb-4" aria-busy="true">Checking payoff orders…</p>
       )}
 
       {optimal?.feasible && optimal.savingVsAvalanche > 0.5 && (

@@ -19,14 +19,20 @@
     "skipLibCheck": true,
     "types": []
   },
-  // Exactly the worker's import graph, listed rather than globbed.
+  // Exactly the workers' import graphs, listed rather than globbed.
   //
   // Every file in a project's graph has to be inside its include, but globbing
   // src/utils/lifeplan drags in snapshot.ts, which reaches calculations and
   // insights and from there modules that touch `document`. The whole point of
   // compiling this separately is that the WebWorker lib has no DOM, so a file
-  // that needs one does not belong here — and naming the five that don't makes
+  // that needs one does not belong here — and naming the ones that don't makes
   // that boundary visible instead of accidental.
+  //
+  // The payoff worker brings the second block below. Every one of those was
+  // checked for a DOM reference before being added; the only `window` in them
+  // is a local parameter in insights.ts and some prose in comments. If a file
+  // here ever reaches for `document`, this project stops compiling, which is
+  // the point of keeping the list by hand.
   "include": [
     "src/workers",
     "src/types",
@@ -34,6 +40,16 @@
     "src/utils/lifeplan/engine.ts",
     "src/utils/lifeplan/returns.ts",
     "src/utils/lifeplan/taxCanada.ts",
-    "src/utils/lifeplan/housing.ts"
+    "src/utils/lifeplan/housing.ts",
+
+    "src/utils/optimizePayoff.ts",
+    "src/utils/planning.ts",
+    "src/utils/calculations.ts",
+    "src/utils/constants.ts",
+    "src/utils/reimbursements.ts",
+    "src/utils/accounts.ts",
+    "src/utils/insights.ts",
+    "src/utils/recurring.ts",
+    "src/utils/categorization.ts"
   ]
 }

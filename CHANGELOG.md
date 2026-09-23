@@ -56,6 +56,18 @@ Versions follow [SemVer](https://semver.org/).
 - **`buildSummary` ignored the date it was given**, passing a bare `Date` where
   an options object was expected, so it silently used the current date.
 
+### Changed — performance
+
+- **The payoff optimiser no longer runs on the render path.** It searched every
+  ordering of your debts inside a `useMemo`, so each $10 step of the
+  extra-payment slider froze the window. The module claimed 8 debts took "well
+  under a second"; measured, it takes 1.4s on a structured set and up to 3.9s on
+  harder ones. Dropping to the cheaper greedy search was measured first, because
+  it would have been free — but over 25 randomised 8-debt sets greedy found the
+  cheapest order only 5 times and cost up to 22% more interest, so the search
+  moved to a worker instead of being given up. Verified in a browser: 40 rapid
+  slider steps, longest frame gap 24ms.
+
 ### Added
 
 - **A live demo** at <https://jrhughes003.github.io/financeflow/> — the same

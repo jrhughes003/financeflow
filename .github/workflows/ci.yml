@@ -82,12 +82,18 @@ jobs:
 
       - name: Build web bundle
         run: npm run build
-      # The Monte Carlo lives in a worker, and the call site swallows a failed
-      # worker and silently runs in-process instead — so a broken worker costs
-      # no test, only speed. The chunk's existence is the guard.
-      - name: Check the simulation worker was bundled
+      # Both workers are built from a string literal Vite reads at build time,
+      # and both call sites swallow a failed worker and silently run in-process
+      # instead — so a broken worker costs no test, only speed. The jsdom tests
+      # exercise that fallback by design and would stay green forever. The
+      # chunks' existence in the bundle is the only guard there is.
+      - name: Check both workers were bundled
         shell: bash
-        run: ls dist/assets/ | grep -q 'montecarlo.worker' || { echo 'Monte Carlo worker chunk missing from the bundle'; exit 1; }
+        run: |
+          for w in montecarlo.worker payoff.worker; do
+            ls dist/assets/ | grep -q "$w" || { echo "$w chunk missing from the bundle"; exit 1; }
+          done
+          echo 'both worker chunks present'
       # The README quotes a line count and a test count. They were hand-written
       # and had drifted to 9k/305 against an actual 16k/401 — in the direction
       # that undersold the work, which is the direction nobody notices. This

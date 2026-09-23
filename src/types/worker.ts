@@ -1,4 +1,4 @@
-// The Monte Carlo worker's message protocol.
+// The worker message protocols.
 //
 // Worth typing rather than leaving as loose objects: the two sides of a worker
 // boundary are separate modules that never call each other, so a renamed field
@@ -7,8 +7,12 @@
 // simply never resolves.
 
 import type { SimulationOptions } from '../utils/lifeplan/montecarlo';
+import type { optimizePayoff } from '../utils/optimizePayoff';
+import type { Debt, Money } from './domain';
 import type { LifePlan } from './lifeplan';
 import type { PlanSnapshot, SimulationOutcome } from './projection';
+
+// --- The Monte Carlo worker -------------------------------------------------
 
 /** Options as they cross the boundary: a Date does not survive the clone. */
 export type ClonableOptions = Omit<SimulationOptions, 'today'> & { today?: string };
@@ -72,5 +76,48 @@ export type SimulationCall = SimulationOutcome | Cancelled;
 
 export interface RunningSimulation {
   promise: Promise<SimulationCall>;
+  cancel: () => void;
+}
+
+// --- The payoff optimiser's worker ------------------------------------------
+//
+// Deliberately simpler than the Monte Carlo's. That search has a chunked API to
+// yield between, which is what makes its progress reporting and cancellation
+// possible; this one is a single synchronous sweep with nothing to interrupt.
+// A superseded run is handled by ignoring a reply whose requestId has moved on,
+// not by asking the worker to stop.
+
+/** Derived, so the reply type cannot drift from what the function returns. */
+export type PayoffOptimization = ReturnType<typeof optimizePayoff>;
+
+export interface OptimizeRequest {
+  type: 'optimize';
+  requestId: number;
+  debts: Debt[];
+  /** `today` crosses as an ISO string: a Date does not survive the clone. */
+  options: { extra?: Money; today?: string; limit?: number };
+}
+
+export type PayoffWorkerRequest = OptimizeRequest;
+
+export interface PayoffResultMessage {
+  type: 'result';
+  requestId: number;
+  result: PayoffOptimization;
+}
+
+export interface PayoffErrorMessage {
+  type: 'error';
+  requestId: number;
+  message: string;
+}
+
+export type PayoffWorkerResponse = PayoffResultMessage | PayoffErrorMessage;
+
+/** Cancelling is normal — the slider moved — so it resolves rather than rejects. */
+export type OptimizeCall = PayoffOptimization | Cancelled;
+
+export interface RunningOptimize {
+  promise: Promise<OptimizeCall>;
   cancel: () => void;
 }

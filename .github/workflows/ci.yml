@@ -65,6 +65,13 @@ jobs:
       - name: Check the simulation worker was bundled
         shell: bash
         run: ls dist/assets/ | grep -q 'montecarlo.worker' || { echo 'Monte Carlo worker chunk missing from the bundle'; exit 1; }
+      # The README quotes a line count and a test count. They were hand-written
+      # and had drifted to 9k/305 against an actual 16k/401 — in the direction
+      # that undersold the work, which is the direction nobody notices. This
+      # recomputes them and fails if the committed README disagrees.
+      - name: Check the README figures are current
+        if: runner.os == 'Linux'
+        run: npm run stats -- --check
       # A regression here is invisible until someone opens the app on a slow
       # connection, so the number is surfaced on every run.
       - name: Report bundle size

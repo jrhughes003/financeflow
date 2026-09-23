@@ -102,8 +102,13 @@ Versions follow [SemVer](https://semver.org/).
 - 37 of 39 components still have no test. Branch and function coverage sit near
   80% because the logic they render is covered thoroughly; statement coverage is
   lower, and that gap is the honest reading of the number.
-- The whole state is rewritten on every change. Fine at personal-ledger scale;
-  the first thing to change if it grew.
+- The whole state is rewritten on every change — `DELETE FROM` across eight
+  tables, then re-insert. Measured rather than assumed: at 270 transactions the
+  UI thread pays 0.5ms per keystroke and the database write 1.8ms; at 10,000 it
+  is 17.6ms and 77ms. Fine at personal-ledger scale, and deliberately left
+  simple, because debouncing it would trade a fraction of a frame for a window
+  in which a saved edit exists only in memory. It is the first thing to change
+  if it grew.
 - Schema migrations have a version field and no runner.
 - Vite is held at 5. Moving to 8 needs `@vitejs/plugin-react` and vitest to move
   with it, and vitest 5 recomputes coverage on a different basis — a toolchain

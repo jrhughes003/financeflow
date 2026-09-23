@@ -83,8 +83,22 @@ function loadAll(db) {
  * Persist the full in-memory state to the database in a single transaction.
  * Mirrors the previous "write the whole localStorage blob on change" semantics,
  * which keeps the migration low-risk: the renderer's context API is unchanged.
- * Writing the whole set in one better-sqlite3 transaction is sub-millisecond for
- * the dataset sizes a personal-finance app produces.
+ *
+ * It really does rewrite everything on every change — DELETE FROM across eight
+ * tables, then re-insert — so it is worth knowing what that costs rather than
+ * asserting it is free, which an earlier version of this comment did ("sub-
+ * millisecond", untrue above a few hundred rows). Measured:
+ *
+ *   transactions      270     1,000    3,000    10,000
+ *   saveAll here      1.8ms   10ms     21ms     77ms
+ *   renderer's clone  0.5ms   1.7ms    5.8ms    17.6ms
+ *
+ * Only the second row lands on the UI thread, and only the second row is paid
+ * per keystroke. At the scale a personal ledger actually reaches it is under a
+ * millisecond, which is why this is still written the simple way: debouncing
+ * would buy back a fraction of a frame in exchange for a window in which a
+ * saved edit exists only in memory, and losing data is the failure this file
+ * cares most about. Around 10k transactions that trade flips.
  */
 function saveAll(db, state) {
   const run = db.transaction((s) => {

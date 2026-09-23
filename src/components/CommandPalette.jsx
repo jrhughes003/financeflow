@@ -140,10 +140,10 @@ export default function CommandPalette({ open, onClose, onNavigate, onQuickAdd }
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-[12vh] px-4" role="dialog" aria-modal="true" aria-label="Command palette">
-      <div className="fixed inset-0 bg-black/30" onClick={onClose} />
-      <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden">
-        <div className="flex items-center gap-3 px-4 border-b border-gray-100">
-          <Search className="w-4 h-4 text-gray-400 shrink-0" />
+      <div className="fixed inset-0 bg-ink/25" onClick={onClose} />
+      <div className="relative w-full max-w-lg bg-surface rounded-container shadow-overlay overflow-hidden">
+        <div className="flex items-center gap-3 px-4 border-b border-line">
+          <Search className="w-4 h-4 text-ink-muted shrink-0" />
           <input
             ref={inputRef}
             value={query}
@@ -151,14 +151,14 @@ export default function CommandPalette({ open, onClose, onNavigate, onQuickAdd }
             onKeyDown={onKeyDown}
             placeholder="Go to a page, search a merchant, or run an action…"
             aria-label="Search pages, merchants and actions"
-            className="flex-1 py-3.5 text-sm outline-none placeholder:text-gray-400"
+            className="flex-1 py-3.5 text-sm outline-none placeholder:text-ink-muted"
           />
-          <kbd className="text-[10px] text-gray-400 border border-gray-200 rounded px-1.5 py-0.5">esc</kbd>
+          <kbd className="text-[10px] text-ink-muted border border-line-strong rounded px-1.5 py-0.5">esc</kbd>
         </div>
 
         <ul ref={listRef} className="max-h-80 overflow-y-auto py-2">
           {results.length === 0 && (
-            <li className="px-4 py-6 text-center text-sm text-gray-400">Nothing matches “{query}”.</li>
+            <li className="px-4 py-6 text-center text-sm text-ink-muted">Nothing matches “{query}”.</li>
           )}
           {results.map((item, index) => {
             const Icon = item.icon;
@@ -168,15 +168,15 @@ export default function CommandPalette({ open, onClose, onNavigate, onQuickAdd }
                   onMouseEnter={() => setActive(index)}
                   onClick={() => choose(item)}
                   className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left transition-colors
-                    ${index === active ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'}`}
+                    ${index === active ? 'bg-accent-tint text-accent-ink' : 'text-ink-secondary hover:bg-surface-sunk'}`}
                 >
                   {Icon && <Icon className="w-4 h-4 shrink-0 opacity-70" />}
                   <span className="flex-1">{item.label}</span>
-                  {item.kind === 'merchant' && <span className="text-xs text-gray-400">{item.hint}</span>}
+                  {item.kind === 'merchant' && <span className="text-caption text-ink-muted">{item.hint}</span>}
                   {item.kind !== 'merchant' && item.hint && (
-                    <kbd className="text-[10px] text-gray-400 border border-gray-200 rounded px-1.5 py-0.5">{item.hint}</kbd>
+                    <kbd className="text-[10px] text-ink-muted border border-line-strong rounded px-1.5 py-0.5">{item.hint}</kbd>
                   )}
-                  {index === active && <CornerDownLeft className="w-3.5 h-3.5 text-blue-400 shrink-0" />}
+                  {index === active && <CornerDownLeft className="w-3.5 h-3.5 text-accent shrink-0" />}
                 </button>
               </li>
             );

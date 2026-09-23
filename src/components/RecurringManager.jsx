@@ -57,50 +57,50 @@ export default function RecurringManager() {
     <div className="space-y-5 animate-fade-in">
       {/* Due banner */}
       {dueTemplates.length > 0 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-center justify-between">
-          <p className="text-sm text-blue-800">
+        <div className="bg-accent-tint border border-accent rounded-container p-4 flex items-center justify-between">
+          <p className="text-sm text-accent-ink">
             <strong>{dueTemplates.length}</strong> recurring {dueTemplates.length === 1 ? 'transaction is' : 'transactions are'} due to be posted.
           </p>
-          <button onClick={postAllDue} className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg font-medium">
+          <button onClick={postAllDue} className="px-3 py-2 bg-accent hover:bg-accent-hover text-ink-inverse text-sm rounded-control font-medium">
             Post all due
           </button>
         </div>
       )}
 
       {/* Active templates */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+      <div className="bg-surface rounded-container border border-line p-5">
         <div className="flex items-center gap-2 mb-4">
-          <RefreshCw className="w-4 h-4 text-purple-500" />
-          <h2 className="text-base font-semibold text-gray-900">Recurring Templates</h2>
+          <RefreshCw className="w-4 h-4 text-ink-muted" />
+          <h2 className="text-base font-semibold text-ink">Recurring Templates</h2>
         </div>
         {recurringTemplates.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-4">No recurring templates yet. Add one from the detected charges below.</p>
+          <p className="text-sm text-ink-muted text-center py-4">No recurring templates yet. Add one from the detected charges below.</p>
         ) : (
           <div className="space-y-2">
             {recurringTemplates.map(t => {
               const due = isTemplateDue(t, today);
               const inactive = t.active === false;
               return (
-                <div key={t.id} className={`flex items-center justify-between border rounded-xl p-3 ${inactive ? 'border-gray-100 opacity-60' : 'border-gray-100'}`}>
+                <div key={t.id} className={`flex items-center justify-between border rounded-container p-3 ${inactive ? 'border-line opacity-60' : 'border-line'}`}>
                   <div className="flex items-center gap-3">
                     <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: getCategory(t.category).color }} />
                     <div>
-                      <p className="font-medium text-gray-800 text-sm">{t.merchant}</p>
-                      <p className="text-xs text-gray-400">
+                      <p className="font-medium text-ink text-sm">{t.merchant}</p>
+                      <p className="text-caption text-ink-muted">
                         {formatCurrency(t.amount)} · {FREQ_LABELS[t.frequency] || t.frequency} · next {t.nextDate}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5">
                     {due && !inactive && (
-                      <button onClick={() => post(t)} className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-lg font-medium">
+                      <button onClick={() => post(t)} className="flex items-center gap-1 px-2.5 py-1.5 bg-accent hover:bg-accent-hover text-ink-inverse text-caption rounded-control font-medium">
                         <Check className="w-3 h-3" /> Post
                       </button>
                     )}
-                    <button onClick={() => toggleActive(t)} title={inactive ? 'Resume' : 'Pause'} className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg">
+                    <button onClick={() => toggleActive(t)} title={inactive ? 'Resume' : 'Pause'} className="p-1.5 text-ink-muted hover:text-ink-secondary hover:bg-surface-hover rounded-control">
                       <Power className="w-3.5 h-3.5" />
                     </button>
-                    <button onClick={() => removeItem({ type: 'recurring', item: t })} aria-label={`Delete recurring charge ${t.merchant}`} title={`Delete ${t.merchant}`} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg">
+                    <button onClick={() => removeItem({ type: 'recurring', item: t })} aria-label={`Delete recurring charge ${t.merchant}`} title={`Delete ${t.merchant}`} className="p-1.5 text-ink-muted hover:text-negative hover:bg-negative-tint rounded-control">
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
@@ -112,25 +112,25 @@ export default function RecurringManager() {
       </div>
 
       {/* Detected candidates */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-        <h2 className="text-base font-semibold text-gray-900 mb-1">Detected Recurring Charges</h2>
-        <p className="text-sm text-gray-500 mb-4">Found in your transaction history. Add any as a template to track and auto-post.</p>
+      <div className="bg-surface rounded-container border border-line p-5">
+        <h2 className="text-base font-semibold text-ink mb-1">Detected Recurring Charges</h2>
+        <p className="text-sm text-ink-muted mb-4">Found in your transaction history. Add any as a template to track and auto-post.</p>
         {candidates.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-4">No new recurring patterns detected.</p>
+          <p className="text-sm text-ink-muted text-center py-4">No new recurring patterns detected.</p>
         ) : (
           <div className="space-y-2">
             {candidates.map((c, i) => (
-              <div key={`${c.merchant}-${i}`} className="flex items-center justify-between border border-gray-100 rounded-xl p-3">
+              <div key={`${c.merchant}-${i}`} className="flex items-center justify-between border border-line rounded-container p-3">
                 <div className="flex items-center gap-3">
                   <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: getCategory(c.category).color }} />
                   <div>
-                    <p className="font-medium text-gray-800 text-sm">{c.merchant}</p>
-                    <p className="text-xs text-gray-400">
+                    <p className="font-medium text-ink text-sm">{c.merchant}</p>
+                    <p className="text-caption text-ink-muted">
                       ~{formatCurrency(c.amount)} · {FREQ_LABELS[c.frequency] || c.frequency} · seen {c.occurrences}×
                     </p>
                   </div>
                 </div>
-                <button onClick={() => addTemplate(c)} className="flex items-center gap-1 px-2.5 py-1.5 border border-blue-200 text-blue-600 hover:bg-blue-50 text-xs rounded-lg font-medium">
+                <button onClick={() => addTemplate(c)} className="flex items-center gap-1 px-2.5 py-1.5 border border-accent text-accent hover:bg-accent-tint text-caption rounded-control font-medium">
                   <Plus className="w-3 h-3" /> Add template
                 </button>
               </div>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Edit2, Trash2 , DollarSign } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import * as chart from './ui/chartTheme';
 import { format } from 'date-fns';
 import { useFinancial } from '../context/FinancialContext';
 import EmptyState from './EmptyState';
@@ -62,30 +63,30 @@ export default function IncomeManager() {
     <div className="space-y-5 animate-fade-in">
       {/* Summary cards */}
       <div className="grid grid-cols-3 gap-4">
-        <div className="bg-green-50 rounded-xl p-4">
-          <p className="text-xs font-medium text-gray-500 mb-1">Total Monthly Income</p>
-          <p className="text-xl font-bold text-green-700">{formatCurrency(totalMonthly)}</p>
+        <div className="bg-positive-tint rounded-container p-4">
+          <p className="text-caption font-medium text-ink-muted mb-1">Total Monthly Income</p>
+          <p className="text-xl font-bold text-positive">{formatCurrency(totalMonthly)}</p>
         </div>
-        <div className="bg-orange-50 rounded-xl p-4">
-          <p className="text-xs font-medium text-gray-500 mb-1">This Month's Spending</p>
-          <p className="text-xl font-bold text-orange-600">{formatCurrency(totalExpenses)}</p>
+        <div className="bg-caution-tint rounded-container p-4">
+          <p className="text-caption font-medium text-ink-muted mb-1">This Month's Spending</p>
+          <p className="text-xl font-bold text-caution">{formatCurrency(totalExpenses)}</p>
         </div>
-        <div className={`rounded-xl p-4 ${netAvailable >= 0 ? 'bg-blue-50' : 'bg-red-50'}`}>
-          <p className="text-xs font-medium text-gray-500 mb-1">Net Available</p>
-          <p className={`text-xl font-bold ${netAvailable >= 0 ? 'text-blue-700' : 'text-red-600'}`}>{formatCurrency(netAvailable)}</p>
+        <div className={`rounded-container p-4 ${netAvailable >= 0 ? 'bg-accent-tint' : 'bg-negative-tint'}`}>
+          <p className="text-caption font-medium text-ink-muted mb-1">Net Available</p>
+          <p className={`text-xl font-bold ${netAvailable >= 0 ? 'text-accent-ink' : 'text-negative'}`}>{formatCurrency(netAvailable)}</p>
         </div>
       </div>
 
       {/* Income vs Expenses chart */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-        <h2 className="text-base font-semibold text-gray-900 mb-4">Income vs. Spending ({format(now, 'MMMM yyyy')})</h2>
+      <div className="bg-surface rounded-container border border-line p-5">
+        <h2 className="text-base font-semibold text-ink mb-4">Income vs. Spending ({format(now, 'MMMM yyyy')})</h2>
         <ResponsiveContainer width="100%" height={200}>
           <BarChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-            <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+            <CartesianGrid {...chart.grid} />
+            <XAxis dataKey="name" {...chart.xAxis} tick={{ fontSize: 12 }} />
             <YAxis tick={{ fontSize: 12 }} tickFormatter={v => `$${v}`} />
-            <Tooltip formatter={v => formatCurrency(v)} />
-            <Bar dataKey="amount" radius={[6,6,0,0]} fill="#3b82f6" name="Amount">
+            <Tooltip {...chart.tooltip} formatter={v => formatCurrency(v)} />
+            <Bar dataKey="amount" radius={[6,6,0,0]} fill={chart.SERIES.primary} name="Amount">
               {chartData.map((entry, i) => (
                 <rect key={i} fill={i === 0 ? '#22c55e' : i === 1 ? '#f97316' : '#3b82f6'} />
               ))}
@@ -95,57 +96,57 @@ export default function IncomeManager() {
       </div>
 
       {/* Income sources list */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+      <div className="bg-surface rounded-container border border-line p-5">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-semibold text-gray-900">Income Sources</h2>
-          <button onClick={() => { setShowForm(s => !s); setEditId(null); setForm(EMPTY_FORM); }} className="flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-medium">
+          <h2 className="text-base font-semibold text-ink">Income Sources</h2>
+          <button onClick={() => { setShowForm(s => !s); setEditId(null); setForm(EMPTY_FORM); }} className="flex items-center gap-2 px-3 py-2 bg-accent hover:bg-accent-hover text-ink-inverse rounded-container text-sm font-medium">
             <Plus className="w-3.5 h-3.5" /> Add Source
           </button>
         </div>
 
         {showForm && (
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4 space-y-3">
+          <div className="bg-accent-tint border border-accent rounded-container p-4 mb-4 space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2">
-                <label className="block text-xs font-medium text-gray-500 mb-1">Income Name</label>
-                <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Salary, Freelance..." className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:border-blue-500" />
+                <label className="block text-caption font-medium text-ink-muted mb-1">Income Name</label>
+                <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Salary, Freelance..." className="w-full px-3 py-2 border border-line-strong rounded-control text-sm bg-surface focus:outline-none focus:border-accent" />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Amount</label>
-                <input type="number" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} placeholder="$0" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:border-blue-500" />
+                <label className="block text-caption font-medium text-ink-muted mb-1">Amount</label>
+                <input type="number" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} placeholder="$0" className="w-full px-3 py-2 border border-line-strong rounded-control text-sm bg-surface focus:outline-none focus:border-accent" />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Frequency</label>
-                <select value={form.frequency} onChange={e => setForm(f => ({ ...f, frequency: e.target.value }))} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:border-blue-500">
+                <label className="block text-caption font-medium text-ink-muted mb-1">Frequency</label>
+                <select value={form.frequency} onChange={e => setForm(f => ({ ...f, frequency: e.target.value }))} className="w-full px-3 py-2 border border-line-strong rounded-control text-sm bg-surface focus:outline-none focus:border-accent">
                   {FREQUENCIES.map(f => <option key={f} value={f}>{FREQ_LABELS[f]}</option>)}
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Color</label>
+                <label className="block text-caption font-medium text-ink-muted mb-1">Color</label>
                 <div className="flex gap-1.5 flex-wrap">
                   {COLORS.map(c => (
-                    <button key={c} type="button" onClick={() => setForm(f => ({ ...f, color: c }))} className={`w-6 h-6 rounded-full border-2 ${form.color === c ? 'border-gray-600 scale-110' : 'border-transparent'}`} style={{ backgroundColor: c }} />
+                    <button key={c} type="button" onClick={() => setForm(f => ({ ...f, color: c }))} className={`w-6 h-6 rounded-full border-2 ${form.color === c ? 'border-line-strong scale-110' : 'border-transparent'}`} style={{ backgroundColor: c }} />
                   ))}
                 </div>
               </div>
             </div>
             <div className="flex gap-2">
-              <button onClick={handleSave} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg font-medium">Save</button>
-              <button onClick={() => { setShowForm(false); setEditId(null); }} className="px-4 py-2 border border-gray-200 text-gray-600 text-sm rounded-lg hover:bg-white">Cancel</button>
+              <button onClick={handleSave} className="px-4 py-2 bg-accent hover:bg-accent-hover text-ink-inverse text-sm rounded-control font-medium">Save</button>
+              <button onClick={() => { setShowForm(false); setEditId(null); }} className="px-4 py-2 border border-line-strong text-ink-secondary text-sm rounded-control hover:bg-surface">Cancel</button>
             </div>
           </div>
         )}
 
         <div className="space-y-3">
           {accountIncomes.map(inc => (
-            <div key={inc.id} className="flex items-center gap-4 p-3 rounded-xl border border-dashed border-gray-200 bg-gray-50/50">
+            <div key={inc.id} className="flex items-center gap-4 p-3 rounded-container border border-dashed border-line-strong bg-surface-sunk/50">
               <div className="w-3 h-3 rounded-full shrink-0 bg-violet-500" />
               <div className="flex-1">
-                <p className="font-medium text-gray-800 text-sm">{inc.name}</p>
-                <p className="text-xs text-gray-400">Monthly withdrawal · managed on the Investments page</p>
+                <p className="font-medium text-ink text-sm">{inc.name}</p>
+                <p className="text-caption text-ink-muted">Monthly withdrawal · managed on the Investments page</p>
               </div>
               <div className="text-right">
-                <p className="font-semibold text-gray-800 text-sm">{formatCurrency(inc.amount)}<span className="text-xs text-gray-400 font-normal">/mo</span></p>
+                <p className="font-semibold text-ink text-sm">{formatCurrency(inc.amount)}<span className="text-caption text-ink-muted font-normal">/mo</span></p>
               </div>
               <div className="w-[60px]" />
             </div>
@@ -162,18 +163,18 @@ export default function IncomeManager() {
             : incomes.map(inc => {
                 const monthly = toMonthlyAmount(inc.amount, inc.frequency);
                 return (
-                  <div key={inc.id} className="flex items-center gap-4 p-3 rounded-xl border border-gray-100 hover:bg-gray-50">
+                  <div key={inc.id} className="flex items-center gap-4 p-3 rounded-container border border-line hover:bg-surface-sunk">
                     <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: inc.color || '#3b82f6' }} />
                     <div className="flex-1">
-                      <p className="font-medium text-gray-800 text-sm">{inc.name}</p>
-                      <p className="text-xs text-gray-400">{FREQ_LABELS[inc.frequency]} · {formatCurrency(inc.amount)}</p>
+                      <p className="font-medium text-ink text-sm">{inc.name}</p>
+                      <p className="text-caption text-ink-muted">{FREQ_LABELS[inc.frequency]} · {formatCurrency(inc.amount)}</p>
                     </div>
                     <div className="text-right">
-                      <p className="font-semibold text-gray-800 text-sm">{formatCurrency(monthly)}<span className="text-xs text-gray-400 font-normal">/mo</span></p>
+                      <p className="font-semibold text-ink text-sm">{formatCurrency(monthly)}<span className="text-caption text-ink-muted font-normal">/mo</span></p>
                     </div>
                     <div className="flex gap-1">
-                      <button onClick={() => openEdit(inc)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"><Edit2 className="w-3.5 h-3.5" /></button>
-                      <button onClick={() => removeItem({ type: 'income', item: inc })} aria-label={`Delete ${inc.name}`} title={`Delete ${inc.name}`} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg"><Trash2 className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => openEdit(inc)} className="p-1.5 text-ink-muted hover:text-accent hover:bg-accent-tint rounded-control"><Edit2 className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => removeItem({ type: 'income', item: inc })} aria-label={`Delete ${inc.name}`} title={`Delete ${inc.name}`} className="p-1.5 text-ink-muted hover:text-negative hover:bg-negative-tint rounded-control"><Trash2 className="w-3.5 h-3.5" /></button>
                     </div>
                   </div>
                 );
@@ -182,9 +183,9 @@ export default function IncomeManager() {
         </div>
 
         {(incomes.length > 0 || accountIncomes.length > 0) && (
-          <div className="mt-4 pt-3 border-t border-gray-100 flex justify-between">
-            <span className="text-sm font-semibold text-gray-700">Total Monthly Income</span>
-            <span className="text-sm font-bold text-green-600">{formatCurrency(totalMonthly)}</span>
+          <div className="mt-4 pt-3 border-t border-line flex justify-between">
+            <span className="text-sm font-semibold text-ink-secondary">Total Monthly Income</span>
+            <span className="text-sm font-bold text-positive">{formatCurrency(totalMonthly)}</span>
           </div>
         )}
       </div>

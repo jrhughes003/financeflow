@@ -21,7 +21,7 @@ function OwedBadge({ t }) {
   const label = s.status === 'settled' ? 'Paid back'
     : s.status === 'forgiven' ? 'Owed · forgiven'
     : `Owed ${formatCurrency(s.remaining)}`;
-  const cls = s.isOpen ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500';
+  const cls = s.isOpen ? 'bg-positive-tint text-positive' : 'bg-surface-hover text-ink-muted';
   return <span className={`inline-block mt-0.5 text-xs font-medium px-1.5 py-0.5 rounded ${cls}`}>{label}</span>;
 }
 

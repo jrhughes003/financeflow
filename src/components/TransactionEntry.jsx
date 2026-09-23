@@ -201,8 +201,8 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
     <form onSubmit={handleSubmit} className="space-y-4">
       {/* Natural-language entry (AI) */}
       {aiEnabled && !editTransaction && (
-        <div className="bg-purple-50 border border-purple-200 rounded-xl p-3">
-          <label className="flex items-center gap-1.5 text-xs font-semibold text-purple-700 mb-1.5">
+        <div className="bg-surface-sunk border border-line-strong rounded-container p-3">
+          <label className="flex items-center gap-1.5 text-caption font-semibold text-ink-secondary mb-1.5">
             <Sparkles className="w-3.5 h-3.5" /> Describe it in words
           </label>
           <div className="flex gap-2">
@@ -212,26 +212,26 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
               onChange={e => setNlText(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); parseNaturalLanguage(); } }}
               placeholder="e.g. spent $40 on gas at Esso yesterday"
-              className="flex-1 px-3 py-2 border border-purple-200 rounded-lg text-sm bg-white focus:outline-none focus:border-purple-500"
+              className="flex-1 px-3 py-2 border border-line-strong rounded-control text-sm bg-surface focus:outline-none focus:border-accent"
             />
             <button type="button" onClick={parseNaturalLanguage} disabled={nlBusy || !nlText.trim()}
-              className="px-3 py-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white text-sm rounded-lg font-medium">
+              className="px-3 py-2 bg-accent hover:bg-accent-hover disabled:opacity-50 text-ink-inverse text-sm rounded-control font-medium">
               {nlBusy ? '…' : 'Fill'}
             </button>
           </div>
-          {nlError && <p className="text-xs text-red-500 mt-1">{nlError}</p>}
+          {nlError && <p className="text-caption text-negative mt-1">{nlError}</p>}
         </div>
       )}
 
       {/* Type toggle: expense vs savings contribution */}
       {savingsGoals.length > 0 && (
-        <div className="flex gap-2 p-1 bg-gray-100 rounded-xl">
+        <div className="flex gap-2 p-1 bg-surface-hover rounded-container">
           {[['expense', 'Expense'], ['savings', 'Savings']].map(([val, label]) => (
             <button
               key={val}
               type="button"
               onClick={() => { setForm(f => ({ ...f, kind: val })); setErrors({}); }}
-              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${form.kind === val ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+              className={`flex-1 py-2 rounded-control text-sm font-medium transition-colors ${form.kind === val ? 'bg-surface  text-accent' : 'text-ink-muted hover:text-ink-secondary'}`}
             >
               {label}
             </button>
@@ -241,9 +241,9 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
 
       {/* Amount */}
       <div>
-        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Amount</label>
+        <label className="block text-caption font-semibold text-ink-muted uppercase tracking-wider mb-1">Amount</label>
         <div className="relative">
-          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl font-bold text-gray-400">$</span>
+          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl font-bold text-ink-muted">$</span>
           <input
             ref={amountRef}
             type="number"
@@ -252,60 +252,60 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
             placeholder="0.00"
             value={form.amount}
             onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
-            className={`w-full pl-10 pr-4 py-4 text-2xl font-bold border-2 rounded-xl focus:outline-none focus:border-blue-500 transition-colors ${errors.amount ? 'border-red-400' : 'border-gray-200'}`}
+            className={`w-full pl-10 pr-4 py-4 text-2xl font-bold border-2 rounded-container focus:outline-none focus:border-accent transition-colors ${errors.amount ? 'border-negative' : 'border-line-strong'}`}
           />
         </div>
-        {errors.amount && <p className="text-xs text-red-500 mt-1">{errors.amount}</p>}
+        {errors.amount && <p className="text-caption text-negative mt-1">{errors.amount}</p>}
       </div>
 
       {/* Fronted for others */}
       {!isSavings && (
-        <div className={`rounded-xl border-2 transition-colors ${owedEnabled ? 'border-emerald-200 bg-emerald-50/50' : 'border-gray-100'}`}>
+        <div className={`rounded-container border-2 transition-colors ${owedEnabled ? 'border-positive bg-positive-tint/50' : 'border-line'}`}>
           <label className="flex items-center gap-2 px-3 py-2.5 cursor-pointer select-none">
             <input
               type="checkbox"
               checked={owedEnabled}
               onChange={e => { setOwedEnabled(e.target.checked); setErrors(er => ({ ...er, owed: undefined })); }}
-              className="w-4 h-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+              className="w-4 h-4 rounded border-line-strong text-positive focus:ring-emerald-500"
             />
-            <HandCoins className="w-4 h-4 text-emerald-600" />
-            <span className="text-sm text-gray-700 font-medium">I paid for others — they owe me back</span>
+            <HandCoins className="w-4 h-4 text-positive" />
+            <span className="text-sm text-ink-secondary font-medium">I paid for others — they owe me back</span>
           </label>
           {owedEnabled && (
             <div className="px-3 pb-3 space-y-2">
-              <div className="flex gap-1 p-1 bg-white rounded-lg border border-gray-200 text-xs font-medium">
+              <div className="flex gap-1 p-1 bg-surface rounded-control border border-line-strong text-caption font-medium">
                 {[['split', 'Split evenly'], ['exact', 'Exact amount']].map(([val, label]) => (
                   <button key={val} type="button" onClick={() => setOwedMode(val)}
-                    className={`flex-1 py-1.5 rounded-md transition-colors ${owedMode === val ? 'bg-emerald-600 text-white' : 'text-gray-500 hover:text-gray-700'}`}>
+                    className={`flex-1 py-1.5 rounded-control transition-colors ${owedMode === val ? 'bg-positive text-ink-inverse' : 'text-ink-muted hover:text-ink-secondary'}`}>
                     {label}
                   </button>
                 ))}
               </div>
               {owedMode === 'split' ? (
-                <div className="flex items-center gap-2 text-sm text-gray-600">
+                <div className="flex items-center gap-2 text-sm text-ink-secondary">
                   <span>Split between</span>
                   <input type="number" min="2" step="1" value={owedPeople} onChange={e => setOwedPeople(e.target.value)}
-                    className="w-16 px-2 py-1.5 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:border-emerald-500" />
+                    className="w-16 px-2 py-1.5 border border-line-strong rounded-control text-sm bg-surface focus:outline-none focus:border-positive" />
                   <span>people, including you</span>
                 </div>
               ) : (
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-ink-muted">$</span>
                   <input type="number" min="0" step="0.01" placeholder="Amount owed to you" value={owedExact} onChange={e => setOwedExact(e.target.value)}
-                    className="w-full pl-7 pr-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:border-emerald-500" />
+                    className="w-full pl-7 pr-3 py-2 border border-line-strong rounded-control text-sm bg-surface focus:outline-none focus:border-positive" />
                 </div>
               )}
               {owedValue > 0 && parseFloat(form.amount) > 0 && (
-                <p className="text-xs text-gray-600">
-                  You're owed <span className="font-semibold text-emerald-700">{formatCurrency(owedValue)}</span>
+                <p className="text-caption text-ink-secondary">
+                  You're owed <span className="font-semibold text-positive">{formatCurrency(owedValue)}</span>
                   {' '}· your share {formatCurrency(Math.max(0, parseFloat(form.amount) - owedValue))}.
                   {' '}The full amount counts as spending until you're paid back.
                 </p>
               )}
               {existingStatus && existingStatus.repaid > 0 && (
-                <p className="text-xs text-gray-500">{formatCurrency(existingStatus.repaid)} already paid back — record more on the Owed to Me page.</p>
+                <p className="text-caption text-ink-muted">{formatCurrency(existingStatus.repaid)} already paid back — record more on the Owed to Me page.</p>
               )}
-              {errors.owed && <p className="text-xs text-red-500">{errors.owed}</p>}
+              {errors.owed && <p className="text-caption text-negative">{errors.owed}</p>}
             </div>
           )}
         </div>
@@ -314,35 +314,35 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
       {/* Savings goal selector (savings mode only) */}
       {isSavings && (
         <div>
-          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Contribute to Goal</label>
+          <label className="block text-caption font-semibold text-ink-muted uppercase tracking-wider mb-1">Contribute to Goal</label>
           <select
             value={form.goalId}
             onChange={e => setForm(f => ({ ...f, goalId: e.target.value }))}
-            className={`w-full px-3 py-3 border-2 rounded-xl focus:outline-none focus:border-blue-500 transition-colors bg-white ${errors.goalId ? 'border-red-400' : 'border-gray-200'}`}
+            className={`w-full px-3 py-3 border-2 rounded-container focus:outline-none focus:border-accent transition-colors bg-surface ${errors.goalId ? 'border-negative' : 'border-line-strong'}`}
           >
             <option value="">Select a goal...</option>
             {savingsGoals.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
           </select>
-          {errors.goalId && <p className="text-xs text-red-500 mt-1">{errors.goalId}</p>}
-          <p className="text-[11px] text-gray-400 mt-1">Adds to the goal's progress; excluded from category spending.</p>
+          {errors.goalId && <p className="text-caption text-negative mt-1">{errors.goalId}</p>}
+          <p className="text-micro text-ink-muted mt-1">Adds to the goal's progress; excluded from category spending.</p>
         </div>
       )}
 
       {/* Merchant */}
       {!isSavings && (
       <div>
-        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Merchant / Description</label>
+        <label className="block text-caption font-semibold text-ink-muted uppercase tracking-wider mb-1">Merchant / Description</label>
         <input
           type="text"
           placeholder="e.g. Uber Eats, Metro, Esso..."
           value={form.merchant}
           onChange={e => handleMerchantChange(e.target.value)}
           onBlur={aiCategorizeOnBlur}
-          className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:border-blue-500 transition-colors ${errors.merchant ? 'border-red-400' : 'border-gray-200'}`}
+          className={`w-full px-4 py-3 border-2 rounded-container focus:outline-none focus:border-accent transition-colors ${errors.merchant ? 'border-negative' : 'border-line-strong'}`}
         />
-        {errors.merchant && <p className="text-xs text-red-500 mt-1">{errors.merchant}</p>}
+        {errors.merchant && <p className="text-caption text-negative mt-1">{errors.merchant}</p>}
         {suggestion && (
-          <button type="button" onClick={applySuggestion} className="mt-1.5 flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 bg-blue-50 px-2.5 py-1.5 rounded-lg">
+          <button type="button" onClick={applySuggestion} className="mt-1.5 flex items-center gap-1.5 text-caption text-accent hover:text-accent-ink bg-accent-tint px-2.5 py-1.5 rounded-control">
             <Zap className="w-3 h-3" />
             Auto-categorize as "{allCategories.find(c => c.id === suggestion)?.name}"
           </button>
@@ -352,24 +352,24 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
 
       {/* Date */}
       <div>
-        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Date</label>
+        <label className="block text-caption font-semibold text-ink-muted uppercase tracking-wider mb-1">Date</label>
         <input
           type="date"
           value={form.date}
           onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
-          className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 transition-colors"
+          className="w-full px-4 py-3 border-2 border-line-strong rounded-container focus:outline-none focus:border-accent transition-colors"
         />
       </div>
 
       {/* Category */}
       {!isSavings && (
       <div>
-        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Category</label>
+        <label className="block text-caption font-semibold text-ink-muted uppercase tracking-wider mb-1">Category</label>
         <div className="flex gap-2">
           <select
             value={form.category}
             onChange={e => setForm(f => ({ ...f, category: e.target.value, subcategory: '' }))}
-            className={`flex-1 px-3 py-3 border-2 rounded-xl focus:outline-none focus:border-blue-500 transition-colors bg-white ${errors.category ? 'border-red-400' : 'border-gray-200'}`}
+            className={`flex-1 px-3 py-3 border-2 rounded-container focus:outline-none focus:border-accent transition-colors bg-surface ${errors.category ? 'border-negative' : 'border-line-strong'}`}
           >
             <option value="">Select category...</option>
             {allCategories.map(c => (
@@ -380,36 +380,36 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
             type="button"
             onClick={() => setShowNewCat(s => !s)}
             title="Create new category"
-            className="px-3 py-3 border-2 border-dashed border-gray-300 rounded-xl text-gray-400 hover:border-blue-400 hover:text-blue-500 transition-colors"
+            className="px-3 py-3 border-2 border-dashed border-line-strong rounded-container text-ink-muted hover:border-accent hover:text-accent transition-colors"
           >
             <Plus className="w-4 h-4" />
           </button>
         </div>
-        {errors.category && <p className="text-xs text-red-500 mt-1">{errors.category}</p>}
+        {errors.category && <p className="text-caption text-negative mt-1">{errors.category}</p>}
 
         {/* Inline new category form */}
         {showNewCat && (
-          <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-xl space-y-2">
-            <p className="text-xs font-semibold text-blue-800">New Category</p>
+          <div className="mt-2 p-3 bg-accent-tint border border-accent rounded-container space-y-2">
+            <p className="text-caption font-semibold text-accent-ink">New Category</p>
             <input
               type="text"
               placeholder="Category name..."
               value={newCatName}
               onChange={e => setNewCatName(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleCreateCategory())}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:border-blue-500"
+              className="w-full px-3 py-2 border border-line-strong rounded-control text-sm bg-surface focus:outline-none focus:border-accent"
               autoFocus
             />
             <div className="flex flex-wrap gap-1.5">
               {PRESET_COLORS.map(c => (
                 <button key={c} type="button" onClick={() => setNewCatColor(c)}
-                  className={`w-6 h-6 rounded-full border-2 transition-all ${newCatColor === c ? 'border-gray-700 scale-110' : 'border-transparent'}`}
+                  className={`w-6 h-6 rounded-full border-2 transition-all ${newCatColor === c ? 'border-line-strong scale-110' : 'border-transparent'}`}
                   style={{ backgroundColor: c }} />
               ))}
             </div>
             <div className="flex gap-2">
-              <button type="button" onClick={handleCreateCategory} className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-lg font-medium">Create</button>
-              <button type="button" onClick={() => { setShowNewCat(false); setNewCatName(''); }} className="px-3 py-1.5 border border-gray-200 text-gray-600 text-xs rounded-lg hover:bg-white">Cancel</button>
+              <button type="button" onClick={handleCreateCategory} className="px-3 py-1.5 bg-accent hover:bg-accent-hover text-ink-inverse text-caption rounded-control font-medium">Create</button>
+              <button type="button" onClick={() => { setShowNewCat(false); setNewCatName(''); }} className="px-3 py-1.5 border border-line-strong text-ink-secondary text-caption rounded-control hover:bg-surface">Cancel</button>
             </div>
           </div>
         )}
@@ -419,11 +419,11 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
       {/* Subcategory */}
       {!isSavings && selectedCat && selectedCat.subcategories?.length > 0 && (
         <div>
-          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Subcategory</label>
+          <label className="block text-caption font-semibold text-ink-muted uppercase tracking-wider mb-1">Subcategory</label>
           <select
             value={form.subcategory}
             onChange={e => setForm(f => ({ ...f, subcategory: e.target.value }))}
-            className="w-full px-3 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 transition-colors bg-white"
+            className="w-full px-3 py-3 border-2 border-line-strong rounded-container focus:outline-none focus:border-accent transition-colors bg-surface"
           >
             <option value="">None</option>
             {selectedCat.subcategories.map(s => <option key={s} value={s}>{s}</option>)}
@@ -433,19 +433,19 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
 
       {/* Tags */}
       <div>
-        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Tags (comma-separated)</label>
+        <label className="block text-caption font-semibold text-ink-muted uppercase tracking-wider mb-1">Tags (comma-separated)</label>
         <input
           type="text"
           placeholder="rbc, td, one-time..."
           value={form.tags}
           onChange={e => setForm(f => ({ ...f, tags: e.target.value }))}
-          className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 transition-colors"
+          className="w-full px-4 py-3 border-2 border-line-strong rounded-container focus:outline-none focus:border-accent transition-colors"
         />
       </div>
 
       {/* Notes */}
       <div>
-        <button type="button" onClick={() => setShowNotes(s => !s)} className="text-xs text-blue-600 hover:text-blue-700 font-medium">
+        <button type="button" onClick={() => setShowNotes(s => !s)} className="text-caption text-accent hover:text-accent-ink font-medium">
           {showNotes ? '– Hide Notes' : '+ Add Notes'}
         </button>
         {showNotes && (
@@ -454,7 +454,7 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
             placeholder="Optional notes..."
             value={form.notes}
             onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
-            className="mt-2 w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 transition-colors resize-none"
+            className="mt-2 w-full px-4 py-3 border-2 border-line-strong rounded-container focus:outline-none focus:border-accent transition-colors resize-none"
           />
         )}
       </div>
@@ -465,19 +465,19 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
           type="checkbox"
           checked={form.isException}
           onChange={e => setForm(f => ({ ...f, isException: e.target.checked }))}
-          className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+          className="w-4 h-4 rounded border-line-strong text-accent focus:ring-accent"
         />
-        <span className="text-sm text-gray-600">Mark as exception (exclude from budget)</span>
+        <span className="text-sm text-ink-secondary">Mark as exception (exclude from budget)</span>
       </label>
 
       {/* Actions */}
       <div className="flex gap-3 pt-2">
         {isModal && (
-          <button type="button" onClick={onClose} className="flex-1 py-3 border-2 border-gray-200 text-gray-600 rounded-xl font-medium hover:bg-gray-50 transition-colors">
+          <button type="button" onClick={onClose} className="flex-1 py-3 border-2 border-line-strong text-ink-secondary rounded-container font-medium hover:bg-surface-sunk transition-colors">
             Cancel
           </button>
         )}
-        <button type="submit" className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold transition-colors">
+        <button type="submit" className="flex-1 py-3 bg-accent hover:bg-accent-hover text-ink-inverse rounded-container font-semibold transition-colors">
           {editTransaction ? 'Save Changes' : 'Add Transaction'}
         </button>
       </div>
@@ -487,18 +487,18 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
   if (!isModal) {
     return (
       <div className="max-w-lg mx-auto">
-        <h2 className="text-xl font-bold text-gray-900 mb-6">Add Transaction</h2>
+        <h2 className="text-xl font-bold text-ink mb-6">Add Transaction</h2>
         {content}
       </div>
     );
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/40 animate-fade-in">
-      <div className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl shadow-xl max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100">
-          <h2 className="text-lg font-bold text-gray-900">{editTransaction ? 'Edit Transaction' : 'Add Transaction'}</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-ink/25 animate-fade-in">
+      <div className="bg-surface w-full sm:max-w-md sm:rounded-container rounded-t-2xl shadow-overlay max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-line">
+          <h2 className="text-lg font-bold text-ink">{editTransaction ? 'Edit Transaction' : 'Add Transaction'}</h2>
+          <button onClick={onClose} className="text-ink-muted hover:text-ink-secondary"><X className="w-5 h-5" /></button>
         </div>
         <div className="px-6 py-5">{content}</div>
       </div>

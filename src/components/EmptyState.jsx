@@ -19,24 +19,24 @@ export default function EmptyState({
   return (
     <div className={`text-center ${compact ? 'py-8' : 'py-14'} px-4`}>
       {Icon && (
-        <div className="w-12 h-12 mx-auto mb-4 rounded-2xl bg-gray-50 flex items-center justify-center">
-          <Icon className="w-6 h-6 text-gray-400" />
+        <div className="w-12 h-12 mx-auto mb-4 rounded-container bg-surface-sunk flex items-center justify-center">
+          <Icon className="w-6 h-6 text-ink-muted" />
         </div>
       )}
-      <p className="text-base font-semibold text-gray-900">{title}</p>
+      <p className="text-base font-semibold text-ink">{title}</p>
       {description && (
-        <p className="text-sm text-gray-500 mt-1.5 max-w-md mx-auto leading-relaxed">{description}</p>
+        <p className="text-sm text-ink-muted mt-1.5 max-w-md mx-auto leading-relaxed">{description}</p>
       )}
       {actionLabel && onAction && (
         <button
           onClick={onAction}
-          className="mt-5 inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-xl transition-colors"
+          className="mt-5 inline-flex items-center gap-2 px-4 py-2.5 bg-accent hover:bg-accent-hover text-ink-inverse text-sm font-medium rounded-container transition-colors"
         >
           <Plus className="w-4 h-4" />
           {actionLabel}
         </button>
       )}
-      {secondary && <p className="text-xs text-gray-400 mt-4">{secondary}</p>}
+      {secondary && <p className="text-caption text-ink-muted mt-4">{secondary}</p>}
     </div>
   );
 }

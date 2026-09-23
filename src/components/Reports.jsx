@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { format } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import * as chart from './ui/chartTheme';
 import { Download, FileText } from 'lucide-react';
 import { useFinancial } from '../context/FinancialContext';
 import {
@@ -132,57 +133,57 @@ export default function Reports() {
     <div className="space-y-6 animate-fade-in">
       {/* Month selector + export */}
       <div className="flex flex-wrap items-center gap-3">
-        <button onClick={() => changeMonth(-1)} className="p-2 rounded-lg hover:bg-gray-200 text-gray-600">‹</button>
-        <span className="font-semibold text-gray-700 min-w-32 text-center">{format(new Date(year, month, 1), 'MMMM yyyy')}</span>
-        <button onClick={() => changeMonth(1)} className="p-2 rounded-lg hover:bg-gray-200 text-gray-600">›</button>
+        <button onClick={() => changeMonth(-1)} className="p-2 rounded-control hover:bg-surface-hover text-ink-secondary">‹</button>
+        <span className="font-semibold text-ink-secondary min-w-32 text-center">{format(new Date(year, month, 1), 'MMMM yyyy')}</span>
+        <button onClick={() => changeMonth(1)} className="p-2 rounded-control hover:bg-surface-hover text-ink-secondary">›</button>
         <div className="ml-auto flex gap-2">
-          <button onClick={handleExportCSV} className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50">
+          <button onClick={handleExportCSV} className="flex items-center gap-2 px-3 py-2 border border-line-strong rounded-container text-sm font-medium text-ink-secondary hover:bg-surface-sunk">
             <Download className="w-4 h-4" /> Export CSV
           </button>
-          <button onClick={handleExportJSON} className="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50">
+          <button onClick={handleExportJSON} className="flex items-center gap-2 px-3 py-2 border border-line-strong rounded-container text-sm font-medium text-ink-secondary hover:bg-surface-sunk">
             <FileText className="w-4 h-4" /> Backup JSON
           </button>
         </div>
       </div>
 
       {/* Monthly summary */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-        <h2 className="text-base font-semibold text-gray-900 mb-4">Monthly Report — {format(new Date(year, month, 1), 'MMMM yyyy')}</h2>
+      <div className="bg-surface rounded-container border border-line p-5">
+        <h2 className="text-base font-semibold text-ink mb-4">Monthly Report — {format(new Date(year, month, 1), 'MMMM yyyy')}</h2>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
           {[
-            { label: 'Income', value: formatCurrency(income), color: 'text-green-600', bg: 'bg-green-50' },
-            { label: 'Expenses', value: formatCurrency(expenses), color: 'text-orange-600', bg: 'bg-orange-50' },
-            { label: 'Net Savings', value: formatCurrency(income - expenses), color: income - expenses >= 0 ? 'text-blue-600' : 'text-red-600', bg: 'bg-blue-50' },
-            { label: 'Savings Rate', value: `${savingsRate.toFixed(1)}%`, color: 'text-purple-600', bg: 'bg-purple-50' },
+            { label: 'Income', value: formatCurrency(income), color: 'text-positive', bg: 'bg-positive-tint' },
+            { label: 'Expenses', value: formatCurrency(expenses), color: 'text-caution', bg: 'bg-caution-tint' },
+            { label: 'Net Savings', value: formatCurrency(income - expenses), color: income - expenses >= 0 ? 'text-accent' : 'text-negative', bg: 'bg-accent-tint' },
+            { label: 'Savings Rate', value: `${savingsRate.toFixed(1)}%`, color: 'text-ink-secondary', bg: 'bg-surface-sunk' },
           ].map(({ label, value, color, bg }) => (
-            <div key={label} className={`${bg} rounded-xl p-3 text-center`}>
-              <p className="text-xs text-gray-500 mb-1">{label}</p>
+            <div key={label} className={`${bg} rounded-container p-3 text-center`}>
+              <p className="text-caption text-ink-muted mb-1">{label}</p>
               <p className={`text-lg font-bold ${color}`}>{value}</p>
             </div>
           ))}
         </div>
 
         {/* Budget health */}
-        <div className="flex items-center gap-3 mb-5 bg-gray-50 rounded-xl p-3">
-          <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: health.color + '20' }}>
+        <div className="flex items-center gap-3 mb-5 bg-surface-sunk rounded-container p-3">
+          <div className="w-12 h-12 rounded-container flex items-center justify-center shrink-0" style={{ backgroundColor: health.color + '20' }}>
             <span className="text-2xl font-black" style={{ color: health.color }}>{health.grade}</span>
           </div>
           <div>
-            <p className="text-sm font-semibold text-gray-800">Budget Health: {health.percent}%</p>
-            <p className="text-xs text-gray-500">{budgetStatus.filter(s => s.status === 'good').length} of {budgetStatus.length} categories on track</p>
+            <p className="text-sm font-semibold text-ink">Budget Health: {health.percent}%</p>
+            <p className="text-caption text-ink-muted">{budgetStatus.filter(s => s.status === 'good').length} of {budgetStatus.length} categories on track</p>
           </div>
         </div>
 
         {/* Top spending chart */}
         {topCats.length > 0 && (
           <div>
-            <p className="text-sm font-semibold text-gray-700 mb-3">Top Spending Categories</p>
+            <p className="text-sm font-semibold text-ink-secondary mb-3">Top Spending Categories</p>
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={topCats} layout="vertical" margin={{ top: 0, right: 20, left: 60, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
+                <CartesianGrid {...chart.grid} horizontal={false} vertical />
                 <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={v => `$${v}`} />
-                <YAxis type="category" dataKey="name" tick={{ fontSize: 12 }} width={60} />
-                <Tooltip formatter={v => formatCurrency(v)} />
+                <YAxis {...chart.yAxis} type="category" dataKey="name" tick={{ fontSize: 12 }} width={60} />
+                <Tooltip {...chart.tooltip} formatter={v => formatCurrency(v)} />
                 <Bar dataKey="value" radius={[0,4,4,0]} name="Amount">
                   {topCats.map((entry, i) => <Cell key={i} fill={entry.color} />)}
                 </Bar>
@@ -194,17 +195,17 @@ export default function Reports() {
 
       {/* AI insights & Q&A */}
       {aiEnabled && (
-        <div className="bg-white rounded-2xl shadow-sm border border-purple-100 p-5">
+        <div className="bg-surface rounded-container border border-line p-5">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-purple-500" />
-              <h2 className="text-base font-semibold text-gray-900">AI Insights</h2>
+              <Sparkles className="w-4 h-4 text-ink-muted" />
+              <h2 className="text-base font-semibold text-ink">AI Insights</h2>
             </div>
-            <button onClick={generateInsights} disabled={aiBusy} className="px-3 py-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white text-sm rounded-lg font-medium">
+            <button onClick={generateInsights} disabled={aiBusy} className="px-3 py-2 bg-accent hover:bg-accent-hover disabled:opacity-50 text-ink-inverse text-sm rounded-control font-medium">
               {aiBusy ? 'Thinking…' : 'Generate summary'}
             </button>
           </div>
-          {narrative && <p className="text-sm text-gray-700 whitespace-pre-line bg-purple-50 rounded-xl p-3 mb-3">{narrative}</p>}
+          {narrative && <p className="text-sm text-ink-secondary whitespace-pre-line bg-surface-sunk rounded-container p-3 mb-3">{narrative}</p>}
           <div className="flex gap-2">
             <input
               type="text"
@@ -212,43 +213,43 @@ export default function Reports() {
               onChange={e => setQuestion(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); askQuestion(); } }}
               placeholder="Ask about this month's spending…"
-              className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-purple-500"
+              className="flex-1 px-3 py-2 border border-line-strong rounded-control text-sm focus:outline-none focus:border-accent"
             />
-            <button onClick={askQuestion} disabled={aiBusy || !question.trim()} className="px-3 py-2 border border-purple-200 text-purple-600 hover:bg-purple-50 disabled:opacity-50 text-sm rounded-lg font-medium">Ask</button>
+            <button onClick={askQuestion} disabled={aiBusy || !question.trim()} className="px-3 py-2 border border-line-strong text-ink-secondary hover:bg-surface-sunk disabled:opacity-50 text-sm rounded-control font-medium">Ask</button>
           </div>
           {answer && (
-            <div className="mt-3 bg-gray-50 rounded-xl p-3">
-              <p className="text-sm text-gray-700">{answer}</p>
+            <div className="mt-3 bg-surface-sunk rounded-container p-3">
+              <p className="text-sm text-ink-secondary">{answer}</p>
               {consulted.length > 0 && (
-                <p className="text-xs text-gray-400 mt-2">
+                <p className="text-caption text-ink-muted mt-2">
                   Looked up locally: {consulted.map(c => TOOL_LABELS[c.tool] || c.tool).join(' · ')}
                 </p>
               )}
             </div>
           )}
-          {aiErr && <p className="text-xs text-red-500 mt-2">{aiErr}</p>}
-          <p className="text-[11px] text-gray-400 mt-3">Grounded only on aggregate totals for {format(new Date(year, month, 1), 'MMMM yyyy')} — your raw transactions are not sent.</p>
+          {aiErr && <p className="text-caption text-negative mt-2">{aiErr}</p>}
+          <p className="text-micro text-ink-muted mt-3">Grounded only on aggregate totals for {format(new Date(year, month, 1), 'MMMM yyyy')} — your raw transactions are not sent.</p>
         </div>
       )}
 
       {/* Biggest Variance */}
       {biggestVariance.length > 0 && (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-          <h2 className="text-base font-semibold text-gray-900 mb-3">Biggest Budget Variances</h2>
+        <div className="bg-surface rounded-container border border-line p-5">
+          <h2 className="text-base font-semibold text-ink mb-3">Biggest Budget Variances</h2>
           <div className="space-y-2">
             {biggestVariance.map(s => {
               const cat = getCategory(s.category);
               return (
-                <div key={s.category} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+                <div key={s.category} className="flex items-center justify-between py-2 border-b border-line-faint last:border-0">
                   <div className="flex items-center gap-2">
                     <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: cat.color }} />
-                    <span className="text-sm text-gray-800">{cat.name}</span>
+                    <span className="text-sm text-ink">{cat.name}</span>
                   </div>
                   <div className="text-right">
-                    <span className={`text-sm font-semibold ${s.variance < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                    <span className={`text-sm font-semibold ${s.variance < 0 ? 'text-negative' : 'text-positive'}`}>
                       {s.variance < 0 ? '-' : '+'}{formatCurrency(Math.abs(s.variance))}
                     </span>
-                    <span className="text-xs text-gray-400 ml-1">({s.percentUsed.toFixed(0)}% used)</span>
+                    <span className="text-caption text-ink-muted ml-1">({s.percentUsed.toFixed(0)}% used)</span>
                   </div>
                 </div>
               );
@@ -258,43 +259,43 @@ export default function Reports() {
       )}
 
       {/* YTD Summary */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-        <h2 className="text-base font-semibold text-gray-900 mb-4">Year-to-Date ({year})</h2>
+      <div className="bg-surface rounded-container border border-line p-5">
+        <h2 className="text-base font-semibold text-ink mb-4">Year-to-Date ({year})</h2>
         <div className="grid grid-cols-2 gap-4 mb-4">
-          <div className="bg-orange-50 rounded-xl p-3">
-            <p className="text-xs text-gray-500 mb-1">YTD Expenses</p>
-            <p className="text-lg font-bold text-orange-600">{formatCurrency(ytdExpenses)}</p>
+          <div className="bg-caution-tint rounded-container p-3">
+            <p className="text-caption text-ink-muted mb-1">YTD Expenses</p>
+            <p className="text-lg font-bold text-caution">{formatCurrency(ytdExpenses)}</p>
           </div>
-          <div className="bg-blue-50 rounded-xl p-3">
-            <p className="text-xs text-gray-500 mb-1">Net Worth</p>
-            <p className={`text-lg font-bold ${netWorth >= 0 ? 'text-blue-700' : 'text-red-600'}`}>{formatCurrency(netWorth)}</p>
+          <div className="bg-accent-tint rounded-container p-3">
+            <p className="text-caption text-ink-muted mb-1">Net Worth</p>
+            <p className={`text-lg font-bold ${netWorth >= 0 ? 'text-accent-ink' : 'text-negative'}`}>{formatCurrency(netWorth)}</p>
           </div>
         </div>
         <ResponsiveContainer width="100%" height={180}>
           <BarChart data={trend} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-            <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+            <CartesianGrid {...chart.grid} />
+            <XAxis dataKey="label" {...chart.xAxis} tick={{ fontSize: 11 }} />
             <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `$${v}`} />
-            <Tooltip formatter={v => formatCurrency(v)} />
-            <Bar dataKey="total" fill="#3b82f6" radius={[4,4,0,0]} name="Monthly Spending" />
+            <Tooltip {...chart.tooltip} formatter={v => formatCurrency(v)} />
+            <Bar dataKey="total" fill={chart.SERIES.primary} radius={[4,4,0,0]} name="Monthly Spending" />
           </BarChart>
         </ResponsiveContainer>
       </div>
 
       {/* Custom report */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-        <h2 className="text-base font-semibold text-gray-900 mb-3">Custom Date Range Report</h2>
+      <div className="bg-surface rounded-container border border-line p-5">
+        <h2 className="text-base font-semibold text-ink mb-3">Custom Date Range Report</h2>
         <div className="flex flex-wrap gap-3 mb-4">
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">From</label>
-            <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-500" />
+            <label className="block text-caption font-medium text-ink-muted mb-1">From</label>
+            <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} className="px-3 py-2 border border-line-strong rounded-control text-sm focus:outline-none focus:border-accent" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">To</label>
-            <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-500" />
+            <label className="block text-caption font-medium text-ink-muted mb-1">To</label>
+            <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} className="px-3 py-2 border border-line-strong rounded-control text-sm focus:outline-none focus:border-accent" />
           </div>
           {customFrom && customTo && (
-            <button onClick={() => exportToCSV(customTx, `report_${customFrom}_to_${customTo}.csv`)} className="flex items-center gap-2 self-end px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50">
+            <button onClick={() => exportToCSV(customTx, `report_${customFrom}_to_${customTo}.csv`)} className="flex items-center gap-2 self-end px-3 py-2 border border-line-strong rounded-control text-sm text-ink-secondary hover:bg-surface-sunk">
               <Download className="w-3.5 h-3.5" /> Export
             </button>
           )}
@@ -302,23 +303,23 @@ export default function Reports() {
         {customFrom && customTo && (
           <>
             <div className="grid grid-cols-2 gap-3 mb-4">
-              <div className="bg-orange-50 rounded-xl p-3">
-                <p className="text-xs text-gray-500">Total Spending</p>
-                <p className="text-lg font-bold text-orange-600">{formatCurrency(customTotal)}</p>
+              <div className="bg-caution-tint rounded-container p-3">
+                <p className="text-caption text-ink-muted">Total Spending</p>
+                <p className="text-lg font-bold text-caution">{formatCurrency(customTotal)}</p>
               </div>
-              <div className="bg-gray-50 rounded-xl p-3">
-                <p className="text-xs text-gray-500">Transactions</p>
-                <p className="text-lg font-bold text-gray-800">{customTx.length}</p>
+              <div className="bg-surface-sunk rounded-container p-3">
+                <p className="text-caption text-ink-muted">Transactions</p>
+                <p className="text-lg font-bold text-ink">{customTx.length}</p>
               </div>
             </div>
             <div className="space-y-2">
               {customTopCats.map(({ name, value, color }) => (
-                <div key={name} className="flex items-center justify-between py-1.5 border-b border-gray-50 last:border-0">
+                <div key={name} className="flex items-center justify-between py-1.5 border-b border-line-faint last:border-0">
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
-                    <span className="text-sm text-gray-700">{name}</span>
+                    <span className="text-sm text-ink-secondary">{name}</span>
                   </div>
-                  <span className="text-sm font-semibold text-gray-800">{formatCurrency(value)}</span>
+                  <span className="text-sm font-semibold text-ink">{formatCurrency(value)}</span>
                 </div>
               ))}
             </div>

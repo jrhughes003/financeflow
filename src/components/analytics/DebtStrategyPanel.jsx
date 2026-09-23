@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { format, parseISO } from 'date-fns';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import * as chart from '../ui/chartTheme';
 import { Landmark, AlertTriangle, Sparkles } from 'lucide-react';
 import { useFinancial } from '../../context/FinancialContext';
 import { formatCurrency } from '../../utils/calculations';
@@ -38,12 +39,12 @@ export default function DebtStrategyPanel() {
 
   if (!owing.length) {
     return (
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+      <div className="bg-surface rounded-container border border-line p-5">
         <div className="flex items-center gap-2 mb-1">
-          <Landmark className="w-4 h-4 text-gray-500" />
-          <h2 className="text-base font-semibold text-gray-900">Debt Payoff Strategy</h2>
+          <Landmark className="w-4 h-4 text-ink-muted" />
+          <h2 className="text-base font-semibold text-ink">Debt Payoff Strategy</h2>
         </div>
-        <p className="text-sm text-gray-400">No debts with a balance are tracked — nothing to plan here.</p>
+        <p className="text-sm text-ink-muted">No debts with a balance are tracked — nothing to plan here.</p>
       </div>
     );
   }
@@ -62,12 +63,12 @@ export default function DebtStrategyPanel() {
   });
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+    <div className="bg-surface rounded-container border border-line p-5">
       <div className="flex items-start gap-2 mb-4">
-        <Landmark className="w-4 h-4 text-gray-500 mt-0.5" />
+        <Landmark className="w-4 h-4 text-ink-muted mt-0.5" />
         <div>
-          <h2 className="text-base font-semibold text-gray-900">Debt Payoff Strategy</h2>
-          <p className="text-xs text-gray-400 mt-0.5">
+          <h2 className="text-base font-semibold text-ink">Debt Payoff Strategy</h2>
+          <p className="text-caption text-ink-muted mt-0.5">
             {owing.length} debt{owing.length > 1 ? 's' : ''} · {formatCurrency(owing.reduce((s, d) => s + Number(d.balance), 0))} total · {formatCurrency(totalMin)}/mo in minimums.
             When a debt is paid off, its minimum rolls into the next one.
             {deferredDebts.length > 0 && ` ${deferredDebts.map(d => d.name).join(', ')} ${deferredDebts.length > 1 ? 'are' : 'is'} deferred — ${deferredDebts.length > 1 ? 'they join' : 'it joins'} the plan when repayment starts.`}
@@ -76,10 +77,10 @@ export default function DebtStrategyPanel() {
       </div>
 
       {/* Extra payment */}
-      <div className="bg-gray-50 rounded-xl p-3 mb-4">
+      <div className="bg-surface-sunk rounded-container p-3 mb-4">
         <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
-          <span className="text-sm text-gray-700">Extra each month on top of minimums</span>
-          <span className="text-sm font-semibold text-gray-900">{formatCurrency(extra)}/mo</span>
+          <span className="text-sm text-ink-secondary">Extra each month on top of minimums</span>
+          <span className="text-sm font-semibold text-ink">{formatCurrency(extra)}/mo</span>
         </div>
         <input
           type="range" min={0} max={sliderMax} step={10} value={extra}
@@ -88,7 +89,7 @@ export default function DebtStrategyPanel() {
           aria-label="Extra monthly debt payment"
         />
         {potential > 0 && (
-          <button onClick={() => setExtra(Math.min(sliderMax, potential))} className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium mt-1">
+          <button onClick={() => setExtra(Math.min(sliderMax, potential))} className="inline-flex items-center gap-1 text-caption text-accent hover:text-accent-ink font-medium mt-1">
             <Sparkles className="w-3.5 h-3.5" />Use the ~{formatCurrency(potential)}/mo found in Save Money
           </button>
         )}
@@ -100,21 +101,21 @@ export default function DebtStrategyPanel() {
           const r = cmp[s.key];
           const recommended = cmp.recommended === s.key && extra > 0;
           return (
-            <div key={s.key} className={`rounded-xl p-3 border ${recommended ? 'border-blue-300 bg-blue-50/50' : 'border-gray-100'}`}>
+            <div key={s.key} className={`rounded-container p-3 border ${recommended ? 'border-accent bg-accent-tint/50' : 'border-line'}`}>
               <div className="flex items-center justify-between mb-1">
-                <span className="flex items-center gap-1.5 text-sm font-semibold text-gray-900">
+                <span className="flex items-center gap-1.5 text-sm font-semibold text-ink">
                   <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: s.color }} />{s.label}
                 </span>
-                {recommended && <span className="text-xs font-medium text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full">Recommended</span>}
+                {recommended && <span className="text-caption font-medium text-accent-ink bg-accent-tint px-2 py-0.5 rounded-full">Recommended</span>}
               </div>
-              <p className="text-xs text-gray-400 mb-2">{s.blurb}</p>
+              <p className="text-caption text-ink-muted mb-2">{s.blurb}</p>
               {r.feasible ? (
                 <>
-                  <p className="text-lg font-bold text-gray-900">{fmtMonth(r.debtFreeDate)}</p>
-                  <p className="text-xs text-gray-500">Debt-free in {duration(r.months)} · {formatCurrency(r.totalInterest)} interest</p>
+                  <p className="text-lg font-bold text-ink">{fmtMonth(r.debtFreeDate)}</p>
+                  <p className="text-caption text-ink-muted">Debt-free in {duration(r.months)} · {formatCurrency(r.totalInterest)} interest</p>
                 </>
               ) : (
-                <p className="text-sm text-red-600 flex items-start gap-1"><AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />Payments don't cover the interest{r.unpayable?.length ? ` on ${r.unpayable.map(u => u.name).join(', ')}` : ''}.</p>
+                <p className="text-sm text-negative flex items-start gap-1"><AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />Payments don't cover the interest{r.unpayable?.length ? ` on ${r.unpayable.map(u => u.name).join(', ')}` : ''}.</p>
               )}
             </div>
           );
@@ -122,9 +123,9 @@ export default function DebtStrategyPanel() {
       </div>
 
       {extra === 0 ? (
-        <p className="text-sm text-gray-600 mb-4">With no extra money, avalanche and snowball only differ by rolling paid-off minimums forward. Move the slider to see how much faster you could be debt-free.</p>
+        <p className="text-sm text-ink-secondary mb-4">With no extra money, avalanche and snowball only differ by rolling paid-off minimums forward. Move the slider to see how much faster you could be debt-free.</p>
       ) : best.feasible && cmp.interestSaved !== null && (
-        <p className="text-sm text-gray-700 mb-4">
+        <p className="text-sm text-ink-secondary mb-4">
           Paying {formatCurrency(extra)}/mo extra with the <span className="font-semibold">{STRATEGIES.find(s => s.key === cmp.recommended).label.toLowerCase()}</span> method
           gets you debt-free <span className="font-semibold">{duration(cmp.monthsSaved)} sooner</span> and saves <span className="font-semibold">{formatCurrency(cmp.interestSaved)}</span> in interest.
           {cmp.recommended === 'snowball' && ' It costs almost the same as avalanche but clears your first debt sooner.'}
@@ -135,7 +136,7 @@ export default function DebtStrategyPanel() {
         <div className="lg:col-span-2">
           <ResponsiveContainer width="100%" height={240}>
             <LineChart data={chart} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+              <CartesianGrid {...chart.grid} />
               <XAxis dataKey="month" tick={{ fontSize: 11 }} tickFormatter={m => (m % 12 === 0 ? `${m / 12}y` : `${m}m`)} interval="preserveStartEnd" minTickGap={30} />
               <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `$${Math.round(v / 1000)}k`} />
               <Tooltip labelFormatter={m => `Month ${m}`} formatter={(v, name) => [formatCurrency(v), name]} />
@@ -147,14 +148,14 @@ export default function DebtStrategyPanel() {
           </ResponsiveContainer>
         </div>
         <div>
-          <p className="text-sm font-semibold text-gray-700 mb-2">Payoff order ({STRATEGIES.find(s => s.key === cmp.recommended).label})</p>
+          <p className="text-sm font-semibold text-ink-secondary mb-2">Payoff order ({STRATEGIES.find(s => s.key === cmp.recommended).label})</p>
           {best.payoffs.map((p, i) => (
-            <div key={p.id} className="flex justify-between py-1.5 border-b border-gray-50 text-sm">
-              <span className="text-gray-700">{i + 1}. {p.name}</span>
-              <span className="text-gray-500">month {p.month}</span>
+            <div key={p.id} className="flex justify-between py-1.5 border-b border-line-faint text-sm">
+              <span className="text-ink-secondary">{i + 1}. {p.name}</span>
+              <span className="text-ink-muted">month {p.month}</span>
             </div>
           ))}
-          {!best.feasible && <p className="text-xs text-red-600 mt-2">Some debts never get paid off at this payment level.</p>}
+          {!best.feasible && <p className="text-caption text-negative mt-2">Some debts never get paid off at this payment level.</p>}
         </div>
       </div>
     </div>

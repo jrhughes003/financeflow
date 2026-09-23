@@ -25,17 +25,17 @@ function BudgetRow({ budget, spending, carry = 0, effectiveBudget, onEdit, onDel
   };
 
   return (
-    <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
+    <div className="bg-surface rounded-container border border-line p-4">
       <div className="flex items-start justify-between gap-2 mb-3">
         <div className="flex items-center gap-2">
           <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
-          <span className="font-semibold text-gray-800 text-sm">{cat.name}</span>
+          <span className="font-semibold text-ink text-sm">{cat.name}</span>
         </div>
         <div className="flex gap-1">
-          <button onClick={() => setEditing(e => !e)} className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors">
+          <button onClick={() => setEditing(e => !e)} className="p-1 text-ink-muted hover:text-accent hover:bg-accent-tint rounded transition-colors">
             <Edit2 className="w-3.5 h-3.5" />
           </button>
-          <button onClick={() => onDelete(budget)} aria-label={`Delete ${cat?.name || budget.category} budget`} title="Delete budget" className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors">
+          <button onClick={() => onDelete(budget)} aria-label={`Delete ${cat?.name || budget.category} budget`} title="Delete budget" className="p-1 text-ink-muted hover:text-negative hover:bg-negative-tint rounded transition-colors">
             <Trash2 className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -44,37 +44,37 @@ function BudgetRow({ budget, spending, carry = 0, effectiveBudget, onEdit, onDel
       {editing ? (
         <div className="space-y-2">
           <div className="flex gap-2 items-center">
-            <label className="text-xs text-gray-500 w-20 shrink-0">Budget</label>
-            <input type="number" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} className="flex-1 px-2 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-500" placeholder="0.00" />
+            <label className="text-caption text-ink-muted w-20 shrink-0">Budget</label>
+            <input type="number" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} className="flex-1 px-2 py-1.5 border border-line-strong rounded-control text-sm focus:outline-none focus:border-accent" placeholder="0.00" />
           </div>
           <div className="flex gap-2 items-center">
-            <label className="text-xs text-gray-500 w-20 shrink-0">Flex %</label>
-            <input type="number" min="0" max="50" value={form.flex} onChange={e => setForm(f => ({ ...f, flex: e.target.value }))} className="flex-1 px-2 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-500" placeholder="0" />
+            <label className="text-caption text-ink-muted w-20 shrink-0">Flex %</label>
+            <input type="number" min="0" max="50" value={form.flex} onChange={e => setForm(f => ({ ...f, flex: e.target.value }))} className="flex-1 px-2 py-1.5 border border-line-strong rounded-control text-sm focus:outline-none focus:border-accent" placeholder="0" />
           </div>
-          <label className="flex items-center gap-2 text-xs text-gray-600">
+          <label className="flex items-center gap-2 text-caption text-ink-secondary">
             <input type="checkbox" checked={form.rollover} onChange={e => setForm(f => ({ ...f, rollover: e.target.checked }))} className="rounded" />
             Roll over unused budget
           </label>
           <div className="flex gap-2 pt-1">
-            <button onClick={save} className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700"><Check className="w-3 h-3" /> Save</button>
-            <button onClick={() => setEditing(false)} className="flex items-center gap-1 px-3 py-1.5 border border-gray-200 text-gray-600 text-xs rounded-lg hover:bg-gray-50"><X className="w-3 h-3" /> Cancel</button>
+            <button onClick={save} className="flex items-center gap-1 px-3 py-1.5 bg-accent text-ink-inverse text-caption rounded-control hover:bg-accent-hover"><Check className="w-3 h-3" /> Save</button>
+            <button onClick={() => setEditing(false)} className="flex items-center gap-1 px-3 py-1.5 border border-line-strong text-ink-secondary text-caption rounded-control hover:bg-surface-sunk"><X className="w-3 h-3" /> Cancel</button>
           </div>
         </div>
       ) : (
         <>
           <div className="flex justify-between text-sm mb-1.5">
-            <span className="text-gray-600">{formatCurrency(spending)} spent</span>
-            <span className="font-semibold text-gray-800">{budget.amount > 0 ? formatCurrency(budget.amount) : <span className="text-gray-400 font-normal">No limit set</span>}</span>
+            <span className="text-ink-secondary">{formatCurrency(spending)} spent</span>
+            <span className="font-semibold text-ink">{budget.amount > 0 ? formatCurrency(budget.amount) : <span className="text-ink-muted font-normal">No limit set</span>}</span>
           </div>
           {budget.amount > 0 && (
-            <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+            <div className="h-2 bg-surface-hover rounded-full overflow-hidden">
               <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: barColor }} />
             </div>
           )}
           <div className="flex justify-between mt-1">
-            <span className="text-xs text-gray-400">{budget.amount > 0 ? `${pct.toFixed(0)}% used` : 'Track only'}{budget.flex ? ` · ${budget.flex}% flex` : ''}</span>
+            <span className="text-caption text-ink-muted">{budget.amount > 0 ? `${pct.toFixed(0)}% used` : 'Track only'}{budget.flex ? ` · ${budget.flex}% flex` : ''}</span>
             {budget.rollover && (
-              <span className="text-xs text-blue-500" title={`Effective limit ${formatCurrency(limit)} this month`}>
+              <span className="text-caption text-accent" title={`Effective limit ${formatCurrency(limit)} this month`}>
                 {carry >= 0 ? `+${formatCurrency(carry)} rolled over` : `${formatCurrency(carry)} carried`}
               </span>
             )}
@@ -148,17 +148,17 @@ export default function BudgetManager() {
   return (
     <div className="space-y-5 animate-fade-in">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-gray-500">{format(new Date(year, month, 1), 'MMMM yyyy')} · {budgets.length} budgets</p>
+        <p className="text-sm text-ink-muted">{format(new Date(year, month, 1), 'MMMM yyyy')} · {budgets.length} budgets</p>
         <div className="flex gap-2">
           <button
             onClick={() => { setShowNewCat(s => !s); setShowAdd(false); }}
-            className="flex items-center gap-2 px-3 py-2 border-2 border-dashed border-gray-300 hover:border-blue-400 text-gray-500 hover:text-blue-600 rounded-xl text-sm font-medium transition-colors"
+            className="flex items-center gap-2 px-3 py-2 border-2 border-dashed border-line-strong hover:border-accent text-ink-muted hover:text-accent rounded-container text-sm font-medium transition-colors"
           >
             <Tag className="w-3.5 h-3.5" /> New Category
           </button>
           <button
             onClick={() => { setShowAdd(s => !s); setShowNewCat(false); }}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-medium transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-accent hover:bg-accent-hover text-ink-inverse rounded-container text-sm font-medium transition-colors"
           >
             <Plus className="w-4 h-4" /> Add Budget
           </button>
@@ -167,51 +167,51 @@ export default function BudgetManager() {
 
       {/* Create new category panel */}
       {showNewCat && (
-        <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 space-y-3">
-          <h3 className="text-sm font-semibold text-purple-900 flex items-center gap-2"><Tag className="w-4 h-4" /> Create New Category</h3>
+        <div className="bg-surface-sunk border border-line-strong rounded-container p-4 space-y-3">
+          <h3 className="text-sm font-semibold text-ink flex items-center gap-2"><Tag className="w-4 h-4" /> Create New Category</h3>
           <input
             type="text"
             placeholder="Category name (e.g. Healthcare, Travel...)"
             value={newCatName}
             onChange={e => setNewCatName(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleCreateCategory()}
-            className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:outline-none focus:border-purple-500"
+            className="w-full px-3 py-2.5 border border-line-strong rounded-container text-sm bg-surface focus:outline-none focus:border-accent"
             autoFocus
           />
           <div>
-            <p className="text-xs text-gray-500 mb-1.5">Pick a colour</p>
+            <p className="text-caption text-ink-muted mb-1.5">Pick a colour</p>
             <div className="flex flex-wrap gap-1.5">
               {PRESET_COLORS.map(c => (
                 <button key={c} type="button" onClick={() => setNewCatColor(c)}
-                  className={`w-7 h-7 rounded-full border-2 transition-all ${newCatColor === c ? 'border-gray-700 scale-110' : 'border-transparent'}`}
+                  className={`w-7 h-7 rounded-full border-2 transition-all ${newCatColor === c ? 'border-line-strong scale-110' : 'border-transparent'}`}
                   style={{ backgroundColor: c }} />
               ))}
             </div>
           </div>
           {/* Preview */}
           {newCatName && (
-            <div className="flex items-center gap-2 px-3 py-2 bg-white rounded-lg border border-gray-100">
+            <div className="flex items-center gap-2 px-3 py-2 bg-surface rounded-control border border-line">
               <div className="w-3 h-3 rounded-full" style={{ backgroundColor: newCatColor }} />
-              <span className="text-sm font-medium text-gray-700">{newCatName}</span>
+              <span className="text-sm font-medium text-ink-secondary">{newCatName}</span>
             </div>
           )}
           <div className="flex gap-2">
-            <button onClick={handleCreateCategory} className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-xl font-medium">Create Category</button>
-            <button onClick={() => { setShowNewCat(false); setNewCatName(''); }} className="px-4 py-2 border border-gray-200 text-gray-600 text-sm rounded-xl hover:bg-white">Cancel</button>
+            <button onClick={handleCreateCategory} className="px-4 py-2 bg-accent hover:bg-accent-hover text-ink-inverse text-sm rounded-container font-medium">Create Category</button>
+            <button onClick={() => { setShowNewCat(false); setNewCatName(''); }} className="px-4 py-2 border border-line-strong text-ink-secondary text-sm rounded-container hover:bg-surface">Cancel</button>
           </div>
         </div>
       )}
 
       {/* Custom categories list (so user can delete them) */}
       {customCategories.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-100 p-4">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Your Custom Categories</p>
+        <div className="bg-surface rounded-container border border-line p-4">
+          <p className="text-caption font-semibold text-ink-muted uppercase tracking-wider mb-2">Your Custom Categories</p>
           <div className="flex flex-wrap gap-2">
             {customCategories.map(c => (
               <div key={c.id} className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-sm font-medium" style={{ borderColor: c.color, color: c.color, backgroundColor: c.color + '15' }}>
                 <div className="w-2 h-2 rounded-full" style={{ backgroundColor: c.color }} />
                 {c.name}
-                <button onClick={() => dispatch({ type: 'DELETE_CATEGORY', payload: c.id })} className="ml-1 opacity-50 hover:opacity-100 text-xs leading-none">✕</button>
+                <button onClick={() => dispatch({ type: 'DELETE_CATEGORY', payload: c.id })} className="ml-1 opacity-50 hover:opacity-100 text-caption leading-none">✕</button>
               </div>
             ))}
           </div>
@@ -220,17 +220,17 @@ export default function BudgetManager() {
 
       {/* Smart suggestions */}
       {Object.keys(suggestions).length > 0 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+        <div className="bg-caution-tint border border-caution rounded-container p-4">
           <div className="flex items-center gap-2 mb-2">
-            <Lightbulb className="w-4 h-4 text-amber-500" />
-            <span className="text-sm font-semibold text-amber-800">Smart Suggestions (3-month average)</span>
+            <Lightbulb className="w-4 h-4 text-caution" />
+            <span className="text-sm font-semibold text-caution">Smart Suggestions (3-month average)</span>
           </div>
           <div className="flex flex-wrap gap-2">
             {Object.entries(suggestions).map(([catId, amt]) => {
               const cat = getCategory(catId);
               return (
                 <button key={catId} onClick={() => { setNewCat(catId); setNewAmt(String(amt)); setShowAdd(true); }}
-                  className="text-xs bg-white border border-amber-200 text-amber-700 px-2.5 py-1 rounded-lg hover:bg-amber-100">
+                  className="text-caption bg-surface border border-caution text-caution px-2.5 py-1 rounded-control hover:bg-caution-tint">
                   {cat.name}: {formatCurrency(amt)}
                 </button>
               );
@@ -241,34 +241,34 @@ export default function BudgetManager() {
 
       {/* Add budget form */}
       {showAdd && (
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-3">
-          <h3 className="text-sm font-semibold text-blue-800">Set Monthly Budget</h3>
+        <div className="bg-accent-tint border border-accent rounded-container p-4 space-y-3">
+          <h3 className="text-sm font-semibold text-accent-ink">Set Monthly Budget</h3>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Category</label>
-              <select value={newCat} onChange={e => setNewCat(e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:border-blue-500">
+              <label className="block text-caption font-medium text-ink-muted mb-1">Category</label>
+              <select value={newCat} onChange={e => setNewCat(e.target.value)} className="w-full px-3 py-2 border border-line-strong rounded-control text-sm bg-surface focus:outline-none focus:border-accent">
                 <option value="">Select...</option>
                 {allCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Monthly Budget ($)</label>
-              <input type="number" placeholder="0" value={newAmt} onChange={e => setNewAmt(e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-500" />
+              <label className="block text-caption font-medium text-ink-muted mb-1">Monthly Budget ($)</label>
+              <input type="number" placeholder="0" value={newAmt} onChange={e => setNewAmt(e.target.value)} className="w-full px-3 py-2 border border-line-strong rounded-control text-sm focus:outline-none focus:border-accent" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Flex Tolerance %</label>
-              <input type="number" min="0" max="50" placeholder="10" value={newFlex} onChange={e => setNewFlex(e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-500" />
+              <label className="block text-caption font-medium text-ink-muted mb-1">Flex Tolerance %</label>
+              <input type="number" min="0" max="50" placeholder="10" value={newFlex} onChange={e => setNewFlex(e.target.value)} className="w-full px-3 py-2 border border-line-strong rounded-control text-sm focus:outline-none focus:border-accent" />
             </div>
             <div className="flex items-end pb-2">
-              <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+              <label className="flex items-center gap-2 text-sm text-ink-secondary cursor-pointer">
                 <input type="checkbox" checked={newRollover} onChange={e => setNewRollover(e.target.checked)} className="rounded" />
                 Roll over unused
               </label>
             </div>
           </div>
           <div className="flex gap-2">
-            <button onClick={handleAdd} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg font-medium">Save Budget</button>
-            <button onClick={() => setShowAdd(false)} className="px-4 py-2 border border-gray-200 text-gray-600 text-sm rounded-lg hover:bg-white">Cancel</button>
+            <button onClick={handleAdd} className="px-4 py-2 bg-accent hover:bg-accent-hover text-ink-inverse text-sm rounded-control font-medium">Save Budget</button>
+            <button onClick={() => setShowAdd(false)} className="px-4 py-2 border border-line-strong text-ink-secondary text-sm rounded-control hover:bg-surface">Cancel</button>
           </div>
         </div>
       )}

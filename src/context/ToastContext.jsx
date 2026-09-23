@@ -42,16 +42,16 @@ export function ToastProvider({ children }) {
           <div
             key={t.id}
             className={`
-              flex items-center gap-3 pl-4 pr-2 py-3 rounded-xl shadow-lg text-sm font-medium
+              flex items-center gap-3 pl-4 pr-2 py-3 rounded-container shadow-overlay text-sm font-medium
               pointer-events-auto min-w-[260px]
-              ${t.type === 'error' ? 'bg-red-600 text-white' : t.type === 'neutral' ? 'bg-gray-900 text-white' : 'bg-green-600 text-white'}
+              ${t.type === 'error' ? 'bg-negative text-ink-inverse' : t.type === 'neutral' ? 'bg-ink text-ink-inverse' : 'bg-positive text-ink-inverse'}
             `}
           >
             <span className="flex-1">{t.message}</span>
             {t.action && (
               <button
                 onClick={() => { t.action.onClick(); dismiss(t.id); }}
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/20 hover:bg-white/30 transition-colors"
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-control bg-surface/20 hover:bg-surface/30 transition-colors"
               >
                 <Undo2 className="w-3.5 h-3.5" />
                 {t.action.label}

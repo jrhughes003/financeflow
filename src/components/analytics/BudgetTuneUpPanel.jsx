@@ -7,9 +7,9 @@ import { DEFAULT_FLEX } from '../../utils/constants';
 
 const NONE = [];
 const TYPE = {
-  raise: { label: 'Too tight', cls: 'bg-red-50 text-red-700' },
+  raise: { label: 'Too tight', cls: 'bg-negative-tint text-negative' },
   lower: { label: 'Too loose', cls: 'bg-sky-50 text-sky-700' },
-  add: { label: 'No budget', cls: 'bg-gray-100 text-gray-700' },
+  add: { label: 'No budget', cls: 'bg-surface-hover text-ink-secondary' },
 };
 const FREQ = { quarterly: 'every 3 months', semiannual: 'every 6 months', annual: 'yearly' };
 const dismissKey = s => `${s.category}:${s.type}:${s.suggested}`;
@@ -44,13 +44,13 @@ export default function BudgetTuneUpPanel() {
   const dismiss = s => dispatch({ type: 'UPDATE_SETTINGS', payload: { dismissedBudgetTips: [...dismissed, dismissKey(s)] } });
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+    <div className="bg-surface rounded-container border border-line p-5">
       <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
         <div className="flex items-start gap-2">
-          <Scale className="w-4 h-4 text-gray-500 mt-0.5" />
+          <Scale className="w-4 h-4 text-ink-muted mt-0.5" />
           <div>
-            <h2 className="text-base font-semibold text-gray-900">Budget Tune-Up</h2>
-            <p className="text-xs text-gray-400 mt-0.5">
+            <h2 className="text-base font-semibold text-ink">Budget Tune-Up</h2>
+            <p className="text-caption text-ink-muted mt-0.5">
               {result.insufficient
                 ? 'Compares your budgets with how you actually spend.'
                 : `Budgets compared with your last ${result.months} full months of spending. Suggestions cover a typical month (75th percentile).`}
@@ -59,42 +59,42 @@ export default function BudgetTuneUpPanel() {
         </div>
         {freed > 0 && (
           <div className="text-right">
-            <p className="text-xs text-gray-500">Could free up</p>
-            <p className="text-xl font-bold text-sky-700">{formatCurrency(freed)}<span className="text-sm font-medium text-gray-400">/mo</span></p>
+            <p className="text-caption text-ink-muted">Could free up</p>
+            <p className="text-xl font-bold text-sky-700">{formatCurrency(freed)}<span className="text-sm font-medium text-ink-muted">/mo</span></p>
           </div>
         )}
       </div>
 
       {result.insufficient ? (
-        <p className="text-sm text-gray-400 text-center py-6">Needs at least 3 full months of transactions to suggest realistic budgets.</p>
+        <p className="text-sm text-ink-muted text-center py-6">Needs at least 3 full months of transactions to suggest realistic budgets.</p>
       ) : suggestions.length === 0 ? (
-        <p className="text-sm text-gray-500 text-center py-6">Your budgets line up well with how you actually spend. Nothing to change.</p>
+        <p className="text-sm text-ink-muted text-center py-6">Your budgets line up well with how you actually spend. Nothing to change.</p>
       ) : (
         <div className="space-y-3">
           {suggestions.map(s => {
             const cat = getCategory(s.category);
             const t = TYPE[s.type];
             return (
-              <div key={dismissKey(s)} className="border border-gray-100 rounded-xl p-3">
+              <div key={dismissKey(s)} className="border border-line rounded-container p-3">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
                     <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: cat.color }} />
-                    <span className="text-sm font-semibold text-gray-900">{cat.name}</span>
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${t.cls}`}>{t.label}</span>
+                    <span className="text-sm font-semibold text-ink">{cat.name}</span>
+                    <span className={`text-caption font-medium px-2 py-0.5 rounded-full ${t.cls}`}>{t.label}</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm">
-                    <span className="text-gray-500">{s.current ? formatCurrency(s.current) : 'None'}</span>
-                    <ArrowRight className="w-3.5 h-3.5 text-gray-400" />
-                    <span className="font-semibold text-gray-900">{formatCurrency(s.suggested)}/mo</span>
+                    <span className="text-ink-muted">{s.current ? formatCurrency(s.current) : 'None'}</span>
+                    <ArrowRight className="w-3.5 h-3.5 text-ink-muted" />
+                    <span className="font-semibold text-ink">{formatCurrency(s.suggested)}/mo</span>
                   </div>
                 </div>
-                <p className="text-xs text-gray-500 mt-1.5">{explain(s)}</p>
-                {billNote(s) && <p className="text-xs text-gray-600 mt-1">{billNote(s)}</p>}
+                <p className="text-caption text-ink-muted mt-1.5">{explain(s)}</p>
+                {billNote(s) && <p className="text-caption text-ink-secondary mt-1">{billNote(s)}</p>}
                 <div className="flex gap-2 mt-2">
-                  <button onClick={() => apply(s)} className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg">
+                  <button onClick={() => apply(s)} className="px-3 py-1.5 bg-accent hover:bg-accent-hover text-ink-inverse text-caption font-medium rounded-control">
                     {s.type === 'add' ? `Set ${formatCurrency(s.suggested)} budget` : `Change to ${formatCurrency(s.suggested)}`}
                   </button>
-                  <button onClick={() => dismiss(s)} className="px-3 py-1.5 border border-gray-200 text-gray-600 text-xs rounded-lg hover:bg-gray-50">Dismiss</button>
+                  <button onClick={() => dismiss(s)} className="px-3 py-1.5 border border-line-strong text-ink-secondary text-caption rounded-control hover:bg-surface-sunk">Dismiss</button>
                 </div>
               </div>
             );

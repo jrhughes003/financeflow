@@ -90,9 +90,9 @@ export default function SavingsPanel() {
     return (
       <div className="space-y-6">
       <DuplicatesPanel />
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-        <h2 className="text-base font-semibold text-gray-900 mb-1">Savings Opportunities</h2>
-        <p className="text-sm text-gray-400">Savings suggestions appear once you have at least one full month of transactions.</p>
+      <div className="bg-surface rounded-container border border-line p-5">
+        <h2 className="text-base font-semibold text-ink mb-1">Savings Opportunities</h2>
+        <p className="text-sm text-ink-muted">Savings suggestions appear once you have at least one full month of transactions.</p>
       </div>
       </div>
     );
@@ -103,24 +103,24 @@ export default function SavingsPanel() {
       <DuplicatesPanel />
 
       {/* Opportunities */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+      <div className="bg-surface rounded-container border border-line p-5">
         <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
           <div>
-            <h2 className="text-base font-semibold text-gray-900">Savings Opportunities</h2>
-            <p className="text-xs text-gray-400 mt-0.5">Based on your last {averages.months} full month{averages.months > 1 ? 's' : ''} of spending</p>
+            <h2 className="text-base font-semibold text-ink">Savings Opportunities</h2>
+            <p className="text-caption text-ink-muted mt-0.5">Based on your last {averages.months} full month{averages.months > 1 ? 's' : ''} of spending</p>
           </div>
           {totalPotential > 0 && (
             <div className="text-right">
-              <p className="text-xs text-gray-500">Potential savings</p>
-              <p className="text-xl font-bold text-green-600">{formatCurrency(totalPotential)}<span className="text-sm font-medium text-gray-400">/yr</span></p>
+              <p className="text-caption text-ink-muted">Potential savings</p>
+              <p className="text-xl font-bold text-positive">{formatCurrency(totalPotential)}<span className="text-sm font-medium text-ink-muted">/yr</span></p>
             </div>
           )}
         </div>
 
         {actionable.length === 0 ? (
-          <div className="flex items-start gap-3 bg-green-50 border border-green-100 rounded-xl p-3">
-            <Lightbulb className="w-4 h-4 text-green-600 shrink-0 mt-0.5" />
-            <p className="text-sm text-green-800">No obvious problem areas right now — spending is within budget and steady. Use the simulator below to explore cuts anyway.</p>
+          <div className="flex items-start gap-3 bg-positive-tint border border-positive rounded-container p-3">
+            <Lightbulb className="w-4 h-4 text-positive shrink-0 mt-0.5" />
+            <p className="text-sm text-positive">No obvious problem areas right now — spending is within budget and steady. Use the simulator below to explore cuts anyway.</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -129,22 +129,22 @@ export default function SavingsPanel() {
               const { title, detail } = describe(o, catName);
               const canSimulate = o.type !== 'price_increase' && o.category && averages.byCategory[o.category] && simCats.includes(o.category);
               return (
-                <div key={o.id} className="flex items-start gap-3 border border-gray-100 rounded-xl p-3">
-                  <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center shrink-0">
-                    <Icon className="w-4 h-4 text-gray-500" />
+                <div key={o.id} className="flex items-start gap-3 border border-line rounded-container p-3">
+                  <div className="w-8 h-8 rounded-control bg-surface-sunk flex items-center justify-center shrink-0">
+                    <Icon className="w-4 h-4 text-ink-muted" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-900">{title}</p>
-                    <p className="text-xs text-gray-500 mt-0.5">{detail}</p>
+                    <p className="text-sm font-semibold text-ink">{title}</p>
+                    <p className="text-caption text-ink-muted mt-0.5">{detail}</p>
                     {canSimulate && (
-                      <button onClick={() => tryInSimulator(o)} className="text-xs text-blue-600 hover:text-blue-700 font-medium mt-1.5">
+                      <button onClick={() => tryInSimulator(o)} className="text-caption text-accent hover:text-accent-ink font-medium mt-1.5">
                         Try it in the simulator →
                       </button>
                     )}
                   </div>
                   <div className="text-right shrink-0">
-                    <p className="text-sm font-bold text-green-600">{formatCurrency(o.annualSaving)}/yr</p>
-                    <p className="text-xs text-gray-400">{formatCurrency(o.monthlySaving)}/mo</p>
+                    <p className="text-sm font-bold text-positive">{formatCurrency(o.annualSaving)}/yr</p>
+                    <p className="text-caption text-ink-muted">{formatCurrency(o.monthlySaving)}/mo</p>
                   </div>
                 </div>
               );
@@ -155,26 +155,26 @@ export default function SavingsPanel() {
 
       {/* Recurring charges review */}
       {review && (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+        <div className="bg-surface rounded-container border border-line p-5">
           <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
             <div>
-              <h2 className="text-base font-semibold text-gray-900">Recurring Charges</h2>
-              <p className="text-xs text-gray-400 mt-0.5">{review.count} recurring charge{review.count > 1 ? 's' : ''}, from your templates and ones detected in your history. Cancel any you don't use.</p>
+              <h2 className="text-base font-semibold text-ink">Recurring Charges</h2>
+              <p className="text-caption text-ink-muted mt-0.5">{review.count} recurring charge{review.count > 1 ? 's' : ''}, from your templates and ones detected in your history. Cancel any you don't use.</p>
             </div>
             <div className="text-right">
-              <p className="text-xl font-bold text-gray-900">{formatCurrency(review.annualTotal)}<span className="text-sm font-medium text-gray-400">/yr</span></p>
-              <p className="text-xs text-gray-400">{formatCurrency(review.monthlyTotal)}/mo{income > 0 && ` · ${Math.round((review.monthlyTotal / income) * 100)}% of income`}</p>
+              <p className="text-xl font-bold text-ink">{formatCurrency(review.annualTotal)}<span className="text-sm font-medium text-ink-muted">/yr</span></p>
+              <p className="text-caption text-ink-muted">{formatCurrency(review.monthlyTotal)}/mo{income > 0 && ` · ${Math.round((review.monthlyTotal / income) * 100)}% of income`}</p>
             </div>
           </div>
           {review.top.map(r => (
-            <div key={`${r.source}-${r.merchant}`} className="flex justify-between items-center py-1.5 border-b border-gray-50">
+            <div key={`${r.source}-${r.merchant}`} className="flex justify-between items-center py-1.5 border-b border-line-faint">
               <div>
-                <p className="text-sm text-gray-700">{r.merchant}</p>
-                <p className="text-xs text-gray-400">{catName(r.category)} · {r.frequency}{r.source === 'detected' && ' · detected'}</p>
+                <p className="text-sm text-ink-secondary">{r.merchant}</p>
+                <p className="text-caption text-ink-muted">{catName(r.category)} · {r.frequency}{r.source === 'detected' && ' · detected'}</p>
               </div>
               <div className="text-right">
-                <p className="text-sm font-semibold text-gray-800">{formatCurrency(r.annual)}/yr</p>
-                <p className="text-xs text-gray-400">{formatCurrency(r.monthly)}/mo</p>
+                <p className="text-sm font-semibold text-ink">{formatCurrency(r.annual)}/yr</p>
+                <p className="text-caption text-ink-muted">{formatCurrency(r.monthly)}/mo</p>
               </div>
             </div>
           ))}
@@ -182,14 +182,14 @@ export default function SavingsPanel() {
       )}
 
       {/* What-if simulator */}
-      <div id="whatif-simulator" className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+      <div id="whatif-simulator" className="bg-surface rounded-container border border-line p-5">
         <div className="flex items-start justify-between gap-3 mb-4">
           <div className="flex items-center gap-2">
-            <SlidersHorizontal className="w-4 h-4 text-gray-500" />
-            <h2 className="text-base font-semibold text-gray-900">What-If Simulator</h2>
+            <SlidersHorizontal className="w-4 h-4 text-ink-muted" />
+            <h2 className="text-base font-semibold text-ink">What-If Simulator</h2>
           </div>
           {Object.values(cuts).some(Boolean) && (
-            <button onClick={() => setCuts({})} className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600">
+            <button onClick={() => setCuts({})} className="flex items-center gap-1 text-caption text-ink-muted hover:text-ink-secondary">
               <RotateCcw className="w-3.5 h-3.5" />Reset
             </button>
           )}
@@ -204,12 +204,12 @@ export default function SavingsPanel() {
               return (
                 <div key={id}>
                   <div className="flex justify-between text-sm mb-1">
-                    <span className="flex items-center gap-2 text-gray-700">
+                    <span className="flex items-center gap-2 text-ink-secondary">
                       <span className="w-2 h-2 rounded-full" style={{ backgroundColor: cat.color }} />
                       {cat.name}
-                      <span className="text-xs text-gray-400">{formatCurrency(avg)}/mo</span>
+                      <span className="text-caption text-ink-muted">{formatCurrency(avg)}/mo</span>
                     </span>
-                    <span className="text-gray-800 font-medium">
+                    <span className="text-ink font-medium">
                       {pct ? `−${pct}% · saves ${formatCurrency(avg * pct / 100)}/mo` : 'no change'}
                     </span>
                   </div>
@@ -226,48 +226,48 @@ export default function SavingsPanel() {
 
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
-              <div className="bg-green-50 rounded-xl p-3">
-                <p className="text-xs text-green-700">Monthly savings</p>
-                <p className="text-lg font-bold text-green-700">{formatCurrency(sim.monthlySaving)}</p>
+              <div className="bg-positive-tint rounded-container p-3">
+                <p className="text-caption text-positive">Monthly savings</p>
+                <p className="text-lg font-bold text-positive">{formatCurrency(sim.monthlySaving)}</p>
               </div>
-              <div className="bg-green-50 rounded-xl p-3">
-                <p className="text-xs text-green-700">Yearly savings</p>
-                <p className="text-lg font-bold text-green-700">{formatCurrency(sim.annualSaving)}</p>
+              <div className="bg-positive-tint rounded-container p-3">
+                <p className="text-caption text-positive">Yearly savings</p>
+                <p className="text-lg font-bold text-positive">{formatCurrency(sim.annualSaving)}</p>
               </div>
-              <div className="bg-gray-50 rounded-xl p-3">
-                <p className="text-xs text-gray-500">Monthly spending</p>
-                <p className="text-lg font-bold text-gray-900">{formatCurrency(sim.newSpend)}</p>
-                <p className="text-xs text-gray-400">was {formatCurrency(sim.currentSpend)}</p>
+              <div className="bg-surface-sunk rounded-container p-3">
+                <p className="text-caption text-ink-muted">Monthly spending</p>
+                <p className="text-lg font-bold text-ink">{formatCurrency(sim.newSpend)}</p>
+                <p className="text-caption text-ink-muted">was {formatCurrency(sim.currentSpend)}</p>
               </div>
-              <div className="bg-gray-50 rounded-xl p-3">
-                <p className="text-xs text-gray-500">Savings rate</p>
+              <div className="bg-surface-sunk rounded-container p-3">
+                <p className="text-caption text-ink-muted">Savings rate</p>
                 {sim.newRate === null
-                  ? <p className="text-sm text-gray-400 mt-1">Add income to see this</p>
+                  ? <p className="text-sm text-ink-muted mt-1">Add income to see this</p>
                   : <>
-                      <p className="text-lg font-bold text-gray-900">{sim.newRate}%</p>
-                      <p className="text-xs text-gray-400">was {sim.currentRate}%</p>
+                      <p className="text-lg font-bold text-ink">{sim.newRate}%</p>
+                      <p className="text-caption text-ink-muted">was {sim.currentRate}%</p>
                     </>}
               </div>
             </div>
 
             {goal && impact && (
-              <div className="border border-gray-100 rounded-xl p-3">
+              <div className="border border-line rounded-container p-3">
                 <div className="flex items-center justify-between gap-2 mb-2">
-                  <p className="text-xs text-gray-500">If the savings go toward</p>
+                  <p className="text-caption text-ink-muted">If the savings go toward</p>
                   <select
                     value={goal.id}
                     onChange={e => setGoalId(e.target.value)}
-                    className="text-sm border border-gray-200 rounded-lg px-2 py-1 bg-white focus:outline-none focus:border-blue-500"
+                    className="text-sm border border-line-strong rounded-control px-2 py-1 bg-surface focus:outline-none focus:border-accent"
                   >
                     {openGoals.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
                   </select>
                 </div>
-                <p className="text-sm text-gray-700">
+                <p className="text-sm text-ink-secondary">
                   {formatCurrency(impact.remaining)} to go · currently saving {formatCurrency(impact.baseContribution)}/mo
                 </p>
-                <p className="text-sm text-gray-700 mt-1">
-                  Reached: <span className="text-gray-500">{when(impact.currentMonths)}</span>
-                  {sim.monthlySaving > 0 && <> → <span className="font-semibold text-green-700">{when(impact.newMonths)}</span></>}
+                <p className="text-sm text-ink-secondary mt-1">
+                  Reached: <span className="text-ink-muted">{when(impact.currentMonths)}</span>
+                  {sim.monthlySaving > 0 && <> → <span className="font-semibold text-positive">{when(impact.newMonths)}</span></>}
                 </p>
               </div>
             )}

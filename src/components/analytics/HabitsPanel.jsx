@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { format, parseISO } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import * as chart from '../ui/chartTheme';
 import { Flame, Check } from 'lucide-react';
 import { useFinancial } from '../../context/FinancialContext';
 import { formatCurrency } from '../../utils/calculations';
@@ -15,10 +16,10 @@ const SPEND_COLOR = '#2563eb';
 
 function Stat({ label, value, sub, icon: Icon }) {
   return (
-    <div className="bg-gray-50 rounded-xl p-3">
-      <p className="text-xs text-gray-500 flex items-center gap-1">{Icon && <Icon className="w-3.5 h-3.5" />}{label}</p>
-      <p className="text-lg font-bold text-gray-900">{value}</p>
-      {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
+    <div className="bg-surface-sunk rounded-container p-3">
+      <p className="text-caption text-ink-muted flex items-center gap-1">{Icon && <Icon className="w-3.5 h-3.5" />}{label}</p>
+      <p className="text-lg font-bold text-ink">{value}</p>
+      {sub && <p className="text-caption text-ink-muted mt-0.5">{sub}</p>}
     </div>
   );
 }
@@ -62,26 +63,26 @@ export default function HabitsPanel() {
   return (
     <div className="space-y-6">
       {/* Calendar */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+      <div className="bg-surface rounded-container border border-line p-5">
         <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
           <div>
-            <h2 className="text-base font-semibold text-gray-900">Spending Calendar</h2>
-            <p className="text-xs text-gray-400 mt-0.5">Everyday spending per day — scheduled bills and periodic charges aren't counted</p>
+            <h2 className="text-base font-semibold text-ink">Spending Calendar</h2>
+            <p className="text-caption text-ink-muted mt-0.5">Everyday spending per day — scheduled bills and periodic charges aren't counted</p>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => changeMonth(-1)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-600">‹</button>
-            <span className="font-semibold text-gray-700 text-sm min-w-28 text-center">{format(new Date(year, month, 1), 'MMMM yyyy')}</span>
-            <button onClick={() => changeMonth(1)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-600">›</button>
+            <button onClick={() => changeMonth(-1)} className="p-1.5 rounded-control hover:bg-surface-hover text-ink-secondary">‹</button>
+            <span className="font-semibold text-ink-secondary text-sm min-w-28 text-center">{format(new Date(year, month, 1), 'MMMM yyyy')}</span>
+            <button onClick={() => changeMonth(1)} className="p-1.5 rounded-control hover:bg-surface-hover text-ink-secondary">›</button>
           </div>
         </div>
 
         {!cal.hasData ? (
-          <p className="text-sm text-gray-400 text-center py-10">No transactions recorded in {format(new Date(year, month, 1), 'MMMM yyyy')}.</p>
+          <p className="text-sm text-ink-muted text-center py-10">No transactions recorded in {format(new Date(year, month, 1), 'MMMM yyyy')}.</p>
         ) : (
         <div className="grid lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2">
             <div className="grid grid-cols-7 gap-1.5 text-center">
-              {WEEKDAYS.map(w => <div key={w} className="text-xs text-gray-400 pb-1">{w}</div>)}
+              {WEEKDAYS.map(w => <div key={w} className="text-caption text-ink-muted pb-1">{w}</div>)}
               {Array.from({ length: leading }, (_, i) => <div key={`pad${i}`} />)}
               {cal.days.map(d => {
                 const noSpend = !d.future && d.total === 0;
@@ -94,20 +95,20 @@ export default function HabitsPanel() {
                   <div
                     key={d.date}
                     title={tip}
-                    className={`rounded-lg h-14 flex flex-col items-center justify-center border ${noSpend ? 'border-green-200' : 'border-transparent'} ${d.future ? 'border-dashed border-gray-200' : ''}`}
+                    className={`rounded-control h-14 flex flex-col items-center justify-center border ${noSpend ? 'border-positive' : 'border-transparent'} ${d.future ? 'border-dashed border-line-strong' : ''}`}
                     style={{ backgroundColor: bg }}
                   >
-                    <span className={`text-xs ${dark ? 'text-white/80' : d.future || noSpend ? 'text-gray-400' : 'text-gray-600'}`}>{d.day}</span>
+                    <span className={`text-caption ${dark ? 'text-ink-inverse/80' : d.future || noSpend ? 'text-ink-muted' : 'text-ink-secondary'}`}>{d.day}</span>
                     {noSpend
-                      ? <Check className="w-3.5 h-3.5 text-green-600" />
-                      : !d.future && <span className={`text-xs font-semibold ${dark ? 'text-white' : 'text-gray-800'}`}>${Math.round(d.total)}</span>}
+                      ? <Check className="w-3.5 h-3.5 text-positive" />
+                      : !d.future && <span className={`text-caption font-semibold ${dark ? 'text-ink-inverse' : 'text-ink'}`}>${Math.round(d.total)}</span>}
                   </div>
                 );
               })}
             </div>
-            <div className="flex flex-wrap items-center gap-4 text-xs text-gray-500 mt-3">
+            <div className="flex flex-wrap items-center gap-4 text-caption text-ink-muted mt-3">
               <span className="flex items-center gap-1">Less {RAMP.map(c => <span key={c} className="w-3 h-3 rounded-sm" style={{ backgroundColor: c }} />)} More</span>
-              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm border border-green-200 bg-white flex items-center justify-center"><Check className="w-2.5 h-2.5 text-green-600" /></span>No-spend day</span>
+              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm border border-positive bg-surface flex items-center justify-center"><Check className="w-2.5 h-2.5 text-positive" /></span>No-spend day</span>
             </div>
           </div>
 
@@ -132,14 +133,14 @@ export default function HabitsPanel() {
 
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Month rhythm */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-          <h2 className="text-base font-semibold text-gray-900">Month Rhythm</h2>
-          <p className="text-xs text-gray-400 mt-0.5 mb-3">Average everyday spending per day{rhythm.months ? `, last ${rhythm.months} month${rhythm.months > 1 ? 's' : ''}` : ''}</p>
+        <div className="bg-surface rounded-container border border-line p-5">
+          <h2 className="text-base font-semibold text-ink">Month Rhythm</h2>
+          <p className="text-caption text-ink-muted mt-0.5 mb-3">Average everyday spending per day{rhythm.months ? `, last ${rhythm.months} month${rhythm.months > 1 ? 's' : ''}` : ''}</p>
           {rhythm.months === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-8">Needs at least one full month of history.</p>
+            <p className="text-sm text-ink-muted text-center py-8">Needs at least one full month of history.</p>
           ) : (
             <>
-              <p className="text-sm text-gray-700 mb-3">
+              <p className="text-sm text-ink-secondary mb-3">
                 {rhythm.earlyVsLatePct === null || Math.abs(rhythm.earlyVsLatePct) < 15
                   ? 'Your spending is fairly even across the month.'
                   : rhythm.earlyVsLatePct > 0
@@ -148,15 +149,15 @@ export default function HabitsPanel() {
               </p>
               <ResponsiveContainer width="100%" height={200}>
                 <BarChart data={rhythm.segments} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                  <XAxis dataKey="label" tick={{ fontSize: 12 }} />
+                  <CartesianGrid {...chart.grid} />
+                  <XAxis dataKey="label" {...chart.xAxis} tick={{ fontSize: 12 }} />
                   <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `$${v}`} />
-                  <Tooltip cursor={{ fill: '#f8fafc' }} formatter={v => [`${formatCurrency(v)}/day`, 'Average']} />
+                  <Tooltip cursor={{ fill: 'var(--c-surface-hover)' }} formatter={v => [`${formatCurrency(v)}/day`, 'Average']} />
                   <Bar dataKey="perDay" fill={SPEND_COLOR} radius={[4, 4, 0, 0]} barSize={48} isAnimationActive={false} />
                 </BarChart>
               </ResponsiveContainer>
               {early > 0 && late > 0 && rhythm.earlyVsLatePct > 15 && (
-                <p className="text-xs text-gray-500 mt-2">
+                <p className="text-caption text-ink-muted mt-2">
                   If the first 10 days matched your late-month pace, you'd spend about {formatCurrency((early - late) * 10)} less a month.
                 </p>
               )}
@@ -165,25 +166,25 @@ export default function HabitsPanel() {
         </div>
 
         {/* Purchase sizes */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-          <h2 className="text-base font-semibold text-gray-900">Purchase Sizes</h2>
-          <p className="text-xs text-gray-400 mt-0.5 mb-3">Last {sizes.days} days · {sizes.count} purchases · {formatCurrency(sizes.total)}</p>
+        <div className="bg-surface rounded-container border border-line p-5">
+          <h2 className="text-base font-semibold text-ink">Purchase Sizes</h2>
+          <p className="text-caption text-ink-muted mt-0.5 mb-3">Last {sizes.days} days · {sizes.count} purchases · {formatCurrency(sizes.total)}</p>
           {sizes.count === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-8">No purchases in the last {sizes.days} days.</p>
+            <p className="text-sm text-ink-muted text-center py-8">No purchases in the last {sizes.days} days.</p>
           ) : (
             <>
-              <p className="text-sm text-gray-700 mb-3">
+              <p className="text-sm text-ink-secondary mb-3">
                 {bigSpendPct >= 40
                   ? <>Big purchases ($100+) are only <span className="font-semibold">{bigCountPct}%</span> of transactions but <span className="font-semibold">{bigSpendPct}%</span> of spending — pausing before large buys matters most.</>
                   : <>Purchases under $25 add up: <span className="font-semibold">{smallCount}</span> of them totalled <span className="font-semibold">{formatCurrency(smallSpend)}</span>.</>}
               </p>
               <ResponsiveContainer width="100%" height={200}>
                 <BarChart data={sizes.buckets} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                  <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+                  <CartesianGrid {...chart.grid} />
+                  <XAxis dataKey="label" {...chart.xAxis} tick={{ fontSize: 11 }} />
                   <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `${v}%`} />
                   <Tooltip
-                    cursor={{ fill: '#f8fafc' }}
+                    cursor={{ fill: 'var(--c-surface-hover)' }}
                     formatter={(v, name, { payload }) => [
                       name === 'Share of purchases' ? `${v}% (${payload.count})` : `${v}% (${formatCurrency(payload.total)})`,
                       name,

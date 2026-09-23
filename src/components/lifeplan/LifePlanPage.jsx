@@ -47,25 +47,25 @@ export default function LifePlanPage() {
           ? `The plan holds to age ${plan.assumptions.endAge}. Net worth at retirement (${retireYear}): ${formatCurrency(result.retirementRow.netWorth / result.retirementRow.inflationIndex)} in today's dollars.`
           : `The plan holds to age ${plan.assumptions.endAge}.`,
       };
-  const toneCls = { ok: 'bg-green-50 border-green-200 text-green-900', warn: 'bg-amber-50 border-amber-200 text-amber-900', info: 'bg-blue-50 border-blue-100 text-blue-900' }[status.tone];
+  const toneCls = { ok: 'bg-positive-tint border-positive text-positive', warn: 'bg-caution-tint border-caution text-caution', info: 'bg-accent-tint border-accent text-accent-ink' }[status.tone];
   const StatusIcon = status.icon;
 
   return (
     <div className="space-y-5 animate-fade-in">
-      <div className={`flex items-start gap-3 rounded-xl border p-4 ${toneCls}`}>
+      <div className={`flex items-start gap-3 rounded-container border p-4 ${toneCls}`}>
         <StatusIcon className="w-5 h-5 shrink-0 mt-0.5" />
         <div>
           <p className="text-sm font-medium">{status.text}</p>
-          <p className="text-xs opacity-75 mt-0.5">
+          <p className="text-caption opacity-75 mt-0.5">
             Estimates for planning, using Ontario and federal tax rules and your own spending history — not financial or tax advice.
           </p>
         </div>
       </div>
 
-      <div className="flex flex-wrap bg-gray-100 rounded-xl p-1 w-fit max-w-full">
+      <div className="flex flex-wrap bg-surface-hover rounded-container p-1 w-fit max-w-full">
         {TABS.map(({ id, label, icon: Icon }) => (
           <button key={id} onClick={() => setTab(id)}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tab === id ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-control text-sm font-medium transition-colors ${tab === id ? 'bg-surface  text-accent' : 'text-ink-muted hover:text-ink-secondary'}`}>
             <Icon className="w-4 h-4" />{label}
           </button>
         ))}

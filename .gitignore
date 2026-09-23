@@ -14,3 +14,6 @@ Thumbs.db
 # Local assistant config (machine-specific paths, not useful to others)
 CLAUDE.md
 .claude/
+
+# Personal working notes
+TODO.md

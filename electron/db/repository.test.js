@@ -96,4 +96,53 @@ describe('repository', () => {
     const loaded = loadAll(db);
     expect(loaded.settings).toEqual({ currency: 'USD', showSampleData: false });
   });
+
+  // A single unreadable row used to reject the whole load. The renderer read
+  // that rejection as "nothing stored yet" and wrote an empty ledger over the
+  // top, so one bad cell cost the user everything.
+  describe('unreadable rows', () => {
+    const corruptOne = (table, id) => db.prepare(`UPDATE ${table} SET data = ? WHERE id = ?`).run('{not json', id);
+
+    it('skips a corrupt transaction and keeps the rest', () => {
+      saveAll(db, sampleState());
+      corruptOne('transactions', 't1');
+
+      const loaded = loadAll(db);
+      expect(loaded.transactions.map(t => t.id)).toEqual(['t2']);
+      expect(loaded._corruptRows).toBe(1);
+    });
+
+    it('skips a corrupt row in a JSON-only collection', () => {
+      saveAll(db, sampleState());
+      corruptOne('budgets', 'b1');
+
+      const loaded = loadAll(db);
+      expect(loaded.budgets).toEqual([]);
+      expect(loaded.transactions).toHaveLength(2);
+      expect(loaded._corruptRows).toBe(1);
+    });
+
+    it('falls back to default settings when the settings blob is unreadable', () => {
+      saveAll(db, sampleState());
+      db.prepare("UPDATE meta SET value = ? WHERE key = 'settings'").run('{not json');
+
+      const loaded = loadAll(db);
+      expect(loaded.settings).toEqual({ currency: 'USD', showSampleData: false });
+      expect(loaded._corruptRows).toBe(1);
+    });
+
+    it('counts every unreadable row, not just the first', () => {
+      saveAll(db, sampleState());
+      corruptOne('transactions', 't1');
+      corruptOne('transactions', 't2');
+      corruptOne('budgets', 'b1');
+
+      expect(loadAll(db)._corruptRows).toBe(3);
+    });
+
+    it('omits the report entirely when everything reads back', () => {
+      saveAll(db, sampleState());
+      expect(loadAll(db)).not.toHaveProperty('_corruptRows');
+    });
+  });
 });

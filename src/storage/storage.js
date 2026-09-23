@@ -35,15 +35,20 @@ export async function loadState() {
   return readLegacyLocalStorage();
 }
 
-/** Persist the full app state. */
+/**
+ * Persist the full app state.
+ *
+ * Rejects on failure rather than swallowing it. A write that quietly does
+ * nothing — a full disk, a locked database, localStorage over quota or blocked
+ * in private mode — leaves the user editing a copy that is never saved, and
+ * they find out when they reopen the app. The caller turns this into a toast.
+ */
 export async function saveState(state) {
   if (isElectron) {
     await electronApi.db.saveAll(state);
     return;
   }
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch { /* quota or unavailable — best effort */ }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
 /** Mark the backend seeded so first-run bootstrap doesn't re-seed. */

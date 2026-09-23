@@ -1,7 +1,9 @@
-import React, { createContext, useContext, useReducer, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useRef, useState } from 'react';
 import { sampleData } from '../utils/sampleData';
 import { getCategoryById } from '../utils/categorization';
 import { setDisplayCurrency } from '../utils/calculations';
+import { useToast } from './ToastContext';
+import LoadFailure from '../components/LoadFailure';
 import {
   isElectron,
   loadState,
@@ -126,16 +128,25 @@ function reducer(state, action) {
 
 export function FinancialProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, null, loadInitialState);
+  const { toast } = useToast();
 
   // In Electron we must finish the async SQLite load before persisting, or the
   // placeholder state would clobber the database. Web mode is ready immediately.
   const readyToPersist = useRef(!isElectron);
 
-  // Electron-only: load from SQLite, seeding sample data (or migrating a legacy
-  // localStorage blob) exactly once on first launch.
+  // A load that failed is the one state where writing is unsafe: `state` is
+  // still the empty placeholder, and persisting it would delete every row the
+  // load couldn't read. So the failure blocks the UI instead of being a toast.
+  const [loadError, setLoadError] = useState(null);
+
+  // One toast per outage, not one per keystroke.
+  const saveFailed = useRef(false);
+
   // Currency is a display concern, so it lives outside React state.
   useEffect(() => { setDisplayCurrency(state.settings?.currency); }, [state.settings?.currency]);
 
+  // Electron-only: load from SQLite, seeding sample data (or migrating a legacy
+  // localStorage blob) exactly once on first launch.
   useEffect(() => {
     if (!isElectron) return;
     let cancelled = false;
@@ -143,7 +154,19 @@ export function FinancialProvider({ children }) {
       try {
         if (await isInitialized()) {
           const loaded = await loadState();
-          if (!cancelled && loaded) dispatch({ type: 'LOAD_DATA', payload: loaded });
+          if (!cancelled && loaded) {
+            // `_corruptRows` is a load report, not app state — strip it before
+            // the reducer spreads it in and the next save writes it back.
+            const { _corruptRows: corrupt, ...payload } = loaded;
+            dispatch({ type: 'LOAD_DATA', payload });
+            if (corrupt > 0) {
+              toast(
+                `${corrupt} ${corrupt === 1 ? 'record was' : 'records were'} unreadable and have been left out. `
+                + 'Export a backup before making changes.',
+                { type: 'error', duration: 15000 },
+              );
+            }
+          }
         } else {
           const legacy = readLegacyLocalStorage();
           const seed = legacy ? withDefaults(legacy) : { ...sampleData };
@@ -151,19 +174,40 @@ export function FinancialProvider({ children }) {
           await markInitialized();
           if (!cancelled) dispatch({ type: 'LOAD_DATA', payload: seed });
         }
-      } finally {
-        readyToPersist.current = true;
+        // Only a load that actually completed earns the right to write back.
+        if (!cancelled) readyToPersist.current = true;
+      } catch (err) {
+        // Deliberately leaves readyToPersist false. This used to sit in a
+        // `finally`, which meant a failed load unlocked writing while `state`
+        // was still the empty placeholder — the next dispatch then wrote it
+        // over the real database. Nothing is written from here on.
+        if (!cancelled) setLoadError(err);
       }
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [toast]);
 
   // Persist the whole state on every change (matches the prior localStorage
   // semantics; the adapter routes it to SQLite or localStorage as appropriate).
   useEffect(() => {
     if (!readyToPersist.current) return;
-    saveState(state);
-  }, [state]);
+    saveState(state).then(
+      () => { saveFailed.current = false; },
+      (err) => {
+        // A write that fails silently is the worst outcome here: the user keeps
+        // working against a copy that is no longer being saved anywhere.
+        if (saveFailed.current) return;
+        saveFailed.current = true;
+        console.error('Save failed:', err);
+        toast('Your changes are not being saved. Export a backup from Settings.', {
+          type: 'error',
+          duration: 15000,
+        });
+      },
+    );
+  }, [state, toast]);
+
+  if (loadError) return <LoadFailure error={loadError} />;
 
   return (
     <FinancialContext.Provider value={{ state, dispatch }}>

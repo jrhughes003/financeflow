@@ -31,20 +31,50 @@ function isEmpty(db) {
   return true;
 }
 
+/**
+ * Parse one stored JSON blob, counting rather than throwing on failure.
+ *
+ * A single unreadable row used to reject the whole load, and the renderer
+ * treated that rejection as "no data yet" and wrote an empty ledger over the
+ * top. Skipping the row loses one record; aborting the load lost all of them.
+ * The count travels back to the UI so the user is told rather than guessing.
+ */
+function parseRow(json, report) {
+  try {
+    const value = JSON.parse(json);
+    if (value && typeof value === 'object') return value;
+  } catch { /* fall through to the skip below */ }
+  report.corrupt += 1;
+  return null;
+}
+
 /** Read the entire database back into the in-memory state shape the app expects. */
 function loadAll(db) {
-  const transactions = db
-    .prepare('SELECT data FROM transactions')
-    .all()
-    .map(r => JSON.parse(r.data));
+  const report = { corrupt: 0 };
 
-  const state = { transactions };
+  const state = {
+    transactions: db
+      .prepare('SELECT data FROM transactions')
+      .all()
+      .map(r => parseRow(r.data, report))
+      .filter(Boolean),
+  };
+
   for (const { stateKey, table } of COLLECTION_TABLES) {
-    state[stateKey] = db.prepare(`SELECT data FROM ${table}`).all().map(r => JSON.parse(r.data));
+    state[stateKey] = db
+      .prepare(`SELECT data FROM ${table}`)
+      .all()
+      .map(r => parseRow(r.data, report))
+      .filter(Boolean);
   }
 
   const settingsRow = db.prepare("SELECT value FROM meta WHERE key = 'settings'").get();
-  state.settings = settingsRow ? JSON.parse(settingsRow.value) : { ...DEFAULT_SETTINGS };
+  const settings = settingsRow ? parseRow(settingsRow.value, report) : null;
+  state.settings = settings || { ...DEFAULT_SETTINGS };
+
+  // Only present when something was unreadable; the renderer strips it before
+  // it can reach the reducer and be written back as a real state field.
+  if (report.corrupt > 0) state._corruptRows = report.corrupt;
 
   return state;
 }

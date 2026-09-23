@@ -122,10 +122,12 @@ function AppContent() {
 
 export default function App() {
   return (
-    <FinancialProvider>
-      <ToastProvider>
+    // ToastProvider is outermost so FinancialProvider can raise a toast when a
+    // save fails. It holds no financial state, so the order costs nothing.
+    <ToastProvider>
+      <FinancialProvider>
         <AppContent />
-      </ToastProvider>
-    </FinancialProvider>
+      </FinancialProvider>
+    </ToastProvider>
   );
 }

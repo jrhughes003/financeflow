@@ -71,9 +71,14 @@ export function ToastProvider({ children }) {
   );
 }
 
+// Module-level so the identity is stable: callers put `toast` in effect
+// dependency arrays, and a fresh object per render would re-run those effects
+// on every render.
+const NO_TOASTS = { toast: () => {}, dismiss: () => {} };
+
 export function useToast() {
   const ctx = useContext(ToastContext);
   // Components are rendered inside the provider in the app, but tests may mount
   // one on its own; a no-op keeps those from crashing.
-  return ctx || { toast: () => {}, dismiss: () => {} };
+  return ctx || NO_TOASTS;
 }

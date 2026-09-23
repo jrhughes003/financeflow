@@ -1,33 +1,106 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   LayoutDashboard, CreditCard, PieChart, Target, TrendingUp, Wallet,
-  BarChart3, FileText, Menu, X, Plus, DollarSign, Landmark, RefreshCw, Settings as SettingsIcon, HandCoins, Milestone
+  BarChart3, FileText, Menu, X, Plus, DollarSign, Landmark, RefreshCw,
+  Settings as SettingsIcon, HandCoins, Milestone, ChevronDown, Receipt, LineChart, PiggyBank
 } from 'lucide-react';
 
-const NAV_ITEMS = [
-  { id: 'dashboard',    label: 'Dashboard',    icon: LayoutDashboard },
-  { id: 'transactions', label: 'Transactions', icon: CreditCard },
-  { id: 'owed',         label: 'Owed to Me',   icon: HandCoins },
-  { id: 'budget',       label: 'Budget',       icon: Wallet },
-  { id: 'comparison',  label: 'Comparison',   icon: BarChart3 },
-  { id: 'analytics',   label: 'Analytics',    icon: PieChart },
-  { id: 'goals',       label: 'Goals',        icon: Target },
-  { id: 'income',      label: 'Income',       icon: DollarSign },
-  { id: 'investments', label: 'Investments',  icon: TrendingUp },
-  { id: 'debts',       label: 'Debts',        icon: Landmark },
-  { id: 'recurring',   label: 'Recurring',    icon: RefreshCw },
-  { id: 'plan',        label: 'Plan Ahead',   icon: Milestone },
-  { id: 'reports',     label: 'Reports',      icon: FileText },
-  { id: 'settings',    label: 'Settings',     icon: SettingsIcon },
+// Dashboard and Settings stay pinned; everything else lives in a collapsible
+// group, so the sidebar is six rows at rest instead of fourteen.
+const NAV = [
+  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  {
+    id: 'everyday',
+    label: 'Everyday',
+    icon: Receipt,
+    items: [
+      { id: 'transactions', label: 'Transactions', icon: CreditCard },
+      { id: 'owed',         label: 'Owed to Me',   icon: HandCoins },
+      { id: 'recurring',    label: 'Recurring',    icon: RefreshCw },
+    ],
+  },
+  {
+    id: 'budgeting',
+    label: 'Budgeting',
+    icon: PiggyBank,
+    items: [
+      { id: 'budget', label: 'Budget', icon: Wallet },
+      { id: 'goals',  label: 'Goals',  icon: Target },
+    ],
+  },
+  {
+    id: 'analysis',
+    label: 'Analysis',
+    icon: LineChart,
+    items: [
+      { id: 'comparison', label: 'Comparison', icon: BarChart3 },
+      { id: 'analytics',  label: 'Analytics',  icon: PieChart },
+      { id: 'reports',    label: 'Reports',    icon: FileText },
+    ],
+  },
+  {
+    id: 'wealth',
+    label: 'Wealth & Planning',
+    icon: TrendingUp,
+    items: [
+      { id: 'income',      label: 'Income',      icon: DollarSign },
+      { id: 'investments', label: 'Investments', icon: TrendingUp },
+      { id: 'debts',       label: 'Debts',       icon: Landmark },
+      { id: 'plan',        label: 'Plan Ahead',  icon: Milestone },
+    ],
+  },
+  { id: 'settings', label: 'Settings', icon: SettingsIcon },
 ];
+
+// Flat list, for looking up the current page's title.
+const NAV_ITEMS = NAV.flatMap(entry => (entry.items ? entry.items : [entry]));
+
+const groupIdFor = pageId => NAV.find(g => g.items?.some(i => i.id === pageId))?.id;
+
+const OPEN_GROUPS_KEY = 'financeflow_nav_groups';
+
+// Which groups start expanded: whatever the user left open last time, else just
+// the one holding the current page. Storage can throw (private mode, blocked
+// site data), so every access is guarded and falls back to a sane default.
+function loadOpenGroups(currentPage) {
+  try {
+    const saved = JSON.parse(localStorage.getItem(OPEN_GROUPS_KEY));
+    if (Array.isArray(saved)) return saved;
+  } catch { /* ignore — fall through to the default */ }
+  const active = groupIdFor(currentPage);
+  return active ? [active] : [];
+}
 
 export default function Layout({ currentPage, setCurrentPage, onQuickAdd, children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [openGroups, setOpenGroups] = useState(() => loadOpenGroups(currentPage));
+
+  useEffect(() => {
+    try { localStorage.setItem(OPEN_GROUPS_KEY, JSON.stringify(openGroups)); } catch { /* not critical */ }
+  }, [openGroups]);
+
+  // Navigating from elsewhere (a dashboard link, a keyboard shortcut) should
+  // reveal where you landed.
+  useEffect(() => {
+    const group = groupIdFor(currentPage);
+    if (group) setOpenGroups(prev => (prev.includes(group) ? prev : [...prev, group]));
+  }, [currentPage]);
+
+  const toggleGroup = (id) =>
+    setOpenGroups(prev => (prev.includes(id) ? prev.filter(g => g !== id) : [...prev, id]));
 
   const handleNav = (id) => {
     setCurrentPage(id);
     setSidebarOpen(false);
   };
+
+  const itemClasses = (id, nested) => `
+    w-full flex items-center gap-3 ${nested ? 'pl-9 pr-3' : 'px-3'} py-2.5 rounded-xl mb-0.5
+    text-sm font-medium transition-colors text-left
+    ${currentPage === id
+      ? 'bg-blue-50 text-blue-700'
+      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}
+  `;
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
@@ -71,21 +144,59 @@ export default function Layout({ currentPage, setCurrentPage, onQuickAdd, childr
 
         {/* Navigation */}
         <nav className="flex-1 px-3 pb-4 overflow-y-auto">
-          {NAV_ITEMS.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              onClick={() => handleNav(id)}
-              className={`
-                w-full flex items-center gap-3 px-3 py-2.5 rounded-xl mb-0.5 text-sm font-medium transition-colors
-                ${currentPage === id
-                  ? 'bg-blue-50 text-blue-700'
-                  : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}
-              `}
-            >
-              <Icon className="w-4.5 h-4.5 shrink-0" style={{ width: 18, height: 18 }} />
-              {label}
-            </button>
-          ))}
+          {NAV.map((entry) => {
+            const Icon = entry.icon;
+
+            // A pinned, top-level destination.
+            if (!entry.items) {
+              return (
+                <button key={entry.id} onClick={() => handleNav(entry.id)} className={itemClasses(entry.id)}>
+                  <Icon className="shrink-0" style={{ width: 18, height: 18 }} />
+                  {entry.label}
+                </button>
+              );
+            }
+
+            const isOpen = openGroups.includes(entry.id);
+            const holdsCurrent = entry.items.some(i => i.id === currentPage);
+
+            return (
+              <div key={entry.id} className="mb-0.5">
+                <button
+                  onClick={() => toggleGroup(entry.id)}
+                  aria-expanded={isOpen}
+                  aria-controls={`nav-group-${entry.id}`}
+                  className={`
+                    w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium
+                    transition-colors text-left
+                    ${holdsCurrent && !isOpen
+                      ? 'text-blue-700 hover:bg-blue-50'
+                      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}
+                  `}
+                >
+                  <Icon className="shrink-0" style={{ width: 18, height: 18 }} />
+                  <span className="flex-1">{entry.label}</span>
+                  {/* Collapsed groups still show where you are. */}
+                  {holdsCurrent && !isOpen && <span className="w-1.5 h-1.5 rounded-full bg-blue-600 shrink-0" />}
+                  <ChevronDown
+                    className={`shrink-0 text-gray-400 transition-transform duration-200 ${isOpen ? '' : '-rotate-90'}`}
+                    style={{ width: 16, height: 16 }}
+                  />
+                </button>
+
+                {isOpen && (
+                  <div id={`nav-group-${entry.id}`} className="mt-0.5">
+                    {entry.items.map(({ id, label, icon: ItemIcon }) => (
+                      <button key={id} onClick={() => handleNav(id)} className={itemClasses(id, true)}>
+                        <ItemIcon className="shrink-0" style={{ width: 16, height: 16 }} />
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </nav>
 
         {/* Footer */}

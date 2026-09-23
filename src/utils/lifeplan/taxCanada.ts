@@ -52,14 +52,68 @@ export const BENEFITS = {
 
 export const CAPITAL_GAINS_INCLUSION = 0.5;
 
-const round2 = n => Math.round(n * 100) / 100;
+import type { Money } from '../../types/domain';
+
+/** Everything here is indexed forward from TAX_BASE_YEAR at this rate. */
+export interface TaxYearOptions {
+  year?: number;
+  inflationPct?: number;
+}
+
+export interface PayrollContributions {
+  /** Base CPP — earns a tax credit rather than a deduction. */
+  cppBase: Money;
+  /** Enhanced CPP — deductible from taxable income. */
+  cppEnhanced: Money;
+  /** CPP2, on earnings between the YMPE and YAMPE. Also deductible. */
+  cpp2: Money;
+  ei: Money;
+  total: Money;
+}
+
+export interface TaxableIncome {
+  /** Employment income, which drives payroll and the employment amount. */
+  employment?: Money;
+  /** Fully taxable income: CPP, OAS, RRSP withdrawals, interest. */
+  otherTaxable?: Money;
+  /** Realised gains; half is included. */
+  capitalGains?: Money;
+  /** RRSP and FHSA contributions, and anything else deductible. */
+  deductions?: Money;
+  /** OAS received, needed for the recovery tax. */
+  oasReceived?: Money;
+}
+
+export interface TaxResult {
+  taxable: Money;
+  federal: Money;
+  /** Ontario tax including surtax, but not the health premium. */
+  provincial: Money;
+  /** Ontario Health Premium. */
+  ohp: Money;
+  /** OAS recovery tax. */
+  oasClawback: Money;
+  payroll: PayrollContributions;
+  incomeTax: Money;
+  /** Income tax plus payroll — what actually leaves the pay cheque. */
+  total: Money;
+  /** As a fraction of gross, not a percentage. */
+  averageRate: number;
+  /** On the next dollar of ordinary income. */
+  marginalRate: number;
+}
+
+/** [income where the ramp starts, ramp rate, premium at the top of the ramp] */
+type OhpStep = readonly [number, number, number];
+
+const round2 = (n: number): Money => Math.round(n * 100) / 100;
 
 /** Inflation index relative to the tax base year. */
-export function indexFor(year, inflationPct) {
+export function indexFor(year: number, inflationPct: number): number {
   return Math.pow(1 + inflationPct / 100, Math.max(0, year - TAX_BASE_YEAR));
 }
 
-function bracketTax(income, rates, thresholds) {
+function bracketTax(income: Money, rates: number[], thresholds: number[]): Money {
   let tax = 0;
   let prev = 0;
   for (let i = 0; i < rates.length; i++) {
@@ -70,13 +124,16 @@ function bracketTax(income, rates, thresholds) {
   return tax;
 }
 
-function marginalFrom(income, rates, thresholds) {
+function marginalFrom(income: Money, rates: number[], thresholds: number[]): number {
   const i = thresholds.findIndex(t => income < t);
   return rates[i === -1 ? rates.length - 1 : i];
 }
 
 /** CPP (incl. CPP2) and EI employee contributions on employment income. */
-export function payrollContributions(employmentIncome, { year = TAX_BASE_YEAR, inflationPct = 2 } = {}) {
+export function payrollContributions(
+  employmentIncome: Money,
+  { year = TAX_BASE_YEAR, inflationPct = 2 }: TaxYearOptions = {},
+): PayrollContributions {
   const idx = indexFor(year, inflationPct);
   const { cpp, ei } = PAYROLL;
   const ympe = cpp.ympe * idx;
@@ -96,7 +153,7 @@ export function payrollContributions(employmentIncome, { year = TAX_BASE_YEAR, i
 }
 
 // Ontario Health Premium: flat plateaus joined by short phase-in ramps.
-const OHP_STEPS = [
+const OHP_STEPS: readonly OhpStep[] = [
   // [income where the ramp starts, ramp rate, premium reached at the top of the ramp]
   [20000, 0.06, 300],
   [36000, 0.06, 450],
@@ -104,7 +161,7 @@ const OHP_STEPS = [
   [72000, 0.25, 750],
   [200000, 0.25, 900],
 ];
-export function ontarioHealthPremium(taxable) {
+export function ontarioHealthPremium(taxable: Money): Money {
   let premium = 0;
   for (const [from, rate, cap] of OHP_STEPS) {
     if (taxable <= from) break;
@@ -113,18 +170,11 @@ export function ontarioHealthPremium(taxable) {
   return premium;
 }
 
-/**
- * Income tax for one person for one year.
- * @param p.employment      employment income (for payroll + employment amount)
- * @param p.otherTaxable    other fully taxable income (CPP/OAS, RRSP withdrawals, interest)
- * @param p.capitalGains    realized capital gains (50% included)
- * @param p.deductions      RRSP/FHSA contributions and other deductions
- * @param p.oasReceived     OAS received (for the clawback)
- * @returns { taxable, federal, provincial, ohp, oasClawback, payroll, incomeTax, total,
- *            averageRate, marginalRate }
- */
-export function computeTax({ employment = 0, otherTaxable = 0, capitalGains = 0, deductions = 0, oasReceived = 0 } = {},
-  { year = TAX_BASE_YEAR, inflationPct = 2 } = {}) {
+/** Income tax for one person for one year. */
+export function computeTax(
+  { employment = 0, otherTaxable = 0, capitalGains = 0, deductions = 0, oasReceived = 0 }: TaxableIncome = {},
+  { year = TAX_BASE_YEAR, inflationPct = 2 }: TaxYearOptions = {},
+): TaxResult {
   const idx = indexFor(year, inflationPct);
   const payroll = payrollContributions(employment, { year, inflationPct });
   const netIncome = Math.max(0, employment + otherTaxable + capitalGains * CAPITAL_GAINS_INCLUSION
@@ -173,7 +223,7 @@ export function computeTax({ employment = 0, otherTaxable = 0, capitalGains = 0,
 }
 
 /** OAS for someone of a given age (full residency assumed), indexed. */
-export function oasFor(age, startAge, year, inflationPct) {
+export function oasFor(age: number, startAge: number, year: number, inflationPct: number): Money {
   if (age < Math.max(65, startAge)) return 0;
   const deferralBonus = 1 + Math.min(60, Math.max(0, (startAge - 65) * 12)) * 0.006;
   const age75Bonus = age >= 75 ? 1.1 : 1;
@@ -181,7 +231,13 @@ export function oasFor(age, startAge, year, inflationPct) {
 }
 
 /** CPP adjusted for start age: −0.6%/month before 65, +0.7%/month after (60–70). */
-export function cppFor(age, startAge, annualAt65TodayDollars, year, inflationPct) {
+export function cppFor(
+  age: number,
+  startAge: number,
+  annualAt65TodayDollars: Money,
+  year: number,
+  inflationPct: number,
+): Money {
   if (age < startAge) return 0;
   const months = (Math.min(70, Math.max(60, startAge)) - 65) * 12;
   const factor = months < 0 ? 1 + months * 0.006 : 1 + months * 0.007;

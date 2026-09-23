@@ -2,10 +2,57 @@
 // Ontario land transfer tax (+ optional Toronto municipal LTT), and mortgage
 // payments. Estimates for planning.
 
-const round2 = n => Math.round(n * 100) / 100;
+import type { Money } from '../../types/domain';
+
+const round2 = (n: number): Money => Math.round(n * 100) / 100;
+
+/** A [ceiling, rate] tier table, applied to the portion of the price in each band. */
+type TierTable = ReadonlyArray<readonly [number, number]>;
+
+export interface CmhcPremium {
+  /** The premium rate applied, or 0 when insurance isn't required. */
+  rate: number;
+  premium: Money;
+  /** Ontario's 8% PST on the premium — payable in cash at closing, not financed. */
+  pst: Money;
+}
+
+export interface LandTransferTax {
+  provincial: Money;
+  municipal: Money;
+  total: Money;
+}
+
+export interface HousePurchaseInput {
+  price: Money;
+  /** Percent, not a fraction. */
+  downPct?: number;
+  mortgageRate?: number;
+  amortizationYears?: number;
+  firstTime?: boolean;
+  toronto?: boolean;
+  legalAndOther?: Money;
+}
+
+export interface HousePurchase {
+  price: Money;
+  downPayment: Money;
+  downPct: number;
+  minDown: Money;
+  /** True when the down payment is under the legal minimum for this price. */
+  belowMinimum: boolean;
+  cmhc: CmhcPremium;
+  ltt: LandTransferTax;
+  legal: Money;
+  /** Everything due at closing that cannot be rolled into the mortgage. */
+  cashNeeded: Money;
+  mortgage: Money;
+  amortizationYears: number;
+  monthlyPayment: Money;
+}
 
 /** Minimum down payment: 5% of the first $500k, 10% of the rest; 20% at $1.5M+. */
-export function minimumDownPayment(price) {
+export function minimumDownPayment(price: Money): Money {
   if (price >= 1500000) return price * 0.2;
   if (price <= 500000) return price * 0.05;
   return 25000 + (price - 500000) * 0.1;
@@ -15,7 +62,7 @@ export function minimumDownPayment(price) {
  * CMHC (default insurance) premium, added to the mortgage. Required below 20%
  * down. Ontario also charges 8% PST on the premium, payable in cash at closing.
  */
-export function cmhcPremium(price, downPayment) {
+export function cmhcPremium(price: Money, downPayment: Money): CmhcPremium {
   const downPct = price > 0 ? downPayment / price : 1;
   if (downPct >= 0.2) return { rate: 0, premium: 0, pst: 0 };
   const rate = downPct < 0.1 ? 0.04 : downPct < 0.15 ? 0.031 : 0.028;
@@ -24,12 +71,12 @@ export function cmhcPremium(price, downPayment) {
 }
 
 // Ontario LTT brackets for a single-family residence.
-const ON_LTT = [[55000, 0.005], [250000, 0.01], [400000, 0.015], [2000000, 0.02], [Infinity, 0.025]];
+const ON_LTT: TierTable = [[55000, 0.005], [250000, 0.01], [400000, 0.015], [2000000, 0.02], [Infinity, 0.025]];
 // Toronto MLTT (residential), including the luxury tiers above $3M.
-const TO_MLTT = [[55000, 0.005], [250000, 0.01], [400000, 0.015], [2000000, 0.02], [3000000, 0.025],
+const TO_MLTT: TierTable = [[55000, 0.005], [250000, 0.01], [400000, 0.015], [2000000, 0.02], [3000000, 0.025],
   [4000000, 0.035], [5000000, 0.045], [10000000, 0.055], [20000000, 0.065], [Infinity, 0.075]];
 
-function tiered(price, tiers) {
+function tiered(price: Money, tiers: TierTable): Money {
   let tax = 0, prev = 0;
   for (const [cap, rate] of tiers) {
     if (price > prev) tax += (Math.min(price, cap) - prev) * rate;
@@ -39,7 +86,10 @@ function tiered(price, tiers) {
 }
 
 /** Land transfer tax after first-time-buyer rebates. */
-export function landTransferTax(price, { firstTime = true, toronto = false } = {}) {
+export function landTransferTax(
+  price: Money,
+  { firstTime = true, toronto = false }: { firstTime?: boolean; toronto?: boolean } = {},
+): LandTransferTax {
   const provincial = tiered(price, ON_LTT);
   const municipal = toronto ? tiered(price, TO_MLTT) : 0;
   const provRebate = firstTime ? Math.min(4000, provincial) : 0;
@@ -52,11 +102,11 @@ export function landTransferTax(price, { firstTime = true, toronto = false } = {
 }
 
 /** Canadian fixed mortgages compound semi-annually; this is the equivalent monthly rate. */
-export function mortgageMonthlyRate(annualPct) {
+export function mortgageMonthlyRate(annualPct: number): number {
   return Math.pow(1 + annualPct / 100 / 2, 1 / 6) - 1;
 }
 
-export function mortgagePayment(principal, annualPct, amortizationYears) {
+export function mortgagePayment(principal: Money, annualPct: number, amortizationYears: number): Money {
   const n = amortizationYears * 12;
   const r = mortgageMonthlyRate(annualPct);
   if (principal <= 0) return 0;
@@ -65,18 +115,18 @@ export function mortgagePayment(principal, annualPct, amortizationYears) {
 }
 
 /** Plain monthly-compounded loan payment (car loans). */
-export function loanPayment(principal, annualPct, months) {
+export function loanPayment(principal: Money, annualPct: number, months: number): Money {
   const r = annualPct / 100 / 12;
   if (principal <= 0 || months <= 0) return 0;
   if (r === 0) return principal / months;
   return (principal * r) / (1 - Math.pow(1 + r, -months));
 }
 
-/**
- * Everything needed at closing for a house event.
- * @returns { price, downPayment, downPct, minDown, cmhc, ltt, legal, cashNeeded, mortgage, monthlyPayment, belowMinimum }
- */
-export function housePurchase({ price, downPct = 20, mortgageRate = 4.5, amortizationYears = 25, firstTime = true, toronto = false, legalAndOther = 2500 }) {
+/** Everything needed at closing for a house event. */
+export function housePurchase({
+  price, downPct = 20, mortgageRate = 4.5, amortizationYears = 25,
+  firstTime = true, toronto = false, legalAndOther = 2500,
+}: HousePurchaseInput): HousePurchase {
   const downPayment = price * (downPct / 100);
   const minDown = minimumDownPayment(price);
   const cmhc = cmhcPremium(price, downPayment);

@@ -32,7 +32,37 @@
 // than two independent trials.
 
 /** Standard normal via Box–Muller. */
-export function normal(rand) {
+/** A seeded uniform generator in [0, 1). mulberry32 in montecarlo.ts supplies it. */
+export type Rng = () => number;
+
+/** Which process generates the year-to-year returns. */
+export type ReturnModel = 'studentT' | 'normal' | 'bootstrap';
+
+export interface Interval {
+  low: number;
+  high: number;
+}
+
+export interface AnnualReturnsOptions {
+  model?: ReturnModel;
+  /** Arithmetic mean return, as a fraction — 0.06 is 6%. */
+  mean?: number;
+  /** Standard deviation, as a fraction. */
+  sd?: number;
+  /** Student-t degrees of freedom; lower means fatter tails. */
+  df?: number;
+  /** AR(1) persistence. 0 makes years independent. */
+  phi?: number;
+  /** One standard normal draw per year. Its length sets the horizon. */
+  shocks?: number[];
+  /** Chi-squared draws for the t tails, shared with the antithetic twin. */
+  tailDraws?: number[];
+  /** Historical returns to resample, for the bootstrap model. */
+  series?: number[];
+  blockYears?: number;
+}
+
+export function normal(rand: Rng): number {
   let u = 0;
   let v = 0;
   while (u === 0) u = rand();
@@ -41,7 +71,7 @@ export function normal(rand) {
 }
 
 /** A vector of standard normals, so a whole path can be negated at once. */
-export function normalVector(rand, n) {
+export function normalVector(rand: Rng, n: number): number[] {
   return Array.from({ length: n }, () => normal(rand));
 }
 
@@ -49,7 +79,7 @@ export function normalVector(rand, n) {
  * Chi-squared with `df` degrees of freedom, by summing squared normals.
  * Fine for the small integer df used here (t needs df > 2 for finite variance).
  */
-export function chiSquared(rand, df) {
+export function chiSquared(rand: Rng, df: number): number {
   let total = 0;
   for (let i = 0; i < df; i += 1) {
     const z = normal(rand);
@@ -64,7 +94,7 @@ export function chiSquared(rand, df) {
  * dividing by that factor keeps the requested volatility while moving mass
  * into the tails.
  */
-export function standardisedT(z, chi2, df) {
+export function standardisedT(z: number, chi2: number, df: number): number {
   const t = z / Math.sqrt(chi2 / df);
   return t / Math.sqrt(df / (df - 2));
 }
@@ -87,20 +117,20 @@ export function standardisedT(z, chi2, df) {
 export function annualReturns({
   model = 'studentT', mean = 0.06, sd = 0.12, df = 5, phi = 0.15,
   shocks = [], tailDraws = [], series = [], blockYears = 5,
-} = {}) {
+}: AnnualReturnsOptions = {}): number[] {
   const years = shocks.length;
 
   if (model === 'bootstrap') {
     if (!series.length) throw new Error('bootstrap needs a series of historical returns');
     // Blocks of consecutive years, so within a block the real ordering — and
     // therefore the clustering of good and bad years — is preserved.
-    const out = [];
+    const out: number[] = [];
     let cursor = 0;
     while (out.length < years) {
       // The shock vector picks the starting year; wrapping keeps every start
       // equally likely (a circular block bootstrap).
       const u = normalCdf(shocks[cursor % Math.max(1, years)] || 0);
-      let start = Math.floor(u * series.length) % series.length;
+      const start = Math.floor(u * series.length) % series.length;
       for (let i = 0; i < blockYears && out.length < years; i += 1) {
         out.push(series[(start + i) % series.length]);
       }
@@ -109,7 +139,7 @@ export function annualReturns({
     return out;
   }
 
-  const out = [];
+  const out: number[] = [];
   let previous = mean;
   for (let y = 0; y < years; y += 1) {
     const z = shocks[y];
@@ -129,7 +159,7 @@ export function annualReturns({
 
 /** Φ(z), via an Abramowitz–Stegun approximation. Used to turn a normal draw
  *  into a uniform for block selection, so one shock vector drives every model. */
-export function normalCdf(z) {
+export function normalCdf(z: number): number {
   const t = 1 / (1 + 0.2316419 * Math.abs(z));
   const d = 0.3989423 * Math.exp((-z * z) / 2);
   const p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
@@ -144,7 +174,7 @@ export function normalCdf(z) {
  * the app runs — where it can produce bounds outside [0, 1]. Wilson stays
  * inside and holds its coverage.
  */
-export function wilsonInterval(successes, n, z = 1.96) {
+export function wilsonInterval(successes: number, n: number, z = 1.96): Interval {
   if (!n) return { low: 0, high: 0 };
   const p = successes / n;
   const denominator = 1 + (z * z) / n;

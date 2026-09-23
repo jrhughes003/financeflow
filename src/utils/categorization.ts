@@ -1,7 +1,9 @@
 // Core category definitions — 5 user-defined categories
 // Custom categories added by the user are stored in context state.
 
-export const CATEGORIES = [
+import type { Category } from '../types/domain';
+
+export const CATEGORIES: Category[] = [
   {
     id: 'dining_out',
     name: 'Dining Out',
@@ -82,7 +84,7 @@ export const CATEGORIES = [
  * Get all categories: core + any user-created custom categories.
  * Always call this instead of using CATEGORIES directly when you need the full list.
  */
-export function getAllCategories(customCategories = []) {
+export function getAllCategories(customCategories: Category[] = []): Category[] {
   return [...CATEGORIES, ...customCategories];
 }
 
@@ -90,7 +92,7 @@ export function getAllCategories(customCategories = []) {
  * Auto-categorize a transaction based on merchant name keywords.
  * Returns the category id or 'products' (catch-all) if no match found.
  */
-export function autoCategorize(merchantName, customCategories = []) {
+export function autoCategorize(merchantName: string, customCategories: Category[] = []): string {
   if (!merchantName) return 'products';
   const lower = merchantName.toLowerCase();
   for (const cat of getAllCategories(customCategories)) {
@@ -101,7 +103,7 @@ export function autoCategorize(merchantName, customCategories = []) {
   return 'products';
 }
 
-export function getCategoryById(id, customCategories = []) {
+export function getCategoryById(id: string, customCategories: Category[] = []): Category {
   return getAllCategories(customCategories).find(c => c.id === id)
     || CATEGORIES[CATEGORIES.length - 1]; // fallback to Products
 }

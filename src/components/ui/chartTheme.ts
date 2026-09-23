@@ -39,7 +39,7 @@ export const xAxis = { ...axis, dy: 4 };
 export const yAxis = { ...axis, width: 56 };
 
 /* Compact axis labels: $1.2k reads faster than $1,234 on a tick. */
-export function compactMoney(value) {
+export function compactMoney(value: number | string): string {
   const n = Number(value) || 0;
   const abs = Math.abs(n);
   if (abs >= 1_000_000) return `$${(n / 1_000_000).toFixed(abs >= 10_000_000 ? 0 : 1)}M`;

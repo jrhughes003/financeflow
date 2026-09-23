@@ -9,16 +9,17 @@ import React from 'react';
 import { FinancialProvider } from '../context/FinancialContext';
 import { ToastProvider } from '../context/ToastContext';
 import RecurringManager from './RecurringManager';
+import { makeRecurring } from '../test/factories';
+import type { RecurringTemplate } from '../types/domain';
 
-const seed = (templates) => localStorage.setItem('financeflow_data', JSON.stringify({
+const seed = (templates: RecurringTemplate[]) => localStorage.setItem('financeflow_data', JSON.stringify({
   transactions: [], budgets: [], incomes: [], savings_goals: [], investments: [],
   debts: [], customCategories: [], settings: { currency: 'CAD' },
   recurringTemplates: templates,
 }));
 
-const template = (over = {}) => ({
-  id: 'rt1', merchant: 'Spotify', amount: 12, category: 'entertainment',
-  frequency: 'monthly', nextDate: '2099-01-01', active: true, ...over,
+const template = (over: Partial<RecurringTemplate> = {}): RecurringTemplate => makeRecurring({
+  category: 'entertainment', nextDate: '2099-01-01', active: true, ...over,
 });
 
 const renderPage = () => render(
@@ -27,7 +28,7 @@ const renderPage = () => render(
 
 // <Money> puts the currency symbol in its own span so it can be de-emphasised,
 // so the figure is never one text node. Read the whole tree instead.
-const text = (view) => view.container.textContent;
+const text = (view: ReturnType<typeof renderPage>) => view.container.textContent;
 
 beforeEach(() => localStorage.clear());
 afterEach(() => localStorage.clear());

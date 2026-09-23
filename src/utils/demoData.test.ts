@@ -9,6 +9,7 @@ import { getTransactionsForPeriod, getBudgetStatus, getGoalProgress, getTotalInc
 import { getOwedStatus, effectiveAmount } from './reimbursements';
 import { runPlan } from './lifeplan/engine';
 import { buildSnapshot, normalizePlan } from './lifeplan/snapshot';
+import { needsSetup } from '../types/projection';
 
 const TODAY = new Date(2026, 8, 22); // 2026-09-22, fixed so assertions are stable
 
@@ -23,8 +24,13 @@ describe('generateDemoData', () => {
   });
 
   it('gives every entity a unique string id (SQLite persistence requires it)', () => {
-    const collections = ['transactions', 'budgets', 'incomes', 'savings_goals', 'investments', 'debts', 'recurringTemplates', 'customCategories'];
-    const all = collections.flatMap(k => data[k].map(item => item.id));
+    // The arrays themselves rather than their key names: indexing AppState by a
+    // `string` says nothing about what the collection holds.
+    const collections: { id: string }[][] = [
+      data.transactions, data.budgets, data.incomes, data.savings_goals,
+      data.investments, data.debts, data.recurringTemplates, data.customCategories,
+    ];
+    const all = collections.flatMap(items => items.map(item => item.id));
     all.forEach(id => expect(typeof id).toBe('string'));
     expect(new Set(all).size).toBe(all.length);
   });
@@ -94,7 +100,10 @@ describe('generateDemoData', () => {
   it('includes a partly repaid split expense for the owed-to-me feature', () => {
     const owed = data.transactions.find(t => t.owed);
     expect(owed).toBeTruthy();
+    if (!owed) throw new Error('unreachable');
     const status = getOwedStatus(owed);
+    expect(status).not.toBeNull();
+    if (!status) throw new Error('unreachable');
     expect(status.status).toBe('partial');
     expect(status.remaining).toBeGreaterThan(0);
     // spending is net of what friends paid back
@@ -102,7 +111,7 @@ describe('generateDemoData', () => {
   });
 
   it('includes a duplicate charge pair within the detection window', () => {
-    const byKey = {};
+    const byKey: Record<string, string[]> = {};
     data.transactions.forEach(t => {
       const key = `${t.merchant}|${t.amount}`;
       (byKey[key] = byKey[key] || []).push(t.date);
@@ -114,13 +123,15 @@ describe('generateDemoData', () => {
   it('includes a flagged exception that stays out of budget math', () => {
     const exception = data.transactions.find(t => t.isException);
     expect(exception).toBeTruthy();
-    const included = getTransactionsForPeriod(data.transactions, exception.date.slice(5, 7) - 1, Number(exception.date.slice(0, 4)));
+    if (!exception) throw new Error('unreachable');
+    const included = getTransactionsForPeriod(data.transactions, Number(exception.date.slice(5, 7)) - 1, Number(exception.date.slice(0, 4)));
     expect(included.some(t => t.id === exception.id)).toBe(false);
   });
 
   it('includes an interest-free loan still in deferment', () => {
     const deferred = data.debts.find(d => d.repaymentStart);
     expect(deferred).toBeTruthy();
+    if (!deferred || !deferred.repaymentStart) throw new Error('unreachable');
     expect(deferred.interestRate).toBe(0);
     expect(deferred.repaymentStart > '2026-09-22').toBe(true);
   });
@@ -138,17 +149,23 @@ describe('generateDemoData', () => {
     const plan = normalizePlan(data.settings.lifePlan);
     const snapshot = buildSnapshot(data, plan, { today: TODAY });
     const result = runPlan(plan, snapshot, { today: TODAY });
-    expect(result.needsSetup).toBeFalsy();
+    // runPlan returns NeedsSetup instead of rows when the plan has no birth
+    // year, so the outcome has to be narrowed before rows exist on it.
+    expect(needsSetup(result)).toBeFalsy();
+    if (needsSetup(result)) throw new Error('unreachable');
     expect(result.rows.length).toBeGreaterThan(0);
   });
 
   it('maps every investment into a life-plan account bucket', () => {
+    const { lifePlan } = data.settings;
+    expect(lifePlan).toBeDefined();
+    if (!lifePlan) throw new Error('unreachable');
     data.investments.forEach(inv => {
-      expect(data.settings.lifePlan.accountMap[inv.id]).toBeTruthy();
+      expect(lifePlan.accountMap[inv.id]).toBeTruthy();
     });
   });
 });
 
-function round2(n) {
+function round2(n: number) {
   return Math.round(n * 100) / 100;
 }

@@ -13,14 +13,14 @@ import {
 } from './returns';
 import { mulberry32 } from './montecarlo';
 
-const mean = xs => xs.reduce((a, b) => a + b, 0) / xs.length;
-const variance = xs => {
+const mean = (xs: number[]): number => xs.reduce((a, b) => a + b, 0) / xs.length;
+const variance = (xs: number[]): number => {
   const m = mean(xs);
   return xs.reduce((acc, x) => acc + (x - m) ** 2, 0) / (xs.length - 1);
 };
-const sd = xs => Math.sqrt(variance(xs));
+const sd = (xs: number[]): number => Math.sqrt(variance(xs));
 
-function autocorrelation(xs, lag = 1) {
+function autocorrelation(xs: number[], lag = 1): number {
   const m = mean(xs);
   let num = 0;
   let den = 0;
@@ -31,7 +31,7 @@ function autocorrelation(xs, lag = 1) {
   return num / den;
 }
 
-function excessKurtosis(xs) {
+function excessKurtosis(xs: number[]): number {
   const m = mean(xs);
   const s = sd(xs);
   const fourth = xs.reduce((acc, x) => acc + ((x - m) / s) ** 4, 0) / xs.length;
@@ -82,7 +82,7 @@ describe('Student-t innovations', () => {
 });
 
 describe('annualReturns', () => {
-  const shocks = n => normalVector(mulberry32(23), n);
+  const shocks = (n: number): number[] => normalVector(mulberry32(23), n);
 
   it('centres on the expected return with the requested volatility', () => {
     const xs = annualReturns({ model: 'normal', mean: 0.06, sd: 0.12, phi: 0, shocks: shocks(20000) });

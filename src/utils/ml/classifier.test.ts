@@ -13,13 +13,23 @@
 
 import { describe, it, expect } from 'vitest';
 import { normaliseMerchant, extractFeatures, buildVocabulary, vectorise } from './features';
+import type { SparseVector } from './features';
 import { softmax, fit, predict } from './logreg';
 import { train, classify, trainingData } from './categorizer';
+import type { TrainedClassifier } from './categorizer';
 import { crossValidate, scores, confusionMatrix, merchantFolds } from './evaluate';
 import generateDemoData from '../demoData';
 
 const TODAY = new Date(2026, 8, 22);
 const demo = generateDemoData(TODAY);
+
+// The demo ledger is large enough to train on, so a null here means the fixture
+// changed rather than that the test should quietly pass.
+function trained(): TrainedClassifier {
+  const model = train(demo.transactions);
+  if (!model) throw new Error('the demo ledger should train a model');
+  return model;
+}
 
 describe('merchant normalisation', () => {
   it('strips the noise a payment processor adds', () => {
@@ -62,7 +72,7 @@ describe('features', () => {
 
   it('L2-normalises, so a long descriptor does not outweigh a short one', () => {
     const vocabulary = buildVocabulary(['metro store downtown', 'metro'], { minCount: 1 });
-    const norm = v => Math.sqrt([...v.values()].reduce((a, x) => a + x * x, 0));
+    const norm = (v: SparseVector): number => Math.sqrt([...v.values()].reduce((a, x) => a + x * x, 0));
     expect(norm(vectorise('metro store downtown', vocabulary))).toBeCloseTo(1, 6);
     expect(norm(vectorise('metro', vocabulary))).toBeCloseTo(1, 6);
   });
@@ -134,29 +144,29 @@ describe('training on a ledger', () => {
   });
 
   it('learns the merchants in the ledger', () => {
-    const trained = train(demo.transactions);
-    expect(trained.classes.length).toBeGreaterThan(2);
-    expect(classify(trained, 'Tim Hortons').category).toBe('dining_out');
-    expect(classify(trained, 'Metro').category).toBe('groceries');
-    expect(classify(trained, 'Esso').category).toBe('transportation');
+    const model = trained();
+    expect(model.classes.length).toBeGreaterThan(2);
+    expect(classify(model, 'Tim Hortons')!.category).toBe('dining_out');
+    expect(classify(model, 'Metro')!.category).toBe('groceries');
+    expect(classify(model, 'Esso')!.category).toBe('transportation');
   });
 
   it('generalises to a descriptor it never saw in that exact form', () => {
-    const trained = train(demo.transactions);
+    const model = trained();
     // The ledger has "Tim Hortons"; a bank would write it like this.
-    expect(classify(trained, 'TIM HORTONS #0482').category).toBe('dining_out');
-    expect(classify(trained, 'METRO *ETOBICOKE').category).toBe('groceries');
+    expect(classify(model, 'TIM HORTONS #0482')!.category).toBe('dining_out');
+    expect(classify(model, 'METRO *ETOBICOKE')!.category).toBe('groceries');
   });
 
   it('says nothing rather than guessing at an unrecognisable descriptor', () => {
-    const trained = train(demo.transactions);
-    expect(classify(trained, 'zzzz')).toBeNull();
-    expect(classify(trained, '')).toBeNull();
+    const model = trained();
+    expect(classify(model, 'zzzz')).toBeNull();
+    expect(classify(model, '')).toBeNull();
   });
 
   it('reports a confidence that separates sure answers from unsure ones', () => {
-    const trained = train(demo.transactions);
-    const known = classify(trained, 'Tim Hortons');
+    const model = trained();
+    const known = classify(model, 'Tim Hortons')!;
     expect(known.confidence).toBeGreaterThan(0.5);
     expect(known.confident).toBe(true);
     const total = Object.values(known.probabilities).reduce((a, b) => a + b, 0);
@@ -174,11 +184,11 @@ describe('metrics', () => {
   it('computes precision, recall and F1 by hand-checkable values', () => {
     const s = scores(pairs, classes);
     expect(s.accuracy).toBe(0.75);
-    const a = s.perClass.find(c => c.category === 'a');
+    const a = s.perClass.find(c => c.category === 'a')!;
     expect(a.precision).toBe(1);      // one predicted a, and it was right
     expect(a.recall).toBe(0.5);       // two actual a, one found
     expect(a.f1).toBeCloseTo(2 / 3, 6);
-    const b = s.perClass.find(c => c.category === 'b');
+    const b = s.perClass.find(c => c.category === 'b')!;
     expect(b.precision).toBeCloseTo(2 / 3, 6);
     expect(b.recall).toBe(1);
   });
@@ -192,7 +202,7 @@ describe('metrics', () => {
   it('splits folds by merchant, so no merchant appears on both sides', () => {
     const rows = trainingData(demo.transactions);
     const folds = merchantFolds(rows, 5, 1);
-    const seen = new Map();
+    const seen = new Map<string, number>();
     folds.forEach((fold, index) => fold.forEach(group => {
       expect(seen.has(group.key)).toBe(false); // each merchant lands in one fold
       seen.set(group.key, index);
@@ -208,8 +218,8 @@ describe('measured against the keyword matcher', () => {
   it('evaluates on held-out data both ways', () => {
     expect(unseen).not.toBeNull();
     expect(repeat).not.toBeNull();
-    expect(unseen.folds).toBe(5);
-    expect(unseen.merchants).toBeGreaterThan(15);
+    expect(unseen!.folds).toBe(5);
+    expect(unseen!.merchants).toBeGreaterThan(15);
   });
 
   // This is the result, not a bug to be tuned away. A curated keyword list is a
@@ -217,27 +227,27 @@ describe('measured against the keyword matcher', () => {
   // and no way to know that an unseen brand sells coffee. The honest reading is
   // that the model does not replace keywords, and the app does not ask it to.
   it('loses to keywords on merchants it has never seen', () => {
-    expect(unseen.model.accuracy).toBeLessThan(unseen.baseline.accuracy);
+    expect(unseen!.model.accuracy).toBeLessThan(unseen!.baseline.accuracy);
   });
 
   it('matches keywords once a merchant has been seen before', () => {
     // The real case: another transaction arrives from a place already in the
     // ledger. Here memorisation is the point, not leakage.
-    expect(repeat.model.accuracy).toBeGreaterThan(0.9);
-    expect(repeat.model.accuracy).toBeGreaterThanOrEqual(repeat.baseline.accuracy - 0.02);
+    expect(repeat!.model.accuracy).toBeGreaterThan(0.9);
+    expect(repeat!.model.accuracy).toBeGreaterThanOrEqual(repeat!.baseline.accuracy - 0.02);
   });
 
   it('helps exactly where keywords give up, which is the reason to ship it', () => {
     // These demo merchants have no keyword rule, so the baseline scores zero on
     // them by construction. The sample is small — it travels with the number.
-    expect(repeat.whereKeywordsGiveUp.n).toBeGreaterThan(0);
-    expect(repeat.whereKeywordsGiveUp.baseline.accuracy).toBe(0);
-    expect(repeat.whereKeywordsGiveUp.model.accuracy).toBeGreaterThan(0.5);
+    expect(repeat!.whereKeywordsGiveUp.n).toBeGreaterThan(0);
+    expect(repeat!.whereKeywordsGiveUp.baseline.accuracy).toBe(0);
+    expect(repeat!.whereKeywordsGiveUp.model.accuracy).toBeGreaterThan(0.5);
   });
 
   it('is honest about coverage — abstentions are scored, not dropped', () => {
-    expect(unseen.model.n).toBe(unseen.baseline.n); // the same cases, both ways
-    expect(unseen.coverage).toBeGreaterThan(0.5);
+    expect(unseen!.model.n).toBe(unseen!.baseline.n); // the same cases, both ways
+    expect(unseen!.coverage).toBeGreaterThan(0.5);
   });
 
   it('returns nothing when there is too little history to evaluate', () => {

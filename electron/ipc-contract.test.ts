@@ -15,11 +15,11 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const ROOT = process.cwd();
-const read = p => readFileSync(join(ROOT, p), 'utf8');
+const read = (p: string): string => readFileSync(join(ROOT, p), 'utf8');
 
 /** Channel names passed to `fn('channel', …)`, wherever they appear. */
-function channelsPassedTo(source, fn) {
-  const names = [];
+function channelsPassedTo(source: string, fn: string): string[] {
+  const names: string[] = [];
   let from = 0;
   for (;;) {
     const at = source.indexOf(`${fn}(`, from);

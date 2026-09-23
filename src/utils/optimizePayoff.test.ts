@@ -5,13 +5,28 @@
 import { describe, it, expect } from 'vitest';
 import { optimizePayoff, EXHAUSTIVE_LIMIT } from './optimizePayoff';
 import { simulateDebtPayoff } from './planning';
+import { makeDebt } from '../test/factories';
+import type { Debt, Money } from '../types/domain';
 
 const TODAY = new Date(2026, 8, 22); // 2026-09-22
 const opts = { today: TODAY, extra: 400 };
 
-const debt = (id, balance, rate, min, extra = {}) => ({
+const debt = (
+  id: string, balance: Money, rate: number, min: Money, extra: Partial<Debt> = {},
+): Debt => makeDebt({
   id, name: id, type: 'credit_card', balance, interestRate: rate, minimumPayment: min, ...extra,
 });
+
+// optimizePayoff returns null when there are fewer than two debts to order.
+// Every case that binds `best` expects a plan, so narrow once here instead of
+// at each use — and fail by name rather than silently, if it ever stops.
+type Plan = NonNullable<ReturnType<typeof optimizePayoff>>;
+const expectPlan = (debts: Debt[], options: Parameters<typeof optimizePayoff>[1]): Plan => {
+  const best = optimizePayoff(debts, options);
+  expect(best).not.toBeNull();
+  if (!best) throw new Error('optimizePayoff returned null');
+  return best;
+};
 
 describe('where avalanche is already optimal', () => {
   const debts = [
@@ -21,14 +36,14 @@ describe('where avalanche is already optimal', () => {
   ];
 
   it('finds the same total as avalanche, and says so', () => {
-    const best = optimizePayoff(debts, opts);
+    const best = expectPlan(debts, opts);
     expect(best.feasible).toBe(true);
     expect(best.exhaustive).toBe(true);
     // With fixed rates, paying the highest rate first stops the most interest —
     // the exhaustive search confirms the theory rather than beating it.
     expect(best.matchesAvalanche).toBe(true);
     expect(best.savingVsAvalanche).toBeCloseTo(0, 2);
-    expect(best.order[0].id).toBe('visa');
+    expect(best.order?.[0].id).toBe('visa');
   });
 
   it('still beats snowball when the two disagree', () => {
@@ -39,14 +54,14 @@ describe('where avalanche is already optimal', () => {
       debt('tiny', 900, 4.5, 30),      // smallest, and cheapest
       debt('card', 6000, 24.99, 120),  // dearest
     ];
-    const best = optimizePayoff(awkward, opts);
+    const best = expectPlan(awkward, opts);
     expect(best.savingVsSnowball).toBeGreaterThan(0);
     expect(best.matchesAvalanche).toBe(true);
-    expect(best.order[0].id).toBe('card');
+    expect(best.order?.[0].id).toBe('card');
   });
 
   it('searched every ordering', () => {
-    const best = optimizePayoff(debts, opts);
+    const best = expectPlan(debts, opts);
     expect(best.searched).toBe(6); // 3! = 6
   });
 });
@@ -62,9 +77,9 @@ describe('where a promotional rate expires', () => {
   ];
 
   it('beats avalanche by clearing the promo balance before it reverts', () => {
-    const best = optimizePayoff(debts, { today: TODAY, extra: 900 });
+    const best = expectPlan(debts, { today: TODAY, extra: 900 });
     expect(best.feasible).toBe(true);
-    expect(best.order[0].id).toBe('promo');
+    expect(best.order?.[0].id).toBe('promo');
     expect(best.savingVsAvalanche).toBeGreaterThan(0);
   });
 
@@ -95,13 +110,13 @@ describe('deferred loans', () => {
       debt('osap', 17400, 0, 290, { repaymentStart: '2027-04-01' }),
       debt('visa', 2340, 19.99, 75),
     ];
-    const best = optimizePayoff(debts, opts);
+    const best = expectPlan(debts, opts);
     expect(best.feasible).toBe(true);
     // Every ordering ties here, because no payment can reach the deferred loan
     // until 2027 — so the plan should open with the debt you can actually pay,
     // not with an arbitrary winner among equals.
-    expect(best.order[0].id).toBe('visa');
-    expect(best.result.payoffs[0].id).toBe('visa');
+    expect(best.order?.[0].id).toBe('visa');
+    expect(best.result?.payoffs[0].id).toBe('visa');
   });
 });
 
@@ -114,7 +129,7 @@ describe('honesty about what it can and cannot do', () => {
   it('reports infeasible rather than ranking impossible plans', () => {
     // Minimums nowhere near the interest: no ordering saves this.
     const debts = [debt('a', 50000, 29.99, 10), debt('b', 40000, 27.99, 10)];
-    const best = optimizePayoff(debts, { today: TODAY, extra: 0 });
+    const best = expectPlan(debts, { today: TODAY, extra: 0 });
     expect(best.feasible).toBe(false);
     expect(best.order).toBeNull();
   });
@@ -122,7 +137,7 @@ describe('honesty about what it can and cannot do', () => {
   it('switches to the greedy search when exhaustive would be too slow', () => {
     const many = Array.from({ length: EXHAUSTIVE_LIMIT + 1 }, (_, i) =>
       debt(`d${i}`, 2000 + i * 500, 5 + i * 2, 40));
-    const best = optimizePayoff(many, { today: TODAY, extra: 600 });
+    const best = expectPlan(many, { today: TODAY, extra: 600 });
     expect(best.exhaustive).toBe(false);
     // O(n²) rather than n!: 9 debts is 45 simulations, not 362,880.
     expect(best.searched).toBeLessThan(100);
@@ -136,7 +151,7 @@ describe('honesty about what it can and cannot do', () => {
       debt('c', 1500, 24.99, 40),
       debt('d', 12000, 6, 220),
     ];
-    const best = optimizePayoff(debts, opts);
+    const best = expectPlan(debts, opts);
     const heuristicBest = Math.min(best.avalanche.totalInterest, best.snowball.totalInterest);
     expect(best.totalInterest).toBeLessThanOrEqual(heuristicBest + 0.01);
   });

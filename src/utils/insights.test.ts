@@ -16,8 +16,10 @@ import {
   detectDuplicateCharges,
   median,
 } from './insights';
+import { makeBudget, makeGoal, makeIncome, makeRecurring, makeTransaction } from '../test/factories';
+import type { IsoDate, Money, RecurringTemplate, Transaction } from '../types/domain';
 
-const tx = (over = {}) => ({
+const tx = (over: Partial<Transaction> = {}): Transaction => makeTransaction({
   id: Math.random().toString(36).slice(2),
   date: '2026-03-15',
   merchant: 'Test',
@@ -28,7 +30,7 @@ const tx = (over = {}) => ({
 });
 
 // Local-time dates (month is 0-indexed).
-const day = (y, m, d) => new Date(y, m, d);
+const day = (y: number, m: number, d: number) => new Date(y, m, d);
 
 describe('getCategoryDeltas', () => {
   it('compares a finished month against the previous month and trailing average', () => {
@@ -42,6 +44,8 @@ describe('getCategoryDeltas', () => {
     expect(cutoffDay).toBeNull();
     expect(historyMonths).toBe(3);
     const r = rows.find(x => x.category === 'dining_out');
+    expect(r).toBeDefined();
+    if (!r) throw new Error('unreachable');
     expect(r.current).toBe(450);
     expect(r.previous).toBe(300);
     expect(r.average).toBe(200);
@@ -77,7 +81,7 @@ describe('getCategoryDeltas', () => {
 });
 
 describe('isFixedTransaction / templateOccurrences', () => {
-  const templates = [{ id: 'r1', merchant: 'Netflix', amount: 15, category: 'subscriptions', frequency: 'monthly', nextDate: '2026-03-20' }];
+  const templates = [makeRecurring({ id: 'r1', merchant: 'Netflix', amount: 15, category: 'subscriptions', frequency: 'monthly', nextDate: '2026-03-20' })];
 
   it('treats template-posted or template-merchant transactions as fixed', () => {
     expect(isFixedTransaction(tx({ recurringTemplateId: 'x' }), [])).toBe(true);
@@ -88,7 +92,7 @@ describe('isFixedTransaction / templateOccurrences', () => {
 
   it('enumerates future occurrences inside a window', () => {
     expect(templateOccurrences(templates[0], '2026-03-01', '2026-05-31')).toEqual(['2026-03-20', '2026-04-20', '2026-05-20']);
-    const weekly = { ...templates[0], frequency: 'weekly', nextDate: '2026-03-02' };
+    const weekly: RecurringTemplate = { ...templates[0], frequency: 'weekly', nextDate: '2026-03-02' };
     expect(templateOccurrences(weekly, '2026-03-01', '2026-03-31')).toHaveLength(5);
     expect(templateOccurrences({ ...templates[0], active: false }, '2026-03-01', '2026-03-31')).toEqual([]);
   });
@@ -97,12 +101,14 @@ describe('isFixedTransaction / templateOccurrences', () => {
 describe('projectMonthEnd', () => {
   it('uses pace alone with no history, plus scheduled recurring charges', () => {
     const txns = [tx({ date: '2026-04-05', amount: 100 })];
-    const templates = [{ id: 'r1', merchant: 'Gym', amount: 40, category: 'health', frequency: 'monthly', nextDate: '2026-04-25' }];
+    const templates = [makeRecurring({ id: 'r1', merchant: 'Gym', amount: 40, category: 'health', frequency: 'monthly', nextDate: '2026-04-25' })];
     const p = projectMonthEnd({ transactions: txns, recurringTemplates: templates, today: day(2026, 3, 10) });
     const dining = p.categories.find(c => c.category === 'dining_out');
+    expect(dining).toBeDefined();
+    if (!dining) throw new Error('unreachable');
     // 100 over 10 days → 10/day × 20 remaining days.
     expect(dining.projected).toBe(300);
-    expect(p.categories.find(c => c.category === 'health').projected).toBe(40);
+    expect(p.categories.find(c => c.category === 'health')?.projected).toBe(40);
     expect(p.totals.projected).toBe(340);
     expect(p.confidence).toBe('low');
   });
@@ -114,7 +120,7 @@ describe('projectMonthEnd', () => {
       tx({ date: '2026-03-10', amount: 300 }),
       tx({ date: '2026-04-10', amount: 300 }), // already at last months' full total
     ];
-    const budgets = [{ id: 'b', category: 'dining_out', amount: 350, flex: 0 }];
+    const budgets = [makeBudget({ id: 'b', category: 'dining_out', amount: 350, flex: 0 })];
     const p = projectMonthEnd({ transactions: txns, budgets, today: day(2026, 3, 15) });
     const dining = p.categories[0];
     // weight 0.5: pace 20/day, history 10/day → 15/day × 15 days = 225.
@@ -126,10 +132,10 @@ describe('projectMonthEnd', () => {
   });
 
   it('does not double-count recurring bills already posted', () => {
-    const templates = [{ id: 'r1', merchant: 'Rent Co', amount: 1000, category: 'housing', frequency: 'monthly', nextDate: '2026-05-01' }];
+    const templates = [makeRecurring({ id: 'r1', merchant: 'Rent Co', amount: 1000, category: 'housing', frequency: 'monthly', nextDate: '2026-05-01' })];
     const txns = [tx({ date: '2026-04-01', merchant: 'Rent Co', amount: 1000, category: 'housing', recurringTemplateId: 'r1' })];
     const p = projectMonthEnd({ transactions: txns, recurringTemplates: templates, today: day(2026, 3, 5) });
-    expect(p.categories.find(c => c.category === 'housing').projected).toBe(1000);
+    expect(p.categories.find(c => c.category === 'housing')?.projected).toBe(1000);
   });
 });
 
@@ -139,9 +145,9 @@ describe('forecastCashFlow', () => {
       tx({ date: '2026-02-10', amount: 400 }),
       tx({ date: '2026-03-10', amount: 600 }),
     ];
-    const templates = [{ id: 'r1', merchant: 'Gym', amount: 50, category: 'health', frequency: 'monthly', nextDate: '2026-04-20' }];
+    const templates = [makeRecurring({ id: 'r1', merchant: 'Gym', amount: 50, category: 'health', frequency: 'monthly', nextDate: '2026-04-20' })];
     const f = forecastCashFlow({
-      transactions: txns, incomes: [{ amount: 2000, frequency: 'monthly' }],
+      transactions: txns, incomes: [makeIncome({ amount: 2000, frequency: 'monthly' })],
       recurringTemplates: templates, today: day(2026, 3, 10), months: 3,
     });
     expect(f.historyMonths).toBe(2);
@@ -165,7 +171,7 @@ describe('getCategoryAverages', () => {
 
 describe('getRecurringCosts', () => {
   it('merges templates with detected charges and annualizes', () => {
-    const templates = [{ id: 'r1', merchant: 'Gym', amount: 10, category: 'health', frequency: 'weekly', nextDate: '2026-04-20' }];
+    const templates = [makeRecurring({ id: 'r1', merchant: 'Gym', amount: 10, category: 'health', frequency: 'weekly', nextDate: '2026-04-20' })];
     const txns = ['2026-01-05', '2026-02-05', '2026-03-05'].map(date => tx({ date, merchant: 'Spotify', amount: 12, category: 'subscriptions' }));
     const costs = getRecurringCosts(txns, templates);
     expect(costs.map(c => c.merchant)).toEqual(['Gym', 'Spotify']);
@@ -192,7 +198,7 @@ describe('getSavingsOpportunities', () => {
 
   it('flags categories consistently over budget', () => {
     const txns = ['2026-04-10', '2026-05-10', '2026-06-10'].map(date => tx({ date, amount: 300 }));
-    const budgets = [{ id: 'b', category: 'dining_out', amount: 200, flex: 0 }];
+    const budgets = [makeBudget({ id: 'b', category: 'dining_out', amount: 200, flex: 0 })];
     const [first] = getSavingsOpportunities({ transactions: txns, budgets, today });
     expect(first).toMatchObject({ type: 'over_budget', category: 'dining_out', monthlySaving: 100, annualSaving: 1200, suggestedCutPct: 33 });
   });
@@ -207,33 +213,33 @@ describe('getSavingsOpportunities', () => {
   });
 
   it('flags frequent small purchases at one merchant', () => {
-    const txns = [];
+    const txns: Transaction[] = [];
     ['04', '05', '06'].forEach(m => { for (let d = 1; d <= 5; d++) txns.push(tx({ date: `2026-${m}-0${d}`, merchant: 'Starbucks', amount: 6 })); });
     const small = getSavingsOpportunities({ transactions: txns, today }).find(o => o.type === 'frequent_small');
     expect(small).toMatchObject({ merchant: 'Starbucks', perMonth: 5, monthlySpend: 30, monthlySaving: 15 });
   });
 
   it('flags recurring price increases and lists recurring costs last', () => {
-    const txns = [
+    const txns = ([
       ['2026-03-05', 10], ['2026-04-05', 10], ['2026-05-05', 10], ['2026-06-05', 13],
-    ].map(([date, amount]) => tx({ date, merchant: 'StreamCo', amount, category: 'subscriptions' }));
+    ] as [IsoDate, Money][]).map(([date, amount]) => tx({ date, merchant: 'StreamCo', amount, category: 'subscriptions' }));
     const ops = getSavingsOpportunities({ transactions: txns, today });
     expect(ops.find(o => o.type === 'price_increase')).toMatchObject({ merchant: 'StreamCo', before: 10, after: 13, monthlySaving: 3 });
     expect(ops[ops.length - 1].type).toBe('recurring_review');
   });
 
   it('reports the old price, not an average spanning the change', () => {
-    const txns = [
+    const txns = ([
       ['2026-03-05', 10], ['2026-04-05', 10], ['2026-05-05', 13], ['2026-06-05', 13],
-    ].map(([date, amount]) => tx({ date, merchant: 'StreamCo', amount, category: 'subscriptions' }));
+    ] as [IsoDate, Money][]).map(([date, amount]) => tx({ date, merchant: 'StreamCo', amount, category: 'subscriptions' }));
     const inc = getSavingsOpportunities({ transactions: txns, today }).find(o => o.type === 'price_increase');
     expect(inc).toMatchObject({ before: 10, after: 13 });
   });
 
   it('ignores price changes that happened before the window', () => {
-    const txns = [
+    const txns = ([
       ['2026-01-05', 10], ['2026-02-05', 13], ['2026-03-05', 13], ['2026-04-05', 13], ['2026-05-05', 13], ['2026-06-05', 13],
-    ].map(([date, amount]) => tx({ date, merchant: 'StreamCo', amount, category: 'subscriptions' }));
+    ] as [IsoDate, Money][]).map(([date, amount]) => tx({ date, merchant: 'StreamCo', amount, category: 'subscriptions' }));
     expect(getSavingsOpportunities({ transactions: txns, today }).find(o => o.type === 'price_increase')).toBeUndefined();
   });
 });
@@ -247,7 +253,7 @@ describe('simulateCuts', () => {
 });
 
 describe('goal timeline', () => {
-  const goal = { id: 'g1', targetAmount: 1000, currentAmount: 100 };
+  const goal = makeGoal({ id: 'g1', targetAmount: 1000, currentAmount: 100 });
   const txns = [
     tx({ kind: 'savings', goalId: 'g1', date: '2026-05-10', amount: 150 }),
     tx({ kind: 'savings', goalId: 'g1', date: '2026-06-10', amount: 150 }),
@@ -279,7 +285,7 @@ describe('goal timeline', () => {
     expect(r.remaining).toBe(600);
     expect(r.currentMonths).toBe(4); // 600 remaining at the 150/mo completed-month pace
     expect(r.newMonths).toBe(3);
-    expect(goalTimelineImpact({ id: 'g2', targetAmount: 500, currentAmount: 0 }, [], 0, opts).currentMonths).toBeNull();
+    expect(goalTimelineImpact(makeGoal({ id: 'g2', targetAmount: 500, currentAmount: 0 }), [], 0, opts).currentMonths).toBeNull();
   });
 
   it("doesn't dilute a new goal's pace by months before its first contribution", () => {
@@ -313,11 +319,11 @@ describe('detectIrregularExpenses', () => {
     });
     expect(r.monthlySetAside).toBe(53.33);
     expect(r.billTransactionIds.size).toBe(2);
-    expect(r.calendar.find(m => m.label === 'Mar 2027').billTotal).toBe(640);
+    expect(r.calendar.find(m => m.label === 'Mar 2027')?.billTotal).toBe(640);
   });
 
   it('needs 3+ charges for quarterly and ignores irregular or small charges', () => {
-    const q = d => tx({ date: d, merchant: 'Water Co', amount: 120 });
+    const q = (d: IsoDate) => tx({ date: d, merchant: 'Water Co', amount: 120 });
     expect(detectIrregularExpenses([q('2026-01-05'), q('2026-04-05')], { today }).bills).toHaveLength(0);
     const r = detectIrregularExpenses([q('2026-01-05'), q('2026-04-05'), q('2026-07-05')], { today });
     expect(r.bills[0]).toMatchObject({ frequency: 'quarterly', nextDate: '2026-10-05' });
@@ -332,12 +338,12 @@ describe('detectIrregularExpenses', () => {
     const old = ['2024-01-10', '2025-01-10'].map(d => tx({ date: d, merchant: 'Old Gym', amount: 300 }));
     expect(detectIrregularExpenses(old, { today }).bills).toHaveLength(0);
     const tpl = ['2025-05-01', '2026-05-01'].map(d => tx({ date: d, merchant: 'Prime', amount: 139 }));
-    const templates = [{ id: 'r', merchant: 'Prime', amount: 139, frequency: 'annual', nextDate: '2027-05-01' }];
+    const templates = [makeRecurring({ id: 'r', merchant: 'Prime', amount: 139, frequency: 'annual', nextDate: '2027-05-01' })];
     expect(detectIrregularExpenses(tpl, { today, recurringTemplates: templates }).bills).toHaveLength(0);
   });
 
   // One purchase per month from Jan 2024 through Jun 2026, amount chosen per month.
-  const history = amountFor => Array.from({ length: 30 }, (_, i) => {
+  const history = (amountFor: (d: Date, i: number) => Money) => Array.from({ length: 30 }, (_, i) => {
     const d = new Date(2024, i, 15);
     const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-15`;
     return tx({ date, merchant: `Shop ${i}`, category: 'products', amount: amountFor(d, i) });
@@ -368,7 +374,7 @@ describe('forecasts with periodic bills', () => {
       tx({ date: '2025-08-20', merchant: 'State Farm', amount: 600, category: 'insurance' }),
       tx({ date: '2026-02-18', merchant: 'State Farm', amount: 600, category: 'insurance' }),
     ];
-    const f = forecastCashFlow({ transactions: [...bills, ...everyday], incomes: [{ amount: 2000, frequency: 'monthly' }], today, months: 3 });
+    const f = forecastCashFlow({ transactions: [...bills, ...everyday], incomes: [makeIncome({ amount: 2000, frequency: 'monthly' })], today, months: 3 });
     expect(f.discretionaryAverage).toBe(500); // the Feb bill isn't in the average
     expect(f.rows.map(r => r.irregular)).toEqual([600, 0, 0]); // next due Aug 18
     expect(f.rows[0].net).toBe(900);
@@ -400,7 +406,7 @@ describe('detectDuplicateCharges', () => {
     const pair = [tx({ id: 'a', date: '2026-07-01', merchant: 'X', amount: 20 }), tx({ id: 'b', date: '2026-07-01', merchant: 'X', amount: 20 })];
     expect(detectDuplicateCharges(pair, { today, dismissed: ['a|b'] })).toHaveLength(0);
     expect(detectDuplicateCharges([pair[0], { ...pair[1], isException: true }], { today })).toHaveLength(0);
-    expect(detectDuplicateCharges(pair.map(t => ({ ...t, kind: 'savings' })), { today })).toHaveLength(0);
+    expect(detectDuplicateCharges(pair.map(t => ({ ...t, kind: 'savings' as const })), { today })).toHaveLength(0);
     expect(detectDuplicateCharges(pair.map(t => ({ ...t, date: '2026-01-01' })), { today })).toHaveLength(0);
   });
 

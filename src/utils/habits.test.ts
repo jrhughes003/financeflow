@@ -3,13 +3,15 @@ import {
   getSpendingCalendar, getMonthRhythm, getPurchaseSizeBreakdown,
   getSubcategoryBreakdown, getTagBreakdown,
 } from './habits';
+import { makeRecurring, makeTransaction } from '../test/factories';
+import type { Transaction } from '../types/domain';
 
-const tx = (over = {}) => ({
+const tx = (over: Partial<Transaction> = {}): Transaction => makeTransaction({
   id: Math.random().toString(36).slice(2),
   date: '2026-03-15', merchant: 'Test', amount: 10, category: 'dining_out', isException: false,
   ...over,
 });
-const day = (y, m, d) => new Date(y, m, d);
+const day = (y: number, m: number, d: number) => new Date(y, m, d);
 
 describe('getSpendingCalendar', () => {
   it('builds days, counts no-spend days and streaks through today only', () => {
@@ -29,12 +31,14 @@ describe('getSpendingCalendar', () => {
     expect(c.noSpendDays).toBe(7);
     expect(c.longestStreak).toBe(4);   // Apr 7–10
     expect(c.currentStreak).toBe(4);
+    expect(c.biggestDay).not.toBeNull();
+    if (!c.biggestDay) throw new Error('unreachable');
     expect(c.biggestDay.date).toBe('2026-04-01');
     expect(c.avgPerSpendDay).toBeCloseTo(37 / 3);
   });
 
   it("doesn't let a fixed bill break a no-spend day", () => {
-    const templates = [{ id: 'r1', merchant: 'Rent Co', amount: 1000, category: 'housing', frequency: 'monthly', nextDate: '2026-05-01' }];
+    const templates = [makeRecurring({ id: 'r1', merchant: 'Rent Co', amount: 1000, category: 'housing', frequency: 'monthly', nextDate: '2026-05-01' })];
     const txns = [tx({ date: '2026-04-01', merchant: 'Rent Co', amount: 1000, recurringTemplateId: 'r1' })];
     const c = getSpendingCalendar(txns, 3, 2026, { recurringTemplates: templates, today: day(2026, 3, 30) });
     expect(c.days[0]).toMatchObject({ total: 0, fixedTotal: 1000 });

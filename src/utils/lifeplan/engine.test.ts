@@ -3,20 +3,98 @@ import { runPlan, earliestAffordableDate } from './engine';
 import { createDefaultPlan, normalizePlan } from './snapshot';
 import { computeTax } from './taxCanada';
 import { housePurchase } from './housing';
+import { makeDebt } from '../../test/factories';
+import type {
+  HouseEvent, LifePlan, PersonId, PlanAssumptions, PlanIncome, PlanLiving, PlanPerson, YearMonth,
+} from '../../types/lifeplan';
+import type { PlanResult, PlanRow, PlanSnapshot, SnapshotAccount } from '../../types/projection';
+import { needsSetup } from '../../types/projection';
 
 const TODAY = new Date(2026, 8, 22); // Sep 22 2026 → simulation starts Oct 2026
 
+/**
+ * Overrides as the fixtures write them.
+ *
+ * normalizePlan merges each person, the living block and the assumptions over
+ * the plan defaults, so a fixture names only the fields it exercises and the
+ * rest come from createDefaultPlan rather than being restated here.
+ */
+type PlanOverrides = Omit<Partial<LifePlan>, 'people' | 'living' | 'assumptions'> & {
+  people?: (Partial<PlanPerson> & { id: PersonId })[];
+  living?: Partial<PlanLiving>;
+  assumptions?: Partial<PlanAssumptions>;
+};
+
 // A plan with growth/inflation switched off unless a test wants them.
-const plan = (over = {}) => normalizePlan({
-  ...createDefaultPlan(),
-  people: [{ id: 'me', birthYear: 2000, retireAge: 65, cppAt65: 0, cppStartAge: 65, oasStartAge: 65 }],
-  living: { spendingMode: 'custom', spendingMonthly: 1000, rentMonthly: 0, emergencyMonths: 0, retirementSpendingPct: 100 },
-  assumptions: { inflationPct: 0, returnPct: 0, cashReturnPct: 0, homeAppreciationPct: 0, endAge: 30 },
+const plan = (over: PlanOverrides = {}): LifePlan => {
+  const d = createDefaultPlan();
+  const base = { id: 'me' as PersonId, birthYear: 2000, retireAge: 65, cppAt65: 0, cppStartAge: 65, oasStartAge: 65 };
+  return normalizePlan({
+    ...d,
+    ...over,
+    people: (over.people ?? [base]).map(o => ({ ...d.people.find(dp => dp.id === o.id)!, ...o })),
+    living: {
+      ...d.living,
+      ...(over.living ?? { spendingMode: 'custom', spendingMonthly: 1000, rentMonthly: 0, emergencyMonths: 0, retirementSpendingPct: 100 }),
+    },
+    assumptions: {
+      ...d.assumptions,
+      ...(over.assumptions ?? { inflationPct: 0, returnPct: 0, cashReturnPct: 0, homeAppreciationPct: 0, endAge: 30 }),
+    },
+  });
+};
+
+const account = (over: Partial<SnapshotAccount> = {}): SnapshotAccount => ({
+  id: 'a',
+  name: 'Account',
+  bucket: 'nonreg',
+  owner: 'me',
+  value: 0,
+  acb: over.value ?? 0, // the engine falls back to the value when none is given
   ...over,
 });
-const snap = (over = {}) => ({ cash: 0, accounts: [], debts: [], historyMonthly: 0, ...over });
-const run = (p, s) => runPlan(p, s, { today: TODAY });
-const yearRow = (res, y) => res.rows.find(r => r.year === y);
+
+const snap = (over: Partial<PlanSnapshot> = {}): PlanSnapshot =>
+  ({ cash: 0, goalsCash: 0, accounts: [], debts: [], historyMonthly: 0, historyMonths: 0, ...over });
+
+// Every test below feeds a plan with a birth year, so needsSetup means the
+// fixture broke rather than that the test should quietly pass.
+const run = (p: LifePlan, s: PlanSnapshot): PlanResult => {
+  const res = runPlan(p, s, { today: TODAY });
+  if (needsSetup(res)) throw new Error('plan needs setup');
+  return res;
+};
+
+const yearRow = (res: PlanResult, y: number): PlanRow => {
+  const row = res.rows.find(r => r.year === y);
+  if (!row) throw new Error(`no row for ${y}`);
+  return row;
+};
+
+// What the engine records per event occurrence. `eventResults` is
+// `Record<string, unknown>` in the source because each event kind writes a
+// different set of fields; these are the ones the tests read.
+interface HouseRun {
+  date: YearMonth;
+  purchase: ReturnType<typeof housePurchase>;
+  fromFhsa: number;
+  shortfall: number;
+  soldPreviousHome?: { value: number; mortgage: number; proceeds: number };
+}
+interface CarRun {
+  date: YearMonth;
+  price: number;
+  down: number;
+  loan?: number;
+  shortfall: number;
+}
+interface OneTimeRun {
+  date: YearMonth;
+  amount: number;
+  shortfall: number;
+}
+
+const eventRuns = <T>(res: PlanResult, id: string): T[] => (res.eventResults[id] ?? []) as T[];
 
 describe('setup', () => {
   it('asks for setup until a birth year is set', () => {
@@ -35,7 +113,7 @@ describe('spending down savings', () => {
   it('spends cash and reports when it runs out', () => {
     const res = run(plan(), snap({ cash: 12000 }));
     expect(yearRow(res, 2026).balances.liquid).toBeCloseTo(9000, 0); // 3 months × $1,000
-    expect(res.firstShortfall.date).toBe('2027-10');                 // 12 months of cash
+    expect(res.firstShortfall!.date).toBe('2027-10');                // 12 months of cash
     expect(yearRow(res, 2027).shortfall).toBeGreaterThan(0);
   });
 
@@ -43,9 +121,9 @@ describe('spending down savings', () => {
     const res = run(plan(), snap({
       cash: 1000,
       accounts: [
-        { id: 'a', bucket: 'nonreg', owner: 'me', value: 6000, acb: 6000 },
-        { id: 'b', bucket: 'tfsa', owner: 'me', value: 6000 },
-        { id: 'c', bucket: 'rrsp', owner: 'me', value: 12000 },
+        account({ id: 'a', bucket: 'nonreg', owner: 'me', value: 6000, acb: 6000 }),
+        account({ id: 'b', bucket: 'tfsa', owner: 'me', value: 6000 }),
+        account({ id: 'c', bucket: 'rrsp', owner: 'me', value: 12000 }),
       ],
     }));
     const r2027 = yearRow(res, 2027);
@@ -53,7 +131,7 @@ describe('spending down savings', () => {
     expect(r2027.balances.tfsa).toBe(0);            // then the TFSA
     expect(r2027.balances.rrsp).toBeGreaterThan(0); // RRSP kept for last
     // $25,000 of savings at $1,000/mo lasts 25 months → runs out in Nov 2028.
-    expect(res.firstShortfall.date).toBe('2028-11');
+    expect(res.firstShortfall!.date).toBe('2028-11');
     expect(yearRow(res, 2028).balances.liquid).toBe(0);
   });
 
@@ -67,7 +145,7 @@ describe('spending down savings', () => {
 });
 
 describe('income and tax', () => {
-  const salary = { id: 'i1', personId: 'me', name: 'Job', start: '2027-01', annual: 60000, growthPct: 0, rrspPct: 0, employerMatchPct: 0 };
+  const salary: PlanIncome = { id: 'i1', personId: 'me', name: 'Job', start: '2027-01', annual: 60000, growthPct: 0, rrspPct: 0, employerMatchPct: 0 };
 
   it('starts income on its start date and taxes it like the tax module does', () => {
     const res = run(plan({ incomes: [salary] }), snap({ cash: 20000 }));
@@ -142,7 +220,7 @@ describe('income and tax', () => {
     expect(retired.byPerson.me.employment).toBe(0);
     expect(retired.byPerson.me.cpp).toBeCloseTo(12000, 0);
     expect(retired.byPerson.me.oas).toBeCloseTo(8900, 0);
-    expect(res.retirementRow.year).toBe(2065);
+    expect(res.retirementRow!.year).toBe(2065);
   });
 
   it('models a partner separately', () => {
@@ -168,8 +246,8 @@ describe('debts', () => {
     const res = run(plan({ living: { spendingMode: 'custom', spendingMonthly: 0, emergencyMonths: 0, retirementSpendingPct: 100 } }), snap({
       cash: 60000,
       debts: [
-        { name: 'Card', balance: 1200, interestRate: 0, minimumPayment: 100 },
-        { name: 'Student', balance: 2400, interestRate: 0, minimumPayment: 100, repaymentStart: '2028-01' },
+        makeDebt({ id: 'card', name: 'Card', balance: 1200, interestRate: 0, minimumPayment: 100 }),
+        makeDebt({ id: 'student', name: 'Student', balance: 2400, interestRate: 0, minimumPayment: 100, repaymentStart: '2028-01' }),
       ],
     }));
     expect(yearRow(res, 2026).spending.debt).toBeCloseTo(300, 0);  // only the card, Oct–Dec
@@ -180,7 +258,7 @@ describe('debts', () => {
 });
 
 describe('life events', () => {
-  const house = {
+  const house: HouseEvent = {
     id: 'h1', type: 'house', name: 'House', date: '2028-06', price: 500000, downPct: 20,
     mortgageRate: 4.5, amortizationYears: 25, firstTime: true, propertyTaxPct: 1, insuranceAnnual: 1500, maintenancePct: 1,
   };
@@ -192,7 +270,7 @@ describe('life events', () => {
     });
     const res = run(p, snap({ cash: 400000 }));
     const expected = housePurchase({ price: 500000, downPct: 20, mortgageRate: 4.5, amortizationYears: 25, firstTime: true });
-    const ev = res.eventResults.h1[0];
+    const ev = eventRuns<HouseRun>(res, 'h1')[0];
     expect(ev.purchase.cashNeeded).toBeCloseTo(expected.cashNeeded, 2);
     expect(ev.shortfall).toBe(0);
     expect(yearRow(res, 2028).homeValue).toBe(500000);
@@ -214,10 +292,10 @@ describe('life events', () => {
       events: [house],
     });
     const res = run(p, snap({ cash: 30000 }));
-    const ev = res.eventResults.h1[0];
+    const ev = eventRuns<HouseRun>(res, 'h1')[0];
     expect(ev.fromFhsa).toBeGreaterThan(10000);   // 20 months of contributions
     expect(ev.shortfall).toBeGreaterThan(0);      // still not enough for $100k down
-    expect(res.firstShortfall.year).toBe(2028);
+    expect(res.firstShortfall!.year).toBe(2028);
   });
 
   it('treats a second home as a move: sells the first and clears its mortgage', () => {
@@ -230,11 +308,12 @@ describe('life events', () => {
       ],
     });
     const res = run(p, snap({ cash: 500000 }));
-    const move = res.eventResults.h2[0];
-    expect(move.soldPreviousHome.value).toBe(400000);
-    expect(move.soldPreviousHome.mortgage).toBeGreaterThan(0);
+    const move = eventRuns<HouseRun>(res, 'h2')[0];
+    const sold = move.soldPreviousHome!;
+    expect(sold.value).toBe(400000);
+    expect(sold.mortgage).toBeGreaterThan(0);
     // Proceeds = value − mortgage − 5% selling costs.
-    expect(move.soldPreviousHome.proceeds).toBeCloseTo(400000 - move.soldPreviousHome.mortgage - 20000, 0);
+    expect(sold.proceeds).toBeCloseTo(400000 - sold.mortgage - 20000, 0);
     const after = yearRow(res, 2032);
     expect(after.homeValue).toBe(500000);
     // Only the new mortgage remains — the old one isn't silently wiped.
@@ -252,8 +331,8 @@ describe('life events', () => {
       ],
     });
     const res = run(p, snap({ cash: 100000 }));
-    expect(res.eventResults.w[0]).toMatchObject({ amount: 30000, shortfall: 0 });
-    expect(res.eventResults.c[0]).toMatchObject({ down: 10000, loan: 30000 });
+    expect(eventRuns<OneTimeRun>(res, 'w')[0]).toMatchObject({ amount: 30000, shortfall: 0 });
+    expect(eventRuns<CarRun>(res, 'c')[0]).toMatchObject({ down: 10000, loan: 30000 });
     expect(yearRow(res, 2027).spending.events).toBeCloseTo(40000, 0); // wedding + down payment
     expect(yearRow(res, 2027).spending.debt).toBeGreaterThan(6000);   // 12 car payments
     expect(yearRow(res, 2032).otherDebt).toBe(0);                     // loan paid off after 5 years
@@ -266,7 +345,7 @@ describe('life events', () => {
       events: [{ id: 'c', type: 'car', name: 'Car', date: '2027-01', price: 30000, financing: 'cash', replaceEveryYears: 2 }],
     });
     const res = run(p, snap({ cash: 200000 }));
-    const buys = res.eventResults.c;
+    const buys = eventRuns<CarRun>(res, 'c');
     expect(buys.map(b => b.date)).toEqual(['2027-01', '2029-01']);
     expect(buys[1].price).toBeCloseTo(30000 * 1.21, 0);
   });
@@ -274,7 +353,7 @@ describe('life events', () => {
 
 describe('earliestAffordableDate', () => {
   it('finds the first month a house works, and it is not affordable a month earlier', () => {
-    const house = { id: 'h1', type: 'house', name: 'House', date: '2027-01', price: 400000, downPct: 20, mortgageRate: 4.5, amortizationYears: 25, firstTime: true, propertyTaxPct: 1, insuranceAnnual: 1500, maintenancePct: 1 };
+    const house: HouseEvent = { id: 'h1', type: 'house', name: 'House', date: '2027-01', price: 400000, downPct: 20, mortgageRate: 4.5, amortizationYears: 25, firstTime: true, propertyTaxPct: 1, insuranceAnnual: 1500, maintenancePct: 1 };
     const p = plan({
       incomes: [{ id: 'i1', personId: 'me', name: 'Job', start: '2026-10', annual: 140000, growthPct: 0, rrspPct: 0, employerMatchPct: 0 }],
       living: { spendingMode: 'custom', spendingMonthly: 2000, rentMonthly: 1500, rentGrowthPct: 0, emergencyMonths: 3, retirementSpendingPct: 100 },
@@ -285,12 +364,12 @@ describe('earliestAffordableDate', () => {
     const date = earliestAffordableDate(p, s, 'h1', { today: TODAY, maxYears: 10 });
     expect(date).toMatch(/^20\d\d-\d\d$/);
 
-    const at = d => run({ ...p, events: [{ ...house, date: d }] }, s);
-    expect(at(date).eventResults.h1[0].shortfall).toBe(0);
-    const [y, m] = date.split('-').map(Number);
+    const at = (d: YearMonth): PlanResult => run({ ...p, events: [{ ...house, date: d }] }, s);
+    expect(eventRuns<HouseRun>(at(date!), 'h1')[0].shortfall).toBe(0);
+    const [y, m] = date!.split('-').map(Number);
     const prev = m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}`;
     const prevRes = at(prev);
-    expect(prevRes.eventResults.h1[0].shortfall > 0 || prevRes.firstShortfall !== null).toBe(true);
+    expect(eventRuns<HouseRun>(prevRes, 'h1')[0].shortfall > 0 || prevRes.firstShortfall !== null).toBe(true);
   });
 });
 

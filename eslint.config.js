@@ -72,6 +72,14 @@ export default [
     },
   },
 
+  // --- The Electron side's one TypeScript file: the IPC contract test, which
+  //     reads preload.cjs and main.cjs as text rather than importing them, so
+  //     it is ESM and Node-scoped despite living next to CommonJS.
+  {
+    files: ['electron/**/*.ts'],
+    languageOptions: { ecmaVersion: 2022, sourceType: 'module', globals: globals.node },
+  },
+
   // --- Node-side ESM: the eval harness and build scripts.
   {
     files: ['eval/**/*.mjs', 'scripts/**/*.cjs', '*.config.js'],
@@ -101,12 +109,12 @@ export default [
   // --- TypeScript, for the migration ahead. Not type-aware yet: that needs a
   //     project service and turns a 3-second lint into a 40-second one, and it
   //     fires no-unsafe-* on every remaining .js boundary.
-  ...tseslint.configs.recommended.map(c => ({ ...c, files: ['src/**/*.{ts,tsx}'] })),
+  ...tseslint.configs.recommended.map(c => ({ ...c, files: ['src/**/*.{ts,tsx}', 'electron/**/*.ts'] })),
 
   // The TS rule replaces the core one, so it needs the same allowances: the
   // codebase drops fields with rest destructuring, and JSX counts as a use.
   {
-    files: ['src/**/*.{ts,tsx}'],
+    files: ['src/**/*.{ts,tsx}', 'electron/**/*.ts'],
     rules: {
       '@typescript-eslint/no-unused-vars': ['error', {
         varsIgnorePattern: '^[A-Z_]',

@@ -3,8 +3,9 @@
 // does so only when the flag is set.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import type { AppState } from './types/state';
 
-async function loadContext({ demo }) {
+async function loadContext({ demo }: { demo: boolean }) {
   vi.stubEnv('VITE_DEMO_MODE', demo ? 'true' : 'false');
   vi.resetModules();
   return import('./context/FinancialContext');
@@ -20,9 +21,11 @@ describe('demo build', () => {
     const React = (await import('react')).default;
     const { useFinancial } = await import('./context/FinancialContext');
 
-    let state;
+    let state: AppState | undefined;
     function Capture() { state = useFinancial().state; return null; }
     render(React.createElement(FinancialProvider, null, React.createElement(Capture)));
+    expect(state).toBeDefined();
+    if (!state) throw new Error('unreachable');
 
     expect(state.transactions).toEqual([]);
   });
@@ -32,9 +35,11 @@ describe('demo build', () => {
     const { render } = await import('@testing-library/react');
     const React = (await import('react')).default;
 
-    let state;
+    let state: AppState | undefined;
     function Capture() { state = useFinancial().state; return null; }
     render(React.createElement(FinancialProvider, null, React.createElement(Capture)));
+    expect(state).toBeDefined();
+    if (!state) throw new Error('unreachable');
 
     // Enough history that every chart and insight has something to draw.
     expect(state.transactions.length).toBeGreaterThan(100);
@@ -51,9 +56,11 @@ describe('demo build', () => {
     const { render } = await import('@testing-library/react');
     const React = (await import('react')).default;
 
-    let state;
+    let state: AppState | undefined;
     function Capture() { state = useFinancial().state; return null; }
     render(React.createElement(FinancialProvider, null, React.createElement(Capture)));
+    expect(state).toBeDefined();
+    if (!state) throw new Error('unreachable');
 
     expect(state.transactions).toHaveLength(1);
     expect(state.transactions[0].id).toBe('mine');

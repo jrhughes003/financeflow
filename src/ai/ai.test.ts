@@ -5,6 +5,7 @@
 import { describe, it, expect } from 'vitest';
 import { buildSummary, taxonomy } from './ai';
 import generateDemoData from '../utils/demoData';
+import { makeState } from '../test/factories';
 
 const TODAY = new Date(2026, 8, 22); // 2026-09-22
 const state = generateDemoData(TODAY);
@@ -66,6 +67,8 @@ describe('buildSummary — analytical content', () => {
     expect(summary.whatChanged.baselineMonths).toBeGreaterThan(0);
     expect(summary.whatChanged.byCategory.length).toBeGreaterThan(0);
     const dining = summary.whatChanged.byCategory.find(c => c.category === 'dining_out');
+    expect(dining).toBeDefined();
+    if (!dining) throw new Error('unreachable');
     expect(dining.change).toBeGreaterThan(0); // demo data trends dining upward
   });
 
@@ -79,15 +82,17 @@ describe('buildSummary — analytical content', () => {
   it('includes goal pacing and a debt strategy recommendation', () => {
     expect(summary.goals.length).toBeGreaterThan(0);
     expect(summary.goals[0]).toHaveProperty('status');
-    expect(['avalanche', 'snowball']).toContain(summary.debts.recommendedStrategy);
-    expect(summary.debts.items.some(d => d.deferred)).toBe(true);
+    // buildSummary returns null here only when there are no debts, and the
+    // demo fixture has them.
+    const debts = summary.debts;
+    expect(debts).not.toBeNull();
+    if (!debts) throw new Error('unreachable');
+    expect(['avalanche', 'snowball']).toContain(debts.recommendedStrategy);
+    expect(debts.items.some(d => d.deferred)).toBe(true);
   });
 
   it('handles an empty state without throwing', () => {
-    const empty = {
-      transactions: [], budgets: [], incomes: [], investments: [],
-      savings_goals: [], debts: [], recurringTemplates: [],
-    };
+    const empty = makeState();
     expect(() => buildSummary(empty, 8, 2026, { today: TODAY })).not.toThrow();
     expect(buildSummary(empty, 8, 2026, { today: TODAY }).debts).toBeNull();
   });

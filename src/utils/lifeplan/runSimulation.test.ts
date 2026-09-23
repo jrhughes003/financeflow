@@ -8,6 +8,19 @@ import { createRun, runMonteCarlo } from './montecarlo';
 import { runSimulation } from './runSimulation';
 import { buildSnapshot, normalizePlan } from './snapshot';
 import generateDemoData from '../demoData';
+import type { SimulationOutcome, SimulationResult } from '../../types/projection';
+import type { SimulationCall } from '../../types/worker';
+
+/** The tests all use a plan that can run; a needsSetup result means a broken fixture. */
+function ran(result: SimulationOutcome): SimulationResult {
+  if ('needsSetup' in result) throw new Error('simulation needs setup');
+  return result;
+}
+
+function completed(result: SimulationCall): SimulationResult {
+  if ('cancelled' in result) throw new Error('simulation was cancelled');
+  return ran(result);
+}
 
 const TODAY = new Date(2026, 8, 22);
 const demo = generateDemoData(TODAY);
@@ -33,20 +46,20 @@ describe('a run that can be advanced in pieces', () => {
     const stepped = createRun(plan, snapshot, options);
     while (!stepped.step(1).done) { /* one pair at a time */ }
 
-    const atOnce = runMonteCarlo(plan, snapshot, options);
-    const fine = stepped.finish();
+    const atOnce = ran(runMonteCarlo(plan, snapshot, options));
+    const fine = ran(stepped.finish());
 
     // Chunking must not disturb the random stream, or results would depend on
     // how the UI happened to slice the work.
     expect(fine.successRate).toBe(atOnce.successRate);
     expect(fine.trials).toBe(atOnce.trials);
-    expect(fine.bands.at(-1).p50).toBeCloseTo(atOnce.bands.at(-1).p50, 6);
+    expect(fine.bands.at(-1)!.p50).toBeCloseTo(atOnce.bands.at(-1)!.p50, 6);
   });
 
   it('can be abandoned part-way and still summarise what it ran', () => {
     const run = createRun(plan, snapshot, { ...options, trials: 400 });
     run.step(4);
-    const partial = run.finish();
+    const partial = ran(run.finish());
     expect(partial.completed).toBeLessThan(400);
     expect(partial.successRate).toBeGreaterThanOrEqual(0);
     expect(partial.successRate).toBeLessThanOrEqual(1);
@@ -58,7 +71,7 @@ describe('runSimulation without a worker', () => {
     expect(typeof Worker).toBe('undefined'); // jsdom: the fallback path
     const onProgress = vi.fn();
     const { promise } = runSimulation(plan, snapshot, options, onProgress);
-    const result = await promise;
+    const result = completed(await promise);
 
     expect(result.successRate).toBeGreaterThanOrEqual(0);
     expect(result.trials).toBe(40);
@@ -75,8 +88,8 @@ describe('runSimulation without a worker', () => {
 
   it('matches the direct call', async () => {
     const { promise } = runSimulation(plan, snapshot, options, () => {});
-    const viaClient = await promise;
-    const direct = runMonteCarlo(plan, snapshot, options);
+    const viaClient = completed(await promise);
+    const direct = ran(runMonteCarlo(plan, snapshot, options));
     expect(viaClient.successRate).toBe(direct.successRate);
   });
 });

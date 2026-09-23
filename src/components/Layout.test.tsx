@@ -2,8 +2,9 @@ import React from 'react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import Layout from './Layout';
+import type { NavBadges, PageId } from '../types/navigation';
 
-const renderNav = (currentPage = 'dashboard', setCurrentPage = vi.fn(), badges = {}) => {
+const renderNav = (currentPage: PageId = 'dashboard', setCurrentPage = vi.fn(), badges: NavBadges = {}) => {
   render(
     <Layout currentPage={currentPage} setCurrentPage={setCurrentPage} onQuickAdd={vi.fn()} badges={badges}>
       <div>page body</div>
@@ -12,7 +13,7 @@ const renderNav = (currentPage = 'dashboard', setCurrentPage = vi.fn(), badges =
   return { setCurrentPage };
 };
 
-const group = name => screen.getByRole('button', { name: new RegExp(name, 'i') });
+const group = (name: string) => screen.getByRole('button', { name: new RegExp(name, 'i') });
 
 beforeEach(() => {
   try { localStorage.clear(); } catch { /* ignore */ }

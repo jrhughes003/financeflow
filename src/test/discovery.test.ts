@@ -16,7 +16,7 @@ import { join, relative, sep } from 'node:path';
 // the jsdom environment, so it is not an option here.
 const ROOT = process.cwd();
 
-function walk(dir, found = []) {
+function walk(dir: string, found: string[] = []): string[] {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     if (entry.name === 'node_modules' || entry.name.startsWith('.')) continue;
     const full = join(dir, entry.name);
@@ -31,7 +31,7 @@ function walk(dir, found = []) {
 const testFiles = [...walk(join(ROOT, 'src')), ...walk(join(ROOT, 'electron'))];
 
 /** The extensions each include pattern in vitest.config.js accepts. */
-function includedExtensions(config, prefix) {
+function includedExtensions(config: string, prefix: string): string[] {
   const pattern = new RegExp(`'${prefix}/\\*\\*/\\*\\.\\{test,spec\\}\\.\\{([^}]+)\\}'`);
   const match = config.match(pattern);
   if (!match) throw new Error(`no ${prefix} include pattern found in vitest.config.js`);
@@ -52,7 +52,8 @@ describe('test discovery', () => {
     const electron = includedExtensions(config, 'electron');
 
     const missed = testFiles.filter((file) => {
-      const ext = file.split('.').pop();
+      // Everything walk() collected matched /\.(test|spec)\./, so there is one.
+      const ext = file.slice(file.lastIndexOf('.') + 1);
       const allowed = file.startsWith('electron/') ? electron : src;
       return !allowed.includes(ext);
     });

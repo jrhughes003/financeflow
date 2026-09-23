@@ -4,9 +4,11 @@ import {
   projectAccount, syncToStatement, addAccountEntry, removeAccountEntry, getIncomeSources,
   isInRepayment, requiredPayment, monthsUntilRepayment,
 } from './accounts';
+import { makeDebt, makeIncome, makeInvestment } from '../test/factories';
+import type { AccountEntry, Investment } from '../types/domain';
 
-const day = (y, m, d) => new Date(y, m, d);
-const advisor = (over = {}) => ({
+const day = (y: number, m: number, d: number) => new Date(y, m, d);
+const advisor = (over: Partial<Investment> = {}): Investment => makeInvestment({
   id: 'adv', name: 'Advisor account', type: 'retirement',
   currentValue: 100000, asOfDate: '2026-06-30', annualReturn: 6,
   monthlyWithdrawal: 2000, withdrawalDay: 1, entries: [],
@@ -23,9 +25,9 @@ describe('scheduledWithdrawalDates', () => {
 
 describe('estimateAccountValue', () => {
   it('returns the static value for untracked investments', () => {
-    const r = estimateAccountValue({ currentValue: 5000 }, { today: day(2026, 8, 22) });
+    const r = estimateAccountValue(makeInvestment({ currentValue: 5000 }), { today: day(2026, 8, 22) });
     expect(r).toMatchObject({ tracked: false, value: 5000 });
-    expect(isTrackedAccount({ currentValue: 5000 })).toBe(false);
+    expect(isTrackedAccount(makeInvestment({ currentValue: 5000 }))).toBe(false);
   });
 
   it('grows at the expected return with no withdrawals', () => {
@@ -60,7 +62,7 @@ describe('estimateAccountValue', () => {
   });
 
   it('totals across investments', () => {
-    expect(getInvestmentsValue([advisor({ monthlyWithdrawal: 0, annualReturn: 0 }), { currentValue: 2500 }], { today: day(2026, 8, 22) })).toBe(102500);
+    expect(getInvestmentsValue([advisor({ monthlyWithdrawal: 0, annualReturn: 0 }), makeInvestment({ currentValue: 2500 })], { today: day(2026, 8, 22) })).toBe(102500);
   });
 });
 
@@ -85,7 +87,8 @@ describe('projectAccount', () => {
 describe('statement sync and entries', () => {
   it('re-anchors to a new statement and keeps history', () => {
     const inv = addAccountEntry(advisor(), { type: 'withdrawal', amount: 300, date: '2026-07-10' });
-    const synced = syncToStatement(inv, { balance: '97250.5', date: '2026-08-31' });
+    // The statement form passes its raw input string; syncToStatement coerces it.
+    const synced = syncToStatement(inv, { balance: '97250.5' as unknown as number, date: '2026-08-31' });
     expect(synced).toMatchObject({ currentValue: 97250.5, asOfDate: '2026-08-31' });
     expect(synced.entries).toHaveLength(1);
     // Only the Sep 1 withdrawal applies after the new statement.
@@ -103,17 +106,20 @@ describe('statement sync and entries', () => {
 
   it('adds and removes entries, ignoring invalid ones', () => {
     const a = addAccountEntry(advisor(), { type: 'deposit', amount: 250, date: '2026-09-01' });
+    expect(a.entries).toBeDefined();
+    if (!a.entries) throw new Error('unreachable');
     expect(a.entries[0]).toMatchObject({ type: 'deposit', amount: 250 });
     expect(addAccountEntry(a, { type: 'deposit', amount: 0, date: '2026-09-01' })).toBe(a);
-    expect(addAccountEntry(a, { type: 'bogus', amount: 5, date: '2026-09-01' })).toBe(a);
+    // 'bogus' is the point of the case: an unknown entry type must be rejected.
+    expect(addAccountEntry(a, { type: 'bogus' as AccountEntry['type'], amount: 5, date: '2026-09-01' })).toBe(a);
     expect(removeAccountEntry(a, a.entries[0].id).entries).toEqual([]);
   });
 });
 
 describe('getIncomeSources', () => {
   it('adds scheduled withdrawals as derived monthly income unless opted out', () => {
-    const incomes = [{ id: 'job', name: 'Job', amount: 500, frequency: 'monthly' }];
-    const sources = getIncomeSources(incomes, [advisor(), advisor({ id: 'x', withdrawalCountsAsIncome: false }), { id: 'y', currentValue: 1 }]);
+    const incomes = [makeIncome({ id: 'job', name: 'Job', amount: 500, frequency: 'monthly' })];
+    const sources = getIncomeSources(incomes, [advisor(), advisor({ id: 'x', withdrawalCountsAsIncome: false }), makeInvestment({ id: 'y', currentValue: 1 })]);
     expect(sources).toHaveLength(2);
     expect(sources[1]).toMatchObject({ amount: 2000, frequency: 'monthly', derived: true, investmentId: 'adv' });
   });
@@ -121,7 +127,7 @@ describe('getIncomeSources', () => {
 
 describe('deferred debts', () => {
   const today = day(2026, 8, 22);
-  const loan = { balance: 20000, interestRate: 0, minimumPayment: 250, repaymentStart: '2027-06-01' };
+  const loan = makeDebt({ balance: 20000, interestRate: 0, minimumPayment: 250, repaymentStart: '2027-06-01' });
 
   it('has no required payment until repayment starts', () => {
     expect(isInRepayment(loan, { today })).toBe(false);

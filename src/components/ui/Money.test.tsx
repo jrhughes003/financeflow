@@ -14,7 +14,7 @@ import { formatCurrency, setDisplayCurrency, getDisplayCurrency, localeFor } fro
 // between test files can't matter.
 afterEach(() => setDisplayCurrency('CAD'));
 
-const digitsOf = (s) => s.replace(/[^\d.,]/g, '');
+const digitsOf = (s: string) => s.replace(/[^\d.,]/g, '');
 
 describe('Money', () => {
   it('follows the display currency rather than a hard-coded one', () => {

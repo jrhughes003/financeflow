@@ -4,15 +4,17 @@ import {
   simulateDebtPayoff, compareDebtStrategies,
 } from './planning';
 import { calculateDebtPayoff } from './calculations';
+import { makeBudget, makeDebt, makeGoal, makeTransaction } from '../test/factories';
+import type { IsoDate, Money, Transaction } from '../types/domain';
 
-const tx = (over = {}) => ({
+const tx = (over: Partial<Transaction> = {}): Transaction => makeTransaction({
   id: Math.random().toString(36).slice(2),
   date: '2026-03-15', merchant: 'Test', amount: 10, category: 'dining_out', isException: false,
   ...over,
 });
-const day = (y, m, d) => new Date(y, m, d);
+const day = (y: number, m: number, d: number) => new Date(y, m, d);
 // Monthly spending for Jan–Jun 2026 in one category.
-const monthly = (category, amounts) => amounts.map((amount, i) =>
+const monthly = (category: string, amounts: Money[]): Transaction[] => amounts.map((amount, i) =>
   tx({ date: `2026-0${i + 1}-10`, category, amount }));
 const JULY = day(2026, 6, 10);
 
@@ -32,21 +34,21 @@ describe('getBudgetSuggestions', () => {
 
   it('suggests raising a budget that is blown most months', () => {
     const txns = monthly('groceries', [380, 400, 420, 390, 410, 405]);
-    const budgets = [{ id: 'b1', category: 'groceries', amount: 300, flex: 10 }];
+    const budgets = [makeBudget({ id: 'b1', category: 'groceries', amount: 300, flex: 10 })];
     const [s] = getBudgetSuggestions(budgets, txns, { today: JULY }).suggestions;
     expect(s).toMatchObject({ type: 'raise', budgetId: 'b1', current: 300, overMonths: 6, suggested: 410 });
   });
 
   it('suggests lowering a budget that is never close', () => {
     const txns = monthly('products', [90, 100, 110, 95, 105, 100]);
-    const budgets = [{ id: 'b2', category: 'products', amount: 300, flex: 10 }];
+    const budgets = [makeBudget({ id: 'b2', category: 'products', amount: 300, flex: 10 })];
     const [s] = getBudgetSuggestions(budgets, txns, { today: JULY }).suggestions;
     expect(s).toMatchObject({ type: 'lower', current: 300, suggested: 100, freed: 200 });
   });
 
   it('suggests adding a budget for regular unbudgeted spending, incl. $0 placeholders', () => {
     const txns = [...monthly('transportation', [60, 70, 80, 65, 75, 70]), ...monthly('groceries', [300, 300, 300, 300, 300, 300])];
-    const budgets = [{ id: 'b3', category: 'groceries', amount: 0, flex: 10 }];
+    const budgets = [makeBudget({ id: 'b3', category: 'groceries', amount: 0, flex: 10 })];
     const { suggestions } = getBudgetSuggestions(budgets, txns, { today: JULY });
     expect(suggestions.map(s => [s.category, s.type])).toEqual([['groceries', 'add'], ['transportation', 'add']]);
     expect(suggestions[0].budgetId).toBe('b3');
@@ -62,18 +64,18 @@ describe('getBudgetSuggestions', () => {
     expect(unbudgeted).toMatchObject({ type: 'add', high: 200, billShare: 100, suggested: 300 });
     expect(unbudgeted.bills).toEqual([{ merchant: 'GEICO', amount: 600, frequency: 'semiannual' }]);
 
-    const tight = getBudgetSuggestions([{ id: 'b', category: 'transportation', amount: 250, flex: 0 }], txns, { today: JULY }).suggestions[0];
+    const tight = getBudgetSuggestions([makeBudget({ id: 'b', category: 'transportation', amount: 250, flex: 0 })], txns, { today: JULY }).suggestions[0];
     expect(tight).toMatchObject({ type: 'raise', overMonths: 6, suggested: 300, rollover: false });
   });
 
   it('leaves well-calibrated budgets alone', () => {
     const txns = monthly('groceries', [280, 300, 290, 310, 295, 305]);
-    const budgets = [{ id: 'b1', category: 'groceries', amount: 320, flex: 10 }];
+    const budgets = [makeBudget({ id: 'b1', category: 'groceries', amount: 320, flex: 10 })];
     expect(getBudgetSuggestions(budgets, txns, { today: JULY }).suggestions).toEqual([]);
   });
 
   it('builds the budget to save', () => {
-    const budgets = [{ id: 'b1', category: 'groceries', amount: 300, flex: 5, rollover: true }];
+    const budgets = [makeBudget({ id: 'b1', category: 'groceries', amount: 300, flex: 5, rollover: true })];
     expect(applyBudgetSuggestion({ budgetId: 'b1', category: 'groceries', suggested: 410 }, budgets))
       .toEqual({ id: 'b1', category: 'groceries', amount: 410, flex: 5, rollover: true });
     expect(applyBudgetSuggestion({ budgetId: null, category: 'transportation', suggested: 80 }, budgets, { now: 1 }))
@@ -83,10 +85,10 @@ describe('getBudgetSuggestions', () => {
 
 describe('getGoalStatuses', () => {
   const today = day(2026, 6, 10);
-  const savings = (amount, date, goalId = 'g1') => tx({ kind: 'savings', goalId, amount, date });
+  const savings = (amount: Money, date: IsoDate, goalId = 'g1') => tx({ kind: 'savings', goalId, amount, date });
 
   it('is on track when actual pace covers what is required', () => {
-    const goal = { id: 'g1', targetAmount: 1600, currentAmount: 0, monthlyContribution: 100, targetDate: '2027-01-15' };
+    const goal = makeGoal({ id: 'g1', targetAmount: 1600, currentAmount: 0, monthlyContribution: 100, targetDate: '2027-01-15' });
     const txns = [savings(200, '2026-05-10'), savings(200, '2026-06-10'), savings(200, '2026-07-05')];
     const [s] = getGoalStatuses([goal], txns, { today });
     // 1000 left over 6 months → ~166.67 needed; averaging 200.
@@ -95,7 +97,7 @@ describe('getGoalStatuses', () => {
   });
 
   it('is behind (with shortfall and lateness) when pace is too slow', () => {
-    const goal = { id: 'g1', targetAmount: 1200, currentAmount: 0, monthlyContribution: 100, targetDate: '2026-12-01' };
+    const goal = makeGoal({ id: 'g1', targetAmount: 1200, currentAmount: 0, monthlyContribution: 100, targetDate: '2026-12-01' });
     const [s] = getGoalStatuses([goal], [], { today });
     // No contributions logged → uses the planned 100/mo; needs 240/mo.
     expect(s).toMatchObject({ status: 'behind', paceSource: 'planned', required: 240, shortfall: 140, monthsLate: 7 });
@@ -103,10 +105,12 @@ describe('getGoalStatuses', () => {
 
   it('handles reached, past-due, stalled, and no-target goals', () => {
     const goals = [
-      { id: 'a', targetAmount: 100, currentAmount: 100, targetDate: '2027-01-01' },
-      { id: 'b', targetAmount: 500, currentAmount: 0, monthlyContribution: 50, targetDate: '2026-05-01' },
-      { id: 'c', targetAmount: 500, currentAmount: 0, monthlyContribution: 0, targetDate: '2027-05-01' },
-      { id: 'd', targetAmount: 500, currentAmount: 0, monthlyContribution: 50 },
+      makeGoal({ id: 'a', targetAmount: 100, currentAmount: 100, targetDate: '2027-01-01' }),
+      makeGoal({ id: 'b', targetAmount: 500, currentAmount: 0, monthlyContribution: 50, targetDate: '2026-05-01' }),
+      makeGoal({ id: 'c', targetAmount: 500, currentAmount: 0, monthlyContribution: 0, targetDate: '2027-05-01' }),
+      // The no-target case. getGoalStatuses only tests targetDate for truthiness,
+      // so an empty string stands in for the field being absent.
+      makeGoal({ id: 'd', targetAmount: 500, currentAmount: 0, monthlyContribution: 50, targetDate: '' }),
     ];
     expect(getGoalStatuses(goals, [], { today }).map(s => s.status)).toEqual(['reached', 'past_due', 'stalled', 'no_target']);
   });
@@ -114,14 +118,16 @@ describe('getGoalStatuses', () => {
 
 describe('simulateDebtPayoff', () => {
   const debts = [
-    { id: 'card', name: 'Card', balance: 3000, interestRate: 24, minimumPayment: 90 },
-    { id: 'car', name: 'Car', balance: 1000, interestRate: 6, minimumPayment: 50 },
+    makeDebt({ id: 'card', name: 'Card', balance: 3000, interestRate: 24, minimumPayment: 90 }),
+    makeDebt({ id: 'car', name: 'Car', balance: 1000, interestRate: 6, minimumPayment: 50 }),
   ];
 
   it('matches the closed-form payoff for a single debt at its minimum', () => {
-    const single = [{ id: 'x', name: 'X', balance: 5000, interestRate: 18, minimumPayment: 200 }];
+    const single = [makeDebt({ id: 'x', name: 'X', balance: 5000, interestRate: 18, minimumPayment: 200 })];
     const sim = simulateDebtPayoff(single, { strategy: 'minimum' });
     const closed = calculateDebtPayoff(5000, 18, 200);
+    expect(closed).not.toBeNull();
+    if (!closed || closed.totalInterest === null) throw new Error('unreachable');
     expect(sim.months).toBe(closed.months);
     // The closed form assumes a full final payment, so it overstates interest by
     // less than one payment; the simulation pays only what's left.
@@ -141,13 +147,15 @@ describe('simulateDebtPayoff', () => {
   it('extra payments and rollover beat minimums', () => {
     const min = simulateDebtPayoff(debts, { strategy: 'minimum' });
     const av = simulateDebtPayoff(debts, { strategy: 'avalanche', extra: 100 });
+    expect(min.months).not.toBeNull();
+    if (min.months === null) throw new Error('unreachable');
     expect(av.months).toBeLessThan(min.months);
     expect(av.totalInterest).toBeLessThan(min.totalInterest);
     expect(av.timeline[av.timeline.length - 1].balance).toBe(0);
   });
 
   it('flags debts whose minimum never covers the interest', () => {
-    const bad = [{ id: 'x', name: 'X', balance: 10000, interestRate: 24, minimumPayment: 150 }];
+    const bad = [makeDebt({ id: 'x', name: 'X', balance: 10000, interestRate: 24, minimumPayment: 150 })];
     const sim = simulateDebtPayoff(bad, { strategy: 'minimum' });
     expect(sim.feasible).toBe(false);
     expect(sim.unpayable).toEqual([{ id: 'x', name: 'X' }]);
@@ -157,7 +165,7 @@ describe('simulateDebtPayoff', () => {
 
   it('waits for deferred loans to start, then pays them', () => {
     const today = new Date(2026, 8, 22);
-    const loans = [{ id: 's', name: 'Student', balance: 1200, interestRate: 0, minimumPayment: 100, repaymentStart: '2027-06-01' }];
+    const loans = [makeDebt({ id: 's', name: 'Student', balance: 1200, interestRate: 0, minimumPayment: 100, repaymentStart: '2027-06-01' })];
     const min = simulateDebtPayoff(loans, { strategy: 'minimum', today });
     // Nothing due for 9 months, then 12 payments of $100 at 0%.
     expect(min).toMatchObject({ feasible: true, months: 20, totalInterest: 0, totalPaid: 1200 });
@@ -171,8 +179,8 @@ describe('simulateDebtPayoff', () => {
   it('pays active debts while another is deferred, then rolls into it', () => {
     const today = new Date(2026, 8, 22);
     const debts = [
-      { id: 'c', name: 'Card', balance: 500, interestRate: 0, minimumPayment: 100 },
-      { id: 's', name: 'Student', balance: 1000, interestRate: 0, minimumPayment: 100, repaymentStart: '2027-06-01' },
+      makeDebt({ id: 'c', name: 'Card', balance: 500, interestRate: 0, minimumPayment: 100 }),
+      makeDebt({ id: 's', name: 'Student', balance: 1000, interestRate: 0, minimumPayment: 100, repaymentStart: '2027-06-01' }),
     ];
     const av = simulateDebtPayoff(debts, { strategy: 'avalanche', today });
     // Card gone in month 5; from month 9 the student loan gets its own $100 plus
@@ -188,8 +196,8 @@ describe('simulateDebtPayoff', () => {
 describe('compareDebtStrategies', () => {
   it('recommends avalanche and reports savings vs minimums', () => {
     const debts = [
-      { id: 'card', name: 'Card', balance: 3000, interestRate: 24, minimumPayment: 90 },
-      { id: 'loan', name: 'Loan', balance: 2500, interestRate: 8, minimumPayment: 80 },
+      makeDebt({ id: 'card', name: 'Card', balance: 3000, interestRate: 24, minimumPayment: 90 }),
+      makeDebt({ id: 'loan', name: 'Loan', balance: 2500, interestRate: 8, minimumPayment: 80 }),
     ];
     const r = compareDebtStrategies(debts, { extra: 150 });
     expect(r.recommended).toBe('avalanche');
@@ -199,8 +207,8 @@ describe('compareDebtStrategies', () => {
 
   it('prefers snowball when it costs almost nothing extra and wins sooner', () => {
     const debts = [
-      { id: 'a', name: 'A', balance: 5000, interestRate: 10.1, minimumPayment: 100 },
-      { id: 'b', name: 'B', balance: 300, interestRate: 10, minimumPayment: 25 },
+      makeDebt({ id: 'a', name: 'A', balance: 5000, interestRate: 10.1, minimumPayment: 100 }),
+      makeDebt({ id: 'b', name: 'B', balance: 300, interestRate: 10, minimumPayment: 25 }),
     ];
     expect(compareDebtStrategies(debts, { extra: 100 }).recommended).toBe('snowball');
   });

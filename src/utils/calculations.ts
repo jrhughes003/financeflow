@@ -374,7 +374,7 @@ export function calculateDebtPayoff(balance: Money, interestRate: number, monthl
   // formula can round *below* the interest-free term — which would report two
   // $50 payments clearing a $101 balance, and negative interest with it. The
   // interest-free case is a hard floor: no rate makes a debt cheaper than its
-  // principal. (Found by the property test in invariants.test.js.)
+  // principal. (Found by the property test in invariants.test.ts.)
   const months = Math.max(closedForm, Math.ceil(balance / monthlyPayment));
   const totalPaid = monthlyPayment * months;
   return { months, totalInterest: Math.max(0, roundCents(totalPaid - balance)) };

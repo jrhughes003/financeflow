@@ -5,8 +5,12 @@ import {
   isTemplateDue,
   postTemplate,
 } from './recurring';
+import { makeRecurring, makeTransaction } from '../test/factories';
+import type { IsoDate, Money, Transaction } from '../types/domain';
 
-const tx = (date, merchant, amount, over = {}) => ({
+const tx = (
+  date: IsoDate, merchant: string, amount: Money, over: Partial<Transaction> = {},
+): Transaction => makeTransaction({
   id: `${merchant}-${date}`, date, merchant, amount,
   category: 'subscriptions', tags: [], isException: false, ...over,
 });
@@ -69,15 +73,15 @@ describe('advanceDate', () => {
 
 describe('isTemplateDue', () => {
   it('is due when nextDate is on or before today and active', () => {
-    expect(isTemplateDue({ nextDate: '2026-05-01', active: true }, '2026-05-29')).toBe(true);
-    expect(isTemplateDue({ nextDate: '2026-06-15', active: true }, '2026-05-29')).toBe(false);
-    expect(isTemplateDue({ nextDate: '2026-05-01', active: false }, '2026-05-29')).toBe(false);
+    expect(isTemplateDue(makeRecurring({ nextDate: '2026-05-01', active: true }), '2026-05-29')).toBe(true);
+    expect(isTemplateDue(makeRecurring({ nextDate: '2026-06-15', active: true }), '2026-05-29')).toBe(false);
+    expect(isTemplateDue(makeRecurring({ nextDate: '2026-05-01', active: false }), '2026-05-29')).toBe(false);
   });
 });
 
 describe('postTemplate', () => {
   it('produces a transaction and advances the template', () => {
-    const template = { id: 'r1', merchant: 'Spotify', amount: 10.99, category: 'subscriptions', frequency: 'monthly', nextDate: '2026-05-05', active: true };
+    const template = makeRecurring({ id: 'r1', merchant: 'Spotify', amount: 10.99, category: 'subscriptions', frequency: 'monthly', nextDate: '2026-05-05', active: true });
     const { transaction, template: updated } = postTemplate(template, '2026-05-29');
     expect(transaction).toMatchObject({
       merchant: 'Spotify', amount: 10.99, date: '2026-05-05', recurringTemplateId: 'r1',

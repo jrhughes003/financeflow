@@ -24,7 +24,7 @@ const open = () => render(
 );
 
 const input = () => screen.getByRole('textbox');
-const type = value => fireEvent.change(input(), { target: { value } });
+const type = (value: string) => fireEvent.change(input(), { target: { value } });
 
 beforeEach(() => { onNavigate.mockClear(); onQuickAdd.mockClear(); onClose.mockClear(); });
 

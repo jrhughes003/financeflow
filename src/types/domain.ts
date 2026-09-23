@@ -16,7 +16,7 @@ export type IsoDate = string;
  * Money, in whole currency units.
  *
  * Not integer cents. Every total is rounded with the same
- * `Math.round(n * 100) / 100` step, and src/utils/invariants.test.js holds that
+ * `Math.round(n * 100) / 100` step, and src/utils/invariants.test.ts holds that
  * discipline in place with property tests. The alias is here to mark intent at
  * the call site, not to promise a different representation.
  */

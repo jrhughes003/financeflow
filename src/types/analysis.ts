@@ -96,10 +96,9 @@ export interface DayOfWeekSpending {
  * `months: null` means the payment does not beat the interest, which is a real
  * answer rather than an error — the UI says so rather than showing a number.
  */
-export interface DebtPayoff {
-  months: number | null;
-  totalInterest: Money | null;
-}
+export type DebtPayoff =
+  | { months: number; totalInterest: Money }
+  | { months: null; totalInterest: null };
 
 export interface NetWorthOptions {
   today?: Date;

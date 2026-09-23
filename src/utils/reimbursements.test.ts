@@ -4,13 +4,19 @@ import {
   addRepayment, removeRepayment, setForgiven, buildOwed, getOwedSummary,
 } from './reimbursements';
 import { getTotalExpenses, getSpendingByCategory } from './calculations';
+import { makeOwed, makeTransaction } from '../test/factories';
+import type { Money, OwedPayment, OwedRecord, Transaction } from '../types/domain';
 
-const tx = (over = {}) => ({
+const tx = (over: Partial<Transaction> = {}): Transaction => makeTransaction({
   id: Math.random().toString(36).slice(2),
   date: '2026-09-10', merchant: 'Dinner', amount: 100, category: 'dining_out', isException: false,
   ...over,
 });
-const owed = (amount, payments = [], extra = {}) => ({ amount, payments, ...extra });
+// Several cases leave a repayment's date off on purpose — getOwedStatus sorts
+// with `(a.date || '')` and must cope with records written that way.
+const owed = (
+  amount: Money, payments: Partial<OwedPayment>[] = [], extra: Partial<OwedRecord> = {},
+): OwedRecord => makeOwed({ amount, payments: payments as OwedPayment[], ...extra });
 
 describe('owedFromSplit', () => {
   it('everyone but you owes their share', () => {
@@ -38,7 +44,10 @@ describe('getOwedStatus', () => {
   });
 
   it('never counts more repaid than owed', () => {
-    expect(getOwedStatus(tx({ owed: owed(50, [{ id: 'p', amount: 80 }]) })).repaid).toBe(50);
+    const s = getOwedStatus(tx({ owed: owed(50, [{ id: 'p', amount: 80 }]) }));
+    expect(s).not.toBeNull();
+    if (!s) throw new Error('unreachable');
+    expect(s.repaid).toBe(50);
   });
 });
 
@@ -73,32 +82,38 @@ describe('addRepayment / removeRepayment / setForgiven', () => {
     const a = addRepayment(base, { amount: 25, date: '2026-09-12', id: 'p1' });
     expect(getOwedStatus(a)).toMatchObject({ status: 'partial', remaining: 50 });
     const b = addRepayment(a, { amount: 500, date: '2026-09-13', id: 'p2' });
+    expect(b.owed).toBeDefined();
+    if (!b.owed) throw new Error('unreachable');
     expect(b.owed.payments.map(p => p.amount)).toEqual([25, 50]);
-    expect(getOwedStatus(b).status).toBe('settled');
+    expect(getOwedStatus(b)?.status).toBe('settled');
     expect(addRepayment(b, { amount: 10 })).toBe(b); // nothing left to repay
     expect(addRepayment(base, { amount: 0 })).toBe(base);
-    expect(base.owed.payments).toEqual([]); // inputs aren't mutated
+    expect(base.owed?.payments).toEqual([]); // inputs aren't mutated
   });
 
   it('undoes a repayment', () => {
     const a = addRepayment(base, { amount: 25, id: 'p1' });
-    expect(getOwedStatus(removeRepayment(a, 'p1')).status).toBe('open');
+    expect(getOwedStatus(removeRepayment(a, 'p1'))?.status).toBe('open');
   });
 
   it('forgives the remainder, and a later payment re-opens it', () => {
     const f = setForgiven(addRepayment(base, { amount: 25, id: 'p1' }), true, '2026-09-20');
     expect(getOwedStatus(f)).toMatchObject({ status: 'forgiven', remaining: 0, forgivenAmount: 50 });
-    expect(f.owed.forgivenDate).toBe('2026-09-20');
+    expect(f.owed?.forgivenDate).toBe('2026-09-20');
     expect(getOwedStatus(addRepayment(f, { amount: 20 }))).toMatchObject({ status: 'partial', remaining: 30 });
-    expect(getOwedStatus(setForgiven(f, false)).status).toBe('partial');
+    expect(getOwedStatus(setForgiven(f, false))?.status).toBe('partial');
   });
 });
 
 describe('buildOwed', () => {
   it('builds from the form and keeps existing repayments', () => {
-    expect(buildOwed(undefined, { enabled: true, amount: '75', people: '4' })).toEqual({ amount: 75, people: 4, payments: [], forgiven: false });
-    const existing = { amount: 75, payments: [{ id: 'p', amount: 25 }], forgiven: false };
-    expect(buildOwed(existing, { enabled: true, amount: 60, people: '' }).payments).toEqual(existing.payments);
+    // The owed form hands buildOwed its raw input strings; it coerces with Number().
+    expect(buildOwed(undefined, { enabled: true, amount: '75' as unknown as number, people: '4' as unknown as number })).toEqual({ amount: 75, people: 4, payments: [], forgiven: false });
+    const existing = owed(75, [{ id: 'p', amount: 25 }]);
+    const rebuilt = buildOwed(existing, { enabled: true, amount: 60, people: '' as unknown as number });
+    expect(rebuilt).toBeDefined();
+    if (!rebuilt) throw new Error('unreachable');
+    expect(rebuilt.payments).toEqual(existing.payments);
     expect(buildOwed(existing, { enabled: false, amount: 60 })).toBeUndefined();
     expect(buildOwed(undefined, { enabled: true, amount: 0 })).toBeUndefined();
   });

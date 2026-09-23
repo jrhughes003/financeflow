@@ -21,9 +21,11 @@ import {
   getGoalProgress,
   getConsistentlyOverBudget,
 } from './calculations';
+import { makeBudget, makeDebt, makeGoal, makeIncome, makeInvestment, makeTransaction } from '../test/factories';
+import type { IncomeFrequency, Transaction } from '../types/domain';
 
 // Helper: build a transaction with sane defaults.
-const tx = (over = {}) => ({
+const tx = (over: Partial<Transaction> = {}): Transaction => makeTransaction({
   id: Math.random().toString(36).slice(2),
   date: '2026-03-15',
   merchant: 'Test',
@@ -46,15 +48,16 @@ describe('toMonthlyAmount', () => {
     expect(toMonthlyAmount(100, 'semi-monthly')).toBe(200);
     expect(toMonthlyAmount(100, 'monthly')).toBe(100);
     expect(toMonthlyAmount(1200, 'annual')).toBe(100);
-    expect(toMonthlyAmount(100, 'unknown')).toBe(100); // default passthrough
+    // A frequency outside the union — the case exists to cover the default branch.
+    expect(toMonthlyAmount(100, 'unknown' as IncomeFrequency)).toBe(100); // default passthrough
   });
 });
 
 describe('getTotalIncome', () => {
   it('sums monthly-equivalent income across sources', () => {
     const incomes = [
-      { amount: 1000, frequency: 'monthly' },
-      { amount: 1200, frequency: 'annual' }, // -> 100/mo
+      makeIncome({ amount: 1000, frequency: 'monthly' }),
+      makeIncome({ id: 'i2', amount: 1200, frequency: 'annual' }), // -> 100/mo
     ];
     expect(getTotalIncome(incomes)).toBeCloseTo(1100);
   });
@@ -117,7 +120,7 @@ describe('getSpendingByCategory', () => {
 });
 
 describe('getBudgetStatus', () => {
-  const budgets = [{ id: 'b1', category: 'dining_out', amount: 100, flex: 10, rollover: false }];
+  const budgets = [makeBudget({ id: 'b1', category: 'dining_out', amount: 100, flex: 10, rollover: false })];
 
   it('flags good when under 80%', () => {
     const txns = [tx({ amount: 50 })];
@@ -142,7 +145,7 @@ describe('getBudgetStatus', () => {
 
   it('handles a zero budget amount without dividing by zero', () => {
     const [s] = getBudgetStatus(
-      [{ id: 'b1', category: 'dining_out', amount: 0, flex: 10 }],
+      [makeBudget({ id: 'b1', category: 'dining_out', amount: 0, flex: 10 })],
       [tx({ amount: 5 })], MARCH.month, MARCH.year,
     );
     expect(s.percentUsed).toBe(0);
@@ -158,7 +161,7 @@ describe('budget rollover', () => {
   ];
 
   it('carries prior-month unused budget when rollover is on', () => {
-    const b = { id: 'b1', category: 'dining_out', amount: 100, flex: 0, rollover: true };
+    const b = makeBudget({ id: 'b1', category: 'dining_out', amount: 100, flex: 0, rollover: true });
     expect(getRolloverCarry(b, txns, MARCH.month, MARCH.year)).toBe(40);
     const [s] = getBudgetStatus([b], txns, MARCH.month, MARCH.year);
     expect(s.effectiveBudget).toBe(140);
@@ -167,14 +170,14 @@ describe('budget rollover', () => {
 
   it('carries a negative amount when the prior month overspent', () => {
     const over = [tx({ date: '2026-02-10', amount: 130 }), tx({ date: '2026-03-10', amount: 10 })];
-    const b = { id: 'b1', category: 'dining_out', amount: 100, flex: 0, rollover: true };
+    const b = makeBudget({ id: 'b1', category: 'dining_out', amount: 100, flex: 0, rollover: true });
     expect(getRolloverCarry(b, over, MARCH.month, MARCH.year)).toBe(-30);
     const [s] = getBudgetStatus([b], over, MARCH.month, MARCH.year);
     expect(s.effectiveBudget).toBe(70);
   });
 
   it('does not carry when rollover is off (back-compat)', () => {
-    const b = { id: 'b1', category: 'dining_out', amount: 100, flex: 0, rollover: false };
+    const b = makeBudget({ id: 'b1', category: 'dining_out', amount: 100, flex: 0, rollover: false });
     expect(getRolloverCarry(b, txns, MARCH.month, MARCH.year)).toBe(0);
     const [s] = getBudgetStatus([b], txns, MARCH.month, MARCH.year);
     expect(s.effectiveBudget).toBe(100);
@@ -182,7 +185,7 @@ describe('budget rollover', () => {
 
   it('clamps a large prior overage so the effective budget never goes negative', () => {
     const over = [tx({ date: '2026-02-10', amount: 500 }), tx({ date: '2026-03-10', amount: 5 })];
-    const b = { id: 'b1', category: 'dining_out', amount: 100, flex: 0, rollover: true };
+    const b = makeBudget({ id: 'b1', category: 'dining_out', amount: 100, flex: 0, rollover: true });
     const [s] = getBudgetStatus([b], over, MARCH.month, MARCH.year);
     expect(s.effectiveBudget).toBe(0);
     expect(s.status).toBe('danger');
@@ -204,7 +207,7 @@ describe('savings goal contributions', () => {
   });
 
   it('derives progress from opening balance + contributions', () => {
-    const goal = { id: 'g1', targetAmount: 600, currentAmount: 150 }; // 150 opening
+    const goal = makeGoal({ id: 'g1', targetAmount: 600, currentAmount: 150 }); // 150 opening
     const p = getGoalProgress(goal, txns);
     expect(p.opening).toBe(150);
     expect(p.contributed).toBe(150);
@@ -215,7 +218,7 @@ describe('savings goal contributions', () => {
 
 describe('getConsistentlyOverBudget', () => {
   it('flags categories over budget in >= 2 of the last 3 months', () => {
-    const budgets = [{ id: 'b1', category: 'dining_out', amount: 100, flex: 0 }];
+    const budgets = [makeBudget({ id: 'b1', category: 'dining_out', amount: 100, flex: 0 })];
     // Dec & Jan & Feb each spend $200 (danger); March is the current month.
     const txns = [
       tx({ date: '2025-12-10', amount: 200 }),
@@ -227,7 +230,7 @@ describe('getConsistentlyOverBudget', () => {
   });
 
   it('does not flag a single over-budget month', () => {
-    const budgets = [{ id: 'b1', category: 'dining_out', amount: 100, flex: 0 }];
+    const budgets = [makeBudget({ id: 'b1', category: 'dining_out', amount: 100, flex: 0 })];
     const txns = [tx({ date: '2026-02-10', amount: 200 })];
     expect(getConsistentlyOverBudget(budgets, txns, MARCH.month, MARCH.year)).toEqual([]);
   });
@@ -250,12 +253,12 @@ describe('detectAnomalies options', () => {
 
 describe('getSavingsRate', () => {
   it('computes (income - expenses) / income * 100', () => {
-    const incomes = [{ amount: 1000, frequency: 'monthly' }];
+    const incomes = [makeIncome({ amount: 1000, frequency: 'monthly' })];
     const txns = [tx({ amount: 250 })];
     expect(getSavingsRate(incomes, txns, MARCH.month, MARCH.year)).toBeCloseTo(75);
   });
   it('never goes negative and returns 0 with no income', () => {
-    const incomes = [{ amount: 100, frequency: 'monthly' }];
+    const incomes = [makeIncome({ amount: 100, frequency: 'monthly' })];
     const txns = [tx({ amount: 500 })];
     expect(getSavingsRate(incomes, txns, MARCH.month, MARCH.year)).toBe(0);
     expect(getSavingsRate([], txns, MARCH.month, MARCH.year)).toBe(0);
@@ -264,9 +267,9 @@ describe('getSavingsRate', () => {
 
 describe('getNetWorth', () => {
   it('is assets (investments + goal balances) minus debts', () => {
-    const investments = [{ currentValue: 1000 }];
-    const goals = [{ currentAmount: 500 }];
-    const debts = [{ balance: 300 }];
+    const investments = [makeInvestment({ currentValue: 1000 })];
+    const goals = [makeGoal({ currentAmount: 500 })];
+    const debts = [makeDebt({ balance: 300 })];
     expect(getNetWorth(investments, debts, goals)).toBe(1200);
   });
 });
@@ -276,7 +279,7 @@ describe('getBudgetHealthScore', () => {
     expect(getBudgetHealthScore([], [], MARCH.month, MARCH.year).grade).toBe('N/A');
   });
   it('grades A when all categories are within budget', () => {
-    const budgets = [{ id: 'b1', category: 'dining_out', amount: 100, flex: 10 }];
+    const budgets = [makeBudget({ id: 'b1', category: 'dining_out', amount: 100, flex: 10 })];
     const result = getBudgetHealthScore(budgets, [tx({ amount: 10 })], MARCH.month, MARCH.year);
     expect(result.grade).toBe('A');
     expect(result.percent).toBe(100);
@@ -310,12 +313,15 @@ describe('detectAnomalies', () => {
 
 describe('projectGoalCompletion', () => {
   it('returns months remaining for a positive contribution', () => {
-    const goal = { targetAmount: 1000, currentAmount: 400 };
-    expect(projectGoalCompletion(goal, 100).months).toBe(6);
+    const goal = makeGoal({ targetAmount: 1000, currentAmount: 400 });
+    const projected = projectGoalCompletion(goal, 100);
+    expect(projected).not.toBeNull();
+    if (!projected) throw new Error('unreachable');
+    expect(projected.months).toBe(6);
   });
   it('returns null when already met or contribution is non-positive', () => {
-    expect(projectGoalCompletion({ targetAmount: 100, currentAmount: 100 }, 50)).toBeNull();
-    expect(projectGoalCompletion({ targetAmount: 100, currentAmount: 0 }, 0)).toBeNull();
+    expect(projectGoalCompletion(makeGoal({ targetAmount: 100, currentAmount: 100 }), 50)).toBeNull();
+    expect(projectGoalCompletion(makeGoal({ targetAmount: 100, currentAmount: 0 }), 0)).toBeNull();
   });
 });
 
@@ -351,6 +357,8 @@ describe('calculateDebtPayoff', () => {
   });
   it('amortizes interest-bearing debt', () => {
     const result = calculateDebtPayoff(1000, 12, 100);
+    expect(result).not.toBeNull();
+    if (!result) throw new Error('unreachable');
     expect(result.months).toBeGreaterThan(10);
     expect(result.totalInterest).toBeGreaterThan(0);
   });
@@ -370,6 +378,7 @@ describe('getMonthlyTrend', () => {
 describe('formatCurrency', () => {
   it('formats USD and treats nullish as zero', () => {
     expect(formatCurrency(1234.5)).toBe('$1,234.50');
-    expect(formatCurrency(null)).toBe('$0.00');
+    // formatCurrency is declared to take a number but guards with `amount || 0`.
+    expect(formatCurrency(null as unknown as number)).toBe('$0.00');
   });
 });

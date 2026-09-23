@@ -17,6 +17,8 @@ import {
   toMonthlyAmount, calculateDebtPayoff, getGoalProgress, getTotalIncome,
 } from './calculations';
 import { effectiveAmount, getOwedStatus, owedFromSplit } from './reimbursements';
+import { makeGoal, makeTransaction } from '../test/factories';
+import type { IncomeFrequency, Transaction } from '../types/domain';
 
 const CATEGORIES = ['dining_out', 'groceries', 'transportation', 'subscriptions', 'products'];
 const cents = () => fc.integer({ min: 1, max: 500000 }).map(n => n / 100);
@@ -67,11 +69,13 @@ describe('reimbursements never invent money', () => {
     amount: cents(),
     payments: fc.array(cents(), { maxLength: 5 }),
     share: fc.double({ min: 0.01, max: 1, noNaN: true }),
-  }).map(({ amount, payments, share }) => ({
+  }).map(({ amount, payments, share }): Transaction => ({
     id: 'x', date: '2026-09-10', merchant: 'Dinner', category: 'dining_out',
     amount, kind: 'expense', isException: false,
     owed: {
       amount: Math.round(amount * share * 100) / 100,
+      // A ratio split, not a head count — `people` is genuinely unknown here.
+      people: null,
       payments: payments.map((a, i) => ({ id: `p${i}`, date: '2026-09-11', amount: a })),
       forgiven: false,
     },
@@ -160,7 +164,7 @@ describe('debt payoff', () => {
         expect(Number.isFinite(result.months)).toBe(true);
         expect(result.totalInterest).toBeGreaterThanOrEqual(-0.01);
         // Paying interest can never cost less than the principal itself.
-        expect(result.totalPaid ?? balance + result.totalInterest).toBeGreaterThanOrEqual(balance - 0.01);
+        expect(balance + result.totalInterest).toBeGreaterThanOrEqual(balance - 0.01);
       },
     ), { numRuns: 400 });
   });
@@ -171,10 +175,10 @@ describe('debt payoff', () => {
       fc.double({ min: 1, max: 25, noNaN: true }),
       fc.integer({ min: 200, max: 2000 }),
       (balance, rate, payment) => {
-        const slow = calculateDebtPayoff(balance, rate, payment);
-        const fast = calculateDebtPayoff(balance, rate, payment * 2);
-        if (!slow?.months || !fast?.months) return;
-        expect(fast.months).toBeLessThanOrEqual(slow.months);
+        const slow = calculateDebtPayoff(balance, rate, payment)?.months;
+        const fast = calculateDebtPayoff(balance, rate, payment * 2)?.months;
+        if (!slow || !fast) return;
+        expect(fast).toBeLessThanOrEqual(slow);
 
         const cheap = calculateDebtPayoff(balance, rate, payment);
         const dear = calculateDebtPayoff(balance, Math.min(29.99, rate * 2), payment);
@@ -190,7 +194,7 @@ describe('income and goals', () => {
   it('monthly equivalents scale linearly with the amount', () => {
     fc.assert(fc.property(
       cents(),
-      fc.constantFrom('weekly', 'biweekly', 'semi-monthly', 'monthly', 'annual'),
+      fc.constantFrom<IncomeFrequency[]>('weekly', 'biweekly', 'semi-monthly', 'monthly', 'annual'),
       fc.integer({ min: 2, max: 5 }),
       (amount, frequency, factor) => {
         const single = toMonthlyAmount(amount, frequency);
@@ -205,7 +209,7 @@ describe('income and goals', () => {
     const source = fc.record({
       id: fc.uuid(),
       amount: cents(),
-      frequency: fc.constantFrom('weekly', 'biweekly', 'semi-monthly', 'monthly', 'annual'),
+      frequency: fc.constantFrom<IncomeFrequency[]>('weekly', 'biweekly', 'semi-monthly', 'monthly', 'annual'),
     });
     fc.assert(fc.property(fc.array(source, { maxLength: 8 }), sources => {
       const total = getTotalIncome(sources);
@@ -216,10 +220,10 @@ describe('income and goals', () => {
   });
 
   it('goal progress is the opening balance plus contributions, and the percentage is bounded', () => {
-    const goal = fc.record({ id: fc.constant('g1'), currentAmount: cents(), targetAmount: cents() });
+    const goal = fc.record({ id: fc.constant('g1'), currentAmount: cents(), targetAmount: cents() }).map(makeGoal);
     const contributions = fc.array(cents(), { maxLength: 10 });
     fc.assert(fc.property(goal, contributions, (g, amounts) => {
-      const txns = amounts.map((amount, i) => ({
+      const txns = amounts.map((amount, i) => makeTransaction({
         id: `t${i}`, date: '2026-09-10', merchant: 'Savings', amount,
         category: 'savings', kind: 'savings', goalId: 'g1', isException: false,
       }));

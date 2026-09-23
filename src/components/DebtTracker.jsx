@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Plus, Edit2, Trash2, PauseCircle } from 'lucide-react';
+import { Plus, Edit2, Trash2, PauseCircle , Landmark } from 'lucide-react';
 import { useFinancial } from '../context/FinancialContext';
+import EmptyState from './EmptyState';
 import { useUndoableDelete } from '../hooks/useUndoableDelete';
 import { calculateDebtPayoff, formatCurrency } from '../utils/calculations';
 import { addMonths, format, parseISO } from 'date-fns';
@@ -133,7 +134,14 @@ export default function DebtTracker() {
 
         <div className="space-y-4">
           {debts.length === 0
-            ? <p className="text-sm text-gray-400 text-center py-4">No debts tracked. Great!</p>
+            ? <EmptyState
+                compact
+                icon={Landmark}
+                title="No debts tracked"
+                description="Add a loan or card to compare avalanche and snowball payoff plans, and to see interest-free or deferred loans handled properly."
+                actionLabel="Add a debt"
+                onAction={() => setShowForm(true)}
+              />
             : debts.map(d => {
                 // Clamp to 0–100: a balance above the original (or a missing
                 // original) shouldn't produce a negative or >100% bar.

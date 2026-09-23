@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Plus, Edit2, Trash2, Target, Plane, Car, Shield, Home, Star } from 'lucide-react';
 import { format, addMonths, parseISO, differenceInMonths } from 'date-fns';
 import { useFinancial } from '../context/FinancialContext';
+import EmptyState from './EmptyState';
 import { useUndoableDelete } from '../hooks/useUndoableDelete';
 import { projectGoalCompletion, getGoalProgress, formatCurrency } from '../utils/calculations';
 
@@ -198,7 +199,13 @@ export default function GoalsManager() {
 
       {/* Goals grid */}
       {savings_goals.length === 0
-        ? <div className="text-center py-12 text-gray-400"><p className="font-medium">No goals yet</p><p className="text-sm mt-1">Create your first savings goal to get started.</p></div>
+        ? <EmptyState
+            icon={Target}
+            title="No savings goals yet"
+            description="Name what you're saving for and the app tracks progress from your actual savings transactions — not a number you have to keep updating."
+            actionLabel="Create a goal"
+            onAction={() => { setShowForm(true); setEditId(null); }}
+          />
         : <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {savings_goals.map(g => (
               <GoalCard key={g.id} goal={g} transactions={transactions} onEdit={openEdit} onDelete={() => removeItem({ type: 'goal', item: g })} />

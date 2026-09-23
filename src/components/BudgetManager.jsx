@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, Edit2, Check, X, Lightbulb, Tag } from 'lucide-react';
+import { Plus, Trash2, Edit2, Check, X, Lightbulb, Tag , Wallet } from 'lucide-react';
 import { useFinancial, useGetCategory } from '../context/FinancialContext';
+import EmptyState from './EmptyState';
 import { useUndoableDelete } from '../hooks/useUndoableDelete';
 import { CATEGORIES, getAllCategories } from '../utils/categorization';
 import { getSpendingByCategory, getMonthlyTrend, getBudgetStatus, formatCurrency } from '../utils/calculations';
@@ -274,10 +275,14 @@ export default function BudgetManager() {
 
       {/* Budget grid */}
       {budgets.length === 0 ? (
-        <div className="text-center py-12 text-gray-400">
-          <p className="text-base font-medium">No budgets set</p>
-          <p className="text-sm mt-1">Click "Add Budget" to set a monthly spending limit.</p>
-        </div>
+        <EmptyState
+          icon={Wallet}
+          title="No budgets yet"
+          description="Set a monthly limit per category and the app tracks what's left, carries unused room forward, and tells you when a category is drifting."
+          actionLabel="Add your first budget"
+          onAction={() => setShowAdd(true)}
+          secondary="Already have spending history? The Analytics tab can suggest limits from it."
+        />
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {budgets.map(b => (

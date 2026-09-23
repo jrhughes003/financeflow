@@ -1,7 +1,8 @@
-import React, { useState, useMemo } from 'react';
-import { Search, Filter, Download, Upload, Trash2, Edit2, ChevronUp, ChevronDown, Sparkles , CircleSlash } from 'lucide-react';
+import React, { useState, useMemo, useRef } from 'react';
+import { Search, Filter, Download, Upload, Trash2, Edit2, ChevronUp, ChevronDown, Sparkles , CircleSlash , Receipt } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { useFinancial } from '../context/FinancialContext';
+import EmptyState from './EmptyState';
 import { useUndoableDelete } from '../hooks/useUndoableDelete';
 import { CATEGORIES, getAllCategories, getCategoryById } from '../utils/categorization';
 import { useGetCategory } from '../context/FinancialContext';
@@ -26,6 +27,7 @@ function OwedBadge({ t }) {
 export default function TransactionHistory() {
   const { state, dispatch } = useFinancial();
   const removeItem = useUndoableDelete();
+  const importRef = useRef(null);
   const { transactions, customCategories = [] } = state;
   const getCategory = useGetCategory();
   const allCategories = getAllCategories(customCategories);
@@ -169,7 +171,7 @@ export default function TransactionHistory() {
         </button>
         <label className="flex items-center gap-2 px-3 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50 cursor-pointer">
           <Upload className="w-4 h-4" /> Import CSV
-          <input type="file" accept=".csv" className="hidden" onChange={handleImport} />
+          <input ref={importRef} type="file" accept=".csv" className="hidden" onChange={handleImport} />
         </label>
         {aiEnabled && (
           <button onClick={() => setShowPaste(s => !s)} className="flex items-center gap-2 px-3 py-2.5 border border-purple-200 text-purple-600 rounded-xl text-sm font-medium hover:bg-purple-50">
@@ -248,7 +250,20 @@ export default function TransactionHistory() {
             </thead>
             <tbody>
               {paged.length === 0 && (
-                <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400 text-sm">No transactions found.</td></tr>
+                <tr><td colSpan={6}>
+                  {transactions.length === 0 ? (
+                    <EmptyState
+                      icon={Receipt}
+                      title="No transactions yet"
+                      description="Import a CSV from your bank, or add one by hand. Everything else in the app — budgets, trends, forecasts — builds on this ledger."
+                      actionLabel="Import a CSV"
+                      onAction={() => importRef.current?.click()}
+                      secondary="No data to hand? Settings → Load demo data fills the app with a realistic example."
+                    />
+                  ) : (
+                    <p className="px-4 py-8 text-center text-gray-400 text-sm">No transactions match these filters.</p>
+                  )}
+                </td></tr>
               )}
               {paged.map(t => {
                 const cat = getCategory(t.category);

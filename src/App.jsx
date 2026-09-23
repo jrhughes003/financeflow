@@ -1,6 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { FinancialProvider } from './context/FinancialContext';
+import React, { useState, useEffect, useMemo } from 'react';
+import { FinancialProvider, useFinancial } from './context/FinancialContext';
 import { ToastProvider, useToast } from './context/ToastContext';
+import { isTemplateDue } from './utils/recurring';
+import { getOwedSummary } from './utils/reimbursements';
+import { formatCurrency } from './utils/calculations';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
 import TransactionEntry from './components/TransactionEntry';
@@ -22,6 +25,22 @@ function AppContent() {
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const { toast } = useToast();
+  const { state } = useFinancial();
+
+  // Two things in this app are waiting on the user rather than just sitting
+  // there: recurring charges that are due to post, and money other people owe
+  // back. Surfacing them in the nav turns it into a short to-do list.
+  const navBadges = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    const due = (state.recurringTemplates || []).filter(t => isTemplateDue(t, today)).length;
+    const owed = getOwedSummary(state.transactions || []);
+    return {
+      ...(due ? { recurring: { label: String(due), title: `${due} recurring charge${due > 1 ? 's' : ''} due to post` } } : {}),
+      ...(owed.outstanding > 0
+        ? { owed: { label: formatCurrency(owed.outstanding).replace(/\.00$/, ''), title: `${formatCurrency(owed.outstanding)} still owed to you` } }
+        : {}),
+    };
+  }, [state.recurringTemplates, state.transactions]);
 
   // Global keyboard shortcut Ctrl+N = quick add
   useEffect(() => {
@@ -55,7 +74,7 @@ function AppContent() {
 
   return (
     <>
-      <Layout currentPage={currentPage} setCurrentPage={setCurrentPage} onQuickAdd={() => setShowQuickAdd(true)}>
+      <Layout currentPage={currentPage} setCurrentPage={setCurrentPage} onQuickAdd={() => setShowQuickAdd(true)} badges={navBadges}>
         {pages[currentPage] || pages.dashboard}
       </Layout>
       {showQuickAdd && (

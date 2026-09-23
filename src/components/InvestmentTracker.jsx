@@ -3,6 +3,7 @@ import { format, parseISO, differenceInCalendarDays, addMonths } from 'date-fns'
 import { Plus, Edit2, Trash2, TrendingUp, RefreshCw, ArrowDownCircle, ArrowUpCircle, X, AlertCircle } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { useFinancial } from '../context/FinancialContext';
+import EmptyState from './EmptyState';
 import { useUndoableDelete } from '../hooks/useUndoableDelete';
 import { formatCurrency } from '../utils/calculations';
 import {
@@ -349,7 +350,14 @@ export default function InvestmentTracker() {
 
         <div className="space-y-3">
           {investments.length === 0
-            ? <p className="text-sm text-gray-400 text-center py-4">No accounts tracked yet.</p>
+            ? <EmptyState
+                compact
+                icon={TrendingUp}
+                title="No accounts yet"
+                description="Add an investment or advisor account to track allocation and growth, and to feed the Plan Ahead projection."
+                actionLabel="Add an account"
+                onAction={() => setShowForm(true)}
+              />
             : investments.map(inv => isTrackedAccount(inv)
               ? <AccountCard key={inv.id} inv={inv} onUpdate={update} onEdit={openEdit} onDelete={remove} />
               : (

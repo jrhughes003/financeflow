@@ -3,9 +3,9 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import Layout from './Layout';
 
-const renderNav = (currentPage = 'dashboard', setCurrentPage = vi.fn()) => {
+const renderNav = (currentPage = 'dashboard', setCurrentPage = vi.fn(), badges = {}) => {
   render(
-    <Layout currentPage={currentPage} setCurrentPage={setCurrentPage} onQuickAdd={vi.fn()}>
+    <Layout currentPage={currentPage} setCurrentPage={setCurrentPage} onQuickAdd={vi.fn()} badges={badges}>
       <div>page body</div>
     </Layout>,
   );
@@ -84,6 +84,30 @@ describe('sidebar grouping', () => {
     expect(group('Budgeting')).toHaveAttribute('aria-expanded', 'true'); // still follows the current page
     getItem.mockRestore();
     setItem.mockRestore();
+  });
+
+  it('shows a badge on a page that needs attention', () => {
+    renderNav('dashboard', vi.fn(), { recurring: { label: '3', title: '3 recurring charges due to post' } });
+    fireEvent.click(group('Everyday'));
+    const recurring = screen.getByRole('button', { name: /^recurring/i });
+    expect(recurring).toHaveTextContent('3');
+  });
+
+  it('flags a collapsed group when something inside is waiting', () => {
+    const { container } = render(
+      <Layout currentPage="dashboard" setCurrentPage={vi.fn()} onQuickAdd={vi.fn()}
+        badges={{ owed: { label: '$62', title: '$62.00 still owed to you' } }}><div /></Layout>,
+    );
+    expect(group('Everyday')).toHaveAttribute('aria-expanded', 'false');
+    expect(container.querySelector('.bg-amber-500')).toBeTruthy();
+  });
+
+  it('shows no badges when nothing needs attention', () => {
+    const { container } = render(
+      <Layout currentPage="dashboard" setCurrentPage={vi.fn()} onQuickAdd={vi.fn()}><div /></Layout>,
+    );
+    expect(container.querySelector('.bg-amber-500')).toBeNull();
+    expect(container.querySelector('.bg-amber-100')).toBeNull();
   });
 
   it('still shows the page title in the header for a grouped page', () => {

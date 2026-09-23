@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Plus, Edit2, Trash2 } from 'lucide-react';
+import { Plus, Edit2, Trash2 , DollarSign } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { format } from 'date-fns';
 import { useFinancial } from '../context/FinancialContext';
+import EmptyState from './EmptyState';
 import { useUndoableDelete } from '../hooks/useUndoableDelete';
 import { getTotalIncome, getTotalExpenses, toMonthlyAmount, formatCurrency } from '../utils/calculations';
 import { getIncomeSources } from '../utils/accounts';
@@ -150,7 +151,14 @@ export default function IncomeManager() {
             </div>
           ))}
           {incomes.length === 0 && accountIncomes.length === 0
-            ? <p className="text-sm text-gray-400 text-center py-4">No income sources added yet.</p>
+            ? <EmptyState
+                compact
+                icon={DollarSign}
+                title="No income added yet"
+                description="Add what you earn and how often. Everything downstream — savings rate, budgets, the long-range plan — needs it."
+                actionLabel="Add income"
+                onAction={() => setShowForm(true)}
+              />
             : incomes.map(inc => {
                 const monthly = toMonthlyAmount(inc.amount, inc.frequency);
                 return (

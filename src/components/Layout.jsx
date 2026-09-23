@@ -57,6 +57,17 @@ const NAV_ITEMS = NAV.flatMap(entry => (entry.items ? entry.items : [entry]));
 
 const groupIdFor = pageId => NAV.find(g => g.items?.some(i => i.id === pageId))?.id;
 
+function NavBadge({ badge }) {
+  return (
+    <span
+      title={badge.title}
+      className="shrink-0 px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[11px] font-semibold leading-none"
+    >
+      {badge.label}
+    </span>
+  );
+}
+
 const OPEN_GROUPS_KEY = 'financeflow_nav_groups';
 
 // Which groups start expanded: whatever the user left open last time, else just
@@ -71,7 +82,7 @@ function loadOpenGroups(currentPage) {
   return active ? [active] : [];
 }
 
-export default function Layout({ currentPage, setCurrentPage, onQuickAdd, children }) {
+export default function Layout({ currentPage, setCurrentPage, onQuickAdd, children, badges = {} }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [openGroups, setOpenGroups] = useState(() => loadOpenGroups(currentPage));
 
@@ -152,7 +163,8 @@ export default function Layout({ currentPage, setCurrentPage, onQuickAdd, childr
               return (
                 <button key={entry.id} onClick={() => handleNav(entry.id)} className={itemClasses(entry.id)}>
                   <Icon className="shrink-0" style={{ width: 18, height: 18 }} />
-                  {entry.label}
+                  <span className="flex-1 text-left">{entry.label}</span>
+                  {badges[entry.id] && <NavBadge badge={badges[entry.id]} />}
                 </button>
               );
             }
@@ -176,7 +188,11 @@ export default function Layout({ currentPage, setCurrentPage, onQuickAdd, childr
                 >
                   <Icon className="shrink-0" style={{ width: 18, height: 18 }} />
                   <span className="flex-1">{entry.label}</span>
-                  {/* Collapsed groups still show where you are. */}
+                  {/* A collapsed group still shows where you are, and that
+                      something inside is waiting on you. */}
+                  {!isOpen && entry.items.some(i => badges[i.id]) && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" title="Something inside needs attention" />
+                  )}
                   {holdsCurrent && !isOpen && <span className="w-1.5 h-1.5 rounded-full bg-blue-600 shrink-0" />}
                   <ChevronDown
                     className={`shrink-0 text-gray-400 transition-transform duration-200 ${isOpen ? '' : '-rotate-90'}`}
@@ -189,7 +205,8 @@ export default function Layout({ currentPage, setCurrentPage, onQuickAdd, childr
                     {entry.items.map(({ id, label, icon: ItemIcon }) => (
                       <button key={id} onClick={() => handleNav(id)} className={itemClasses(id, true)}>
                         <ItemIcon className="shrink-0" style={{ width: 16, height: 16 }} />
-                        {label}
+                        <span className="flex-1">{label}</span>
+                        {badges[id] && <NavBadge badge={badges[id]} />}
                       </button>
                     ))}
                   </div>

@@ -42,7 +42,7 @@ export default function FinancialHealthCard() {
         <div className="flex-1 min-w-48">
           <div className="flex items-center gap-2">
             <HeartPulse className="w-4 h-4 text-ink-muted" />
-            <h2 className="text-base font-semibold text-ink">Financial Health</h2>
+            <h2 className="text-lg font-semibold text-ink">Financial Health</h2>
           </div>
           <p className="text-lg font-bold mt-0.5" style={{ color: health.color }}>{health.label}</p>
           {health.score === null ? (

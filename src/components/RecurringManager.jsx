@@ -61,7 +61,7 @@ export default function RecurringManager() {
           <p className="text-sm text-accent-ink">
             <strong>{dueTemplates.length}</strong> recurring {dueTemplates.length === 1 ? 'transaction is' : 'transactions are'} due to be posted.
           </p>
-          <button onClick={postAllDue} className="px-3 py-2 bg-accent hover:bg-accent-hover text-ink-inverse text-sm rounded-control font-medium">
+          <button onClick={postAllDue} className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-9 px-3.5 text-sm bg-accent hover:bg-accent-hover text-ink-inverse">
             Post all due
           </button>
         </div>
@@ -71,7 +71,7 @@ export default function RecurringManager() {
       <div className="bg-surface rounded-container border border-line p-5">
         <div className="flex items-center gap-2 mb-4">
           <RefreshCw className="w-4 h-4 text-ink-muted" />
-          <h2 className="text-base font-semibold text-ink">Recurring Templates</h2>
+          <h2 className="text-lg font-semibold text-ink">Recurring Templates</h2>
         </div>
         {recurringTemplates.length === 0 ? (
           <p className="text-sm text-ink-muted text-center py-4">No recurring templates yet. Add one from the detected charges below.</p>
@@ -113,7 +113,7 @@ export default function RecurringManager() {
 
       {/* Detected candidates */}
       <div className="bg-surface rounded-container border border-line p-5">
-        <h2 className="text-base font-semibold text-ink mb-1">Detected Recurring Charges</h2>
+        <h2 className="text-lg font-semibold text-ink mb-1">Detected Recurring Charges</h2>
         <p className="text-sm text-ink-muted mb-4">Found in your transaction history. Add any as a template to track and auto-post.</p>
         {candidates.length === 0 ? (
           <p className="text-sm text-ink-muted text-center py-4">No new recurring patterns detected.</p>

@@ -212,10 +212,10 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
               onChange={e => setNlText(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); parseNaturalLanguage(); } }}
               placeholder="e.g. spent $40 on gas at Esso yesterday"
-              className="flex-1 px-3 py-2 border border-line-strong rounded-control text-sm bg-surface focus:outline-none focus:border-accent"
+              className="flex-1 h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent"
             />
             <button type="button" onClick={parseNaturalLanguage} disabled={nlBusy || !nlText.trim()}
-              className="px-3 py-2 bg-accent hover:bg-accent-hover disabled:opacity-50 text-ink-inverse text-sm rounded-control font-medium">
+              className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-9 px-3.5 text-sm bg-accent hover:bg-accent-hover text-ink-inverse">
               {nlBusy ? '…' : 'Fill'}
             </button>
           </div>
@@ -241,7 +241,7 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
 
       {/* Amount */}
       <div>
-        <label className="block text-caption font-semibold text-ink-muted uppercase tracking-wider mb-1">Amount</label>
+        <label className="label-micro block mb-1.5">Amount</label>
         <div className="relative">
           <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl font-bold text-ink-muted">$</span>
           <input
@@ -266,7 +266,7 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
               type="checkbox"
               checked={owedEnabled}
               onChange={e => { setOwedEnabled(e.target.checked); setErrors(er => ({ ...er, owed: undefined })); }}
-              className="w-4 h-4 rounded border-line-strong text-positive focus:ring-emerald-500"
+              className="w-4 h-4 rounded-[3px] border-line-strong text-accent focus:ring-accent"
             />
             <HandCoins className="w-4 h-4 text-positive" />
             <span className="text-sm text-ink-secondary font-medium">I paid for others — they owe me back</span>
@@ -285,14 +285,14 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
                 <div className="flex items-center gap-2 text-sm text-ink-secondary">
                   <span>Split between</span>
                   <input type="number" min="2" step="1" value={owedPeople} onChange={e => setOwedPeople(e.target.value)}
-                    className="w-16 px-2 py-1.5 border border-line-strong rounded-control text-sm bg-surface focus:outline-none focus:border-positive" />
+                    className="w-16 h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent" />
                   <span>people, including you</span>
                 </div>
               ) : (
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-ink-muted">$</span>
                   <input type="number" min="0" step="0.01" placeholder="Amount owed to you" value={owedExact} onChange={e => setOwedExact(e.target.value)}
-                    className="w-full pl-7 pr-3 py-2 border border-line-strong rounded-control text-sm bg-surface focus:outline-none focus:border-positive" />
+                    className="w-full h-9 pl-7 pr-3 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent" />
                 </div>
               )}
               {owedValue > 0 && parseFloat(form.amount) > 0 && (
@@ -314,7 +314,7 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
       {/* Savings goal selector (savings mode only) */}
       {isSavings && (
         <div>
-          <label className="block text-caption font-semibold text-ink-muted uppercase tracking-wider mb-1">Contribute to Goal</label>
+          <label className="label-micro block mb-1.5">Contribute to Goal</label>
           <select
             value={form.goalId}
             onChange={e => setForm(f => ({ ...f, goalId: e.target.value }))}
@@ -331,7 +331,7 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
       {/* Merchant */}
       {!isSavings && (
       <div>
-        <label className="block text-caption font-semibold text-ink-muted uppercase tracking-wider mb-1">Merchant / Description</label>
+        <label className="label-micro block mb-1.5">Merchant / Description</label>
         <input
           type="text"
           placeholder="e.g. Uber Eats, Metro, Esso..."
@@ -352,19 +352,19 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
 
       {/* Date */}
       <div>
-        <label className="block text-caption font-semibold text-ink-muted uppercase tracking-wider mb-1">Date</label>
+        <label className="label-micro block mb-1.5">Date</label>
         <input
           type="date"
           value={form.date}
           onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
-          className="w-full px-4 py-3 border-2 border-line-strong rounded-container focus:outline-none focus:border-accent transition-colors"
+          className="w-full h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent"
         />
       </div>
 
       {/* Category */}
       {!isSavings && (
       <div>
-        <label className="block text-caption font-semibold text-ink-muted uppercase tracking-wider mb-1">Category</label>
+        <label className="label-micro block mb-1.5">Category</label>
         <div className="flex gap-2">
           <select
             value={form.category}
@@ -397,7 +397,7 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
               value={newCatName}
               onChange={e => setNewCatName(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleCreateCategory())}
-              className="w-full px-3 py-2 border border-line-strong rounded-control text-sm bg-surface focus:outline-none focus:border-accent"
+              className="w-full h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent"
               autoFocus
             />
             <div className="flex flex-wrap gap-1.5">
@@ -408,8 +408,8 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
               ))}
             </div>
             <div className="flex gap-2">
-              <button type="button" onClick={handleCreateCategory} className="px-3 py-1.5 bg-accent hover:bg-accent-hover text-ink-inverse text-caption rounded-control font-medium">Create</button>
-              <button type="button" onClick={() => { setShowNewCat(false); setNewCatName(''); }} className="px-3 py-1.5 border border-line-strong text-ink-secondary text-caption rounded-control hover:bg-surface">Cancel</button>
+              <button type="button" onClick={handleCreateCategory} className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-7 px-2.5 text-caption bg-accent hover:bg-accent-hover text-ink-inverse">Create</button>
+              <button type="button" onClick={() => { setShowNewCat(false); setNewCatName(''); }} className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-7 px-2.5 text-caption border border-line-strong text-ink hover:bg-surface-hover">Cancel</button>
             </div>
           </div>
         )}
@@ -419,11 +419,11 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
       {/* Subcategory */}
       {!isSavings && selectedCat && selectedCat.subcategories?.length > 0 && (
         <div>
-          <label className="block text-caption font-semibold text-ink-muted uppercase tracking-wider mb-1">Subcategory</label>
+          <label className="label-micro block mb-1.5">Subcategory</label>
           <select
             value={form.subcategory}
             onChange={e => setForm(f => ({ ...f, subcategory: e.target.value }))}
-            className="w-full px-3 py-3 border-2 border-line-strong rounded-container focus:outline-none focus:border-accent transition-colors bg-surface"
+            className="w-full h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent"
           >
             <option value="">None</option>
             {selectedCat.subcategories.map(s => <option key={s} value={s}>{s}</option>)}
@@ -433,13 +433,13 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
 
       {/* Tags */}
       <div>
-        <label className="block text-caption font-semibold text-ink-muted uppercase tracking-wider mb-1">Tags (comma-separated)</label>
+        <label className="label-micro block mb-1.5">Tags (comma-separated)</label>
         <input
           type="text"
           placeholder="rbc, td, one-time..."
           value={form.tags}
           onChange={e => setForm(f => ({ ...f, tags: e.target.value }))}
-          className="w-full px-4 py-3 border-2 border-line-strong rounded-container focus:outline-none focus:border-accent transition-colors"
+          className="w-full h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent"
         />
       </div>
 
@@ -454,7 +454,7 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
             placeholder="Optional notes..."
             value={form.notes}
             onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
-            className="mt-2 w-full px-4 py-3 border-2 border-line-strong rounded-container focus:outline-none focus:border-accent transition-colors resize-none"
+            className="mt-2 w-full px-2.5 py-2 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent resize-y"
           />
         )}
       </div>
@@ -465,7 +465,7 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
           type="checkbox"
           checked={form.isException}
           onChange={e => setForm(f => ({ ...f, isException: e.target.checked }))}
-          className="w-4 h-4 rounded border-line-strong text-accent focus:ring-accent"
+          className="w-4 h-4 rounded-[3px] border-line-strong text-accent focus:ring-accent"
         />
         <span className="text-sm text-ink-secondary">Mark as exception (exclude from budget)</span>
       </label>

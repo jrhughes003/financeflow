@@ -73,8 +73,8 @@ export default function DebtTracker() {
       {/* Debt cards */}
       <div className="bg-surface rounded-container border border-line p-5">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-semibold text-ink">Your Debts</h2>
-          <button onClick={() => { setShowForm(s => !s); setEditId(null); setForm(EMPTY_FORM); }} className="flex items-center gap-2 px-3 py-2 bg-accent hover:bg-accent-hover text-ink-inverse rounded-container text-sm font-medium">
+          <h2 className="text-lg font-semibold text-ink">Your Debts</h2>
+          <button onClick={() => { setShowForm(s => !s); setEditId(null); setForm(EMPTY_FORM); }} className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-9 px-3.5 text-sm bg-accent hover:bg-accent-hover text-ink-inverse">
             <Plus className="w-3.5 h-3.5" /> Add Debt
           </button>
         </div>
@@ -83,51 +83,51 @@ export default function DebtTracker() {
           <div className="bg-negative-tint border border-negative rounded-container p-4 mb-4 space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2">
-                <label className="block text-caption font-medium text-ink-muted mb-1">Debt Name</label>
-                <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Chase Sapphire" className="w-full px-3 py-2 border border-line-strong rounded-control text-sm bg-surface focus:outline-none focus:border-accent" />
+                <label className="label-micro block mb-1.5">Debt Name</label>
+                <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Chase Sapphire" className="w-full h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent" />
               </div>
               <div>
-                <label className="block text-caption font-medium text-ink-muted mb-1">Type</label>
-                <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))} className="w-full px-3 py-2 border border-line-strong rounded-control text-sm bg-surface focus:outline-none focus:border-accent">
+                <label className="label-micro block mb-1.5">Type</label>
+                <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))} className="w-full h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent">
                   {DEBT_TYPES.map(t => <option key={t} value={t}>{DEBT_LABELS[t]}</option>)}
                 </select>
               </div>
               <div>
-                <label className="block text-caption font-medium text-ink-muted mb-1">Current Balance</label>
-                <input type="number" value={form.balance} onChange={e => setForm(f => ({ ...f, balance: e.target.value }))} placeholder="$0" className="w-full px-3 py-2 border border-line-strong rounded-control text-sm bg-surface focus:outline-none focus:border-accent" />
+                <label className="label-micro block mb-1.5">Current Balance</label>
+                <input type="number" value={form.balance} onChange={e => setForm(f => ({ ...f, balance: e.target.value }))} placeholder="$0" className="w-full h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent" />
               </div>
               <div>
-                <label className="block text-caption font-medium text-ink-muted mb-1">Interest Rate %</label>
-                <input type="number" step="0.1" value={form.interestRate} onChange={e => setForm(f => ({ ...f, interestRate: e.target.value }))} placeholder="0" className="w-full px-3 py-2 border border-line-strong rounded-control text-sm bg-surface focus:outline-none focus:border-accent" />
+                <label className="label-micro block mb-1.5">Interest Rate %</label>
+                <input type="number" step="0.1" value={form.interestRate} onChange={e => setForm(f => ({ ...f, interestRate: e.target.value }))} placeholder="0" className="w-full h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent" />
               </div>
               <div>
-                <label className="block text-caption font-medium text-ink-muted mb-1">Min Monthly Payment</label>
-                <input type="number" value={form.minimumPayment} onChange={e => setForm(f => ({ ...f, minimumPayment: e.target.value }))} placeholder="$0" className="w-full px-3 py-2 border border-line-strong rounded-control text-sm bg-surface focus:outline-none focus:border-accent" />
+                <label className="label-micro block mb-1.5">Min Monthly Payment</label>
+                <input type="number" value={form.minimumPayment} onChange={e => setForm(f => ({ ...f, minimumPayment: e.target.value }))} placeholder="$0" className="w-full h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent" />
               </div>
               <div>
-                <label className="block text-caption font-medium text-ink-muted mb-1">
+                <label className="label-micro block mb-1.5">
                   Original Balance {editId && <span className="text-ink-muted">(locked)</span>}
                 </label>
                 {editId ? (
                   <>
                     <input type="number" value={form.originalBalance} disabled
-                      className="w-full px-3 py-2 border border-line-strong rounded-control text-sm bg-surface-hover text-ink-muted cursor-not-allowed" />
+                      className="w-full h-9 px-2.5 bg-surface-hover border border-line rounded-control text-sm text-ink-muted cursor-not-allowed" />
                     <p className="text-micro text-ink-muted mt-1">Set at creation — locked so payoff progress stays stable.</p>
                   </>
                 ) : (
-                  <input type="number" value={form.originalBalance} onChange={e => setForm(f => ({ ...f, originalBalance: e.target.value }))} placeholder="defaults to current balance" className="w-full px-3 py-2 border border-line-strong rounded-control text-sm bg-surface focus:outline-none focus:border-accent" />
+                  <input type="number" value={form.originalBalance} onChange={e => setForm(f => ({ ...f, originalBalance: e.target.value }))} placeholder="defaults to current balance" className="w-full h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent" />
                 )}
               </div>
               <div className="col-span-2">
-                <label className="block text-caption font-medium text-ink-muted mb-1">Repayment starts (optional)</label>
+                <label className="label-micro block mb-1.5">Repayment starts (optional)</label>
                 <input type="date" value={form.repaymentStart} onChange={e => setForm(f => ({ ...f, repaymentStart: e.target.value }))}
-                  className="w-full px-3 py-2 border border-line-strong rounded-control text-sm bg-surface focus:outline-none focus:border-accent" />
+                  className="w-full h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent" />
                 <p className="text-micro text-ink-muted mt-1">For deferred loans (like student loans in school): no payment is expected before this date. Use 0% for interest-free loans.</p>
               </div>
             </div>
             <div className="flex gap-2">
-              <button onClick={handleSave} className="px-4 py-2 bg-accent hover:bg-accent-hover text-ink-inverse text-sm rounded-control font-medium">Save</button>
-              <button onClick={() => { setShowForm(false); setEditId(null); }} className="px-4 py-2 border border-line-strong text-ink-secondary text-sm rounded-control hover:bg-surface">Cancel</button>
+              <button onClick={handleSave} className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-9 px-3.5 text-sm bg-accent hover:bg-accent-hover text-ink-inverse">Save</button>
+              <button onClick={() => { setShowForm(false); setEditId(null); }} className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-9 px-3.5 text-sm border border-line-strong text-ink hover:bg-surface-hover">Cancel</button>
             </div>
           </div>
         )}
@@ -203,7 +203,7 @@ export default function DebtTracker() {
                               value={extraPayment[d.id] || ''}
                               onChange={e => setExtraPayment(ep => ({ ...ep, [d.id]: e.target.value }))}
                               placeholder="$50"
-                              className="w-20 px-2 py-1 border border-line-strong rounded text-caption focus:outline-none focus:border-accent"
+                              className="w-20 h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent"
                             />
                             {payoffExtra && (
                               <span className="text-positive font-medium">
@@ -224,7 +224,7 @@ export default function DebtTracker() {
       {/* Avalanche vs Snowball */}
       {debts.length >= 2 && (
         <div className="bg-surface rounded-container border border-line p-5">
-          <h2 className="text-base font-semibold text-ink mb-3">Payoff Strategy</h2>
+          <h2 className="text-lg font-semibold text-ink mb-3">Payoff Strategy</h2>
           <div className="grid sm:grid-cols-2 gap-4">
             <div className="bg-accent-tint rounded-container p-4">
               <p className="font-semibold text-accent-ink text-sm mb-1">Avalanche Method</p>

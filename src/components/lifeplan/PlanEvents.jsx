@@ -86,7 +86,7 @@ export default function PlanEvents({ plan, setPlan, snapshot, result }) {
       <Card title="Life events" subtitle="Plans with a price tag. Each one is folded into the projection on its date.">
         <div className="flex flex-wrap gap-2">
           {Object.entries(TYPES).map(([type, { label, icon: Icon }]) => (
-            <button key={type} onClick={() => add(type)} className="flex items-center gap-2 px-3 py-2 border border-line-strong rounded-container text-sm font-medium text-ink-secondary hover:bg-surface-sunk">
+            <button key={type} onClick={() => add(type)} className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-9 px-3.5 text-sm border border-line-strong text-ink hover:bg-surface-hover">
               <Plus className="w-3.5 h-3.5" /><Icon className="w-4 h-4 text-ink-muted" />{label}
             </button>
           ))}

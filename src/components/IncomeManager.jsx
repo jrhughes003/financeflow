@@ -79,7 +79,7 @@ export default function IncomeManager() {
 
       {/* Income vs Expenses chart */}
       <div className="bg-surface rounded-container border border-line p-5">
-        <h2 className="text-base font-semibold text-ink mb-4">Income vs. Spending ({format(now, 'MMMM yyyy')})</h2>
+        <h2 className="text-lg font-semibold text-ink mb-4">Income vs. Spending ({format(now, 'MMMM yyyy')})</h2>
         <ResponsiveContainer width="100%" height={200}>
           <BarChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
             <CartesianGrid {...chart.grid} />
@@ -98,31 +98,31 @@ export default function IncomeManager() {
       {/* Income sources list */}
       <div className="bg-surface rounded-container border border-line p-5">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-semibold text-ink">Income Sources</h2>
-          <button onClick={() => { setShowForm(s => !s); setEditId(null); setForm(EMPTY_FORM); }} className="flex items-center gap-2 px-3 py-2 bg-accent hover:bg-accent-hover text-ink-inverse rounded-container text-sm font-medium">
+          <h2 className="text-lg font-semibold text-ink">Income Sources</h2>
+          <button onClick={() => { setShowForm(s => !s); setEditId(null); setForm(EMPTY_FORM); }} className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-9 px-3.5 text-sm bg-accent hover:bg-accent-hover text-ink-inverse">
             <Plus className="w-3.5 h-3.5" /> Add Source
           </button>
         </div>
 
         {showForm && (
-          <div className="bg-accent-tint border border-accent rounded-container p-4 mb-4 space-y-3">
+          <div className="bg-accent-tint rounded-container p-4 mb-4 space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2">
-                <label className="block text-caption font-medium text-ink-muted mb-1">Income Name</label>
-                <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Salary, Freelance..." className="w-full px-3 py-2 border border-line-strong rounded-control text-sm bg-surface focus:outline-none focus:border-accent" />
+                <label className="label-micro block mb-1.5">Income Name</label>
+                <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Salary, Freelance..." className="w-full h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent" />
               </div>
               <div>
-                <label className="block text-caption font-medium text-ink-muted mb-1">Amount</label>
-                <input type="number" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} placeholder="$0" className="w-full px-3 py-2 border border-line-strong rounded-control text-sm bg-surface focus:outline-none focus:border-accent" />
+                <label className="label-micro block mb-1.5">Amount</label>
+                <input type="number" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} placeholder="$0" className="w-full h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent" />
               </div>
               <div>
-                <label className="block text-caption font-medium text-ink-muted mb-1">Frequency</label>
-                <select value={form.frequency} onChange={e => setForm(f => ({ ...f, frequency: e.target.value }))} className="w-full px-3 py-2 border border-line-strong rounded-control text-sm bg-surface focus:outline-none focus:border-accent">
+                <label className="label-micro block mb-1.5">Frequency</label>
+                <select value={form.frequency} onChange={e => setForm(f => ({ ...f, frequency: e.target.value }))} className="w-full h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent">
                   {FREQUENCIES.map(f => <option key={f} value={f}>{FREQ_LABELS[f]}</option>)}
                 </select>
               </div>
               <div>
-                <label className="block text-caption font-medium text-ink-muted mb-1">Color</label>
+                <label className="label-micro block mb-1.5">Color</label>
                 <div className="flex gap-1.5 flex-wrap">
                   {COLORS.map(c => (
                     <button key={c} type="button" onClick={() => setForm(f => ({ ...f, color: c }))} className={`w-6 h-6 rounded-full border-2 ${form.color === c ? 'border-line-strong scale-110' : 'border-transparent'}`} style={{ backgroundColor: c }} />
@@ -131,8 +131,8 @@ export default function IncomeManager() {
               </div>
             </div>
             <div className="flex gap-2">
-              <button onClick={handleSave} className="px-4 py-2 bg-accent hover:bg-accent-hover text-ink-inverse text-sm rounded-control font-medium">Save</button>
-              <button onClick={() => { setShowForm(false); setEditId(null); }} className="px-4 py-2 border border-line-strong text-ink-secondary text-sm rounded-control hover:bg-surface">Cancel</button>
+              <button onClick={handleSave} className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-9 px-3.5 text-sm bg-accent hover:bg-accent-hover text-ink-inverse">Save</button>
+              <button onClick={() => { setShowForm(false); setEditId(null); }} className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-9 px-3.5 text-sm border border-line-strong text-ink hover:bg-surface-hover">Cancel</button>
             </div>
           </div>
         )}

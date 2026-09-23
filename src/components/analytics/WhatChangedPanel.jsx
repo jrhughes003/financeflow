@@ -22,7 +22,7 @@ export default function WhatChangedPanel({ transactions, month, year }) {
   if (historyMonths === 0) {
     return (
       <div className="bg-surface rounded-container border border-line p-5">
-        <h2 className="text-base font-semibold text-ink mb-1">What Changed</h2>
+        <h2 className="text-lg font-semibold text-ink mb-1">What Changed</h2>
         <p className="text-sm text-ink-muted">Needs at least one earlier month of transactions to compare against.</p>
       </div>
     );
@@ -49,7 +49,7 @@ export default function WhatChangedPanel({ transactions, month, year }) {
     <div className="bg-surface rounded-container border border-line p-5">
       <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
         <div>
-          <h2 className="text-base font-semibold text-ink">What Changed</h2>
+          <h2 className="text-lg font-semibold text-ink">What Changed</h2>
           <p className="text-caption text-ink-muted mt-0.5">
             {cutoffDay
               ? `Month in progress — every month compared through day ${cutoffDay}`

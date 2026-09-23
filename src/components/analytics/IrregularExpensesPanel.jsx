@@ -46,7 +46,7 @@ export default function IrregularExpensesPanel() {
         <div className="flex items-start gap-2">
           <CalendarRange className="w-4 h-4 text-ink-muted mt-0.5" />
           <div>
-            <h2 className="text-base font-semibold text-ink">Irregular & Annual Expenses</h2>
+            <h2 className="text-lg font-semibold text-ink">Irregular & Annual Expenses</h2>
             <p className="text-caption text-ink-muted mt-0.5">Big charges that come back every few months or once a year, found in your history</p>
           </div>
         </div>

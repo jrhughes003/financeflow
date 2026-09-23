@@ -155,28 +155,28 @@ export default function GoalsManager() {
           <h3 className="text-sm font-semibold text-accent-ink">{editId ? 'Edit Goal' : 'Create New Goal'}</h3>
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2">
-              <label className="block text-caption font-medium text-ink-muted mb-1">Goal Name</label>
-              <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Emergency Fund" className="w-full px-3 py-2.5 border border-line-strong rounded-container text-sm focus:outline-none focus:border-accent bg-surface" />
+              <label className="label-micro block mb-1.5">Goal Name</label>
+              <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Emergency Fund" className="w-full h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent" />
             </div>
             <div>
-              <label className="block text-caption font-medium text-ink-muted mb-1">Target Amount</label>
-              <input type="number" value={form.targetAmount} onChange={e => setForm(f => ({ ...f, targetAmount: e.target.value }))} placeholder="$0" className="w-full px-3 py-2.5 border border-line-strong rounded-container text-sm focus:outline-none focus:border-accent bg-surface" />
+              <label className="label-micro block mb-1.5">Target Amount</label>
+              <input type="number" value={form.targetAmount} onChange={e => setForm(f => ({ ...f, targetAmount: e.target.value }))} placeholder="$0" className="w-full h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent" />
             </div>
             <div>
-              <label className="block text-caption font-medium text-ink-muted mb-1">Opening Balance</label>
-              <input type="number" value={form.currentAmount} onChange={e => setForm(f => ({ ...f, currentAmount: e.target.value }))} placeholder="$0" className="w-full px-3 py-2.5 border border-line-strong rounded-container text-sm focus:outline-none focus:border-accent bg-surface" />
+              <label className="label-micro block mb-1.5">Opening Balance</label>
+              <input type="number" value={form.currentAmount} onChange={e => setForm(f => ({ ...f, currentAmount: e.target.value }))} placeholder="$0" className="w-full h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent" />
               <p className="text-micro text-ink-muted mt-1">Starting amount. Log savings transactions to add more.</p>
             </div>
             <div>
-              <label className="block text-caption font-medium text-ink-muted mb-1">Monthly Contribution</label>
-              <input type="number" value={form.monthlyContribution} onChange={e => setForm(f => ({ ...f, monthlyContribution: e.target.value }))} placeholder="$0" className="w-full px-3 py-2.5 border border-line-strong rounded-container text-sm focus:outline-none focus:border-accent bg-surface" />
+              <label className="label-micro block mb-1.5">Monthly Contribution</label>
+              <input type="number" value={form.monthlyContribution} onChange={e => setForm(f => ({ ...f, monthlyContribution: e.target.value }))} placeholder="$0" className="w-full h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent" />
             </div>
             <div>
-              <label className="block text-caption font-medium text-ink-muted mb-1">Target Date</label>
-              <input type="date" value={form.targetDate} onChange={e => setForm(f => ({ ...f, targetDate: e.target.value }))} className="w-full px-3 py-2.5 border border-line-strong rounded-container text-sm focus:outline-none focus:border-accent bg-surface" />
+              <label className="label-micro block mb-1.5">Target Date</label>
+              <input type="date" value={form.targetDate} onChange={e => setForm(f => ({ ...f, targetDate: e.target.value }))} className="w-full h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent" />
             </div>
             <div>
-              <label className="block text-caption font-medium text-ink-muted mb-1">Color</label>
+              <label className="label-micro block mb-1.5">Color</label>
               <div className="flex flex-wrap gap-1.5">
                 {COLORS.map(c => (
                   <button key={c} type="button" onClick={() => setForm(f => ({ ...f, color: c }))} className={`w-6 h-6 rounded-full border-2 transition-all ${form.color === c ? 'border-line-strong scale-110' : 'border-transparent'}`} style={{ backgroundColor: c }} />
@@ -184,15 +184,15 @@ export default function GoalsManager() {
               </div>
             </div>
             <div>
-              <label className="block text-caption font-medium text-ink-muted mb-1">Icon</label>
-              <select value={form.icon} onChange={e => setForm(f => ({ ...f, icon: e.target.value }))} className="w-full px-3 py-2 border border-line-strong rounded-container text-sm bg-surface focus:outline-none focus:border-accent">
+              <label className="label-micro block mb-1.5">Icon</label>
+              <select value={form.icon} onChange={e => setForm(f => ({ ...f, icon: e.target.value }))} className="w-full h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent">
                 {ICON_LIST.map(i => <option key={i} value={i}>{i}</option>)}
               </select>
             </div>
           </div>
           <div className="flex gap-2 pt-1">
-            <button onClick={handleSave} className="px-4 py-2 bg-accent hover:bg-accent-hover text-ink-inverse text-sm rounded-container font-medium">Save Goal</button>
-            <button onClick={() => { setShowForm(false); setEditId(null); setForm(EMPTY_FORM); }} className="px-4 py-2 border border-line-strong text-ink-secondary text-sm rounded-container hover:bg-surface">Cancel</button>
+            <button onClick={handleSave} className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-9 px-3.5 text-sm bg-accent hover:bg-accent-hover text-ink-inverse">Save Goal</button>
+            <button onClick={() => { setShowForm(false); setEditId(null); setForm(EMPTY_FORM); }} className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-9 px-3.5 text-sm border border-line-strong text-ink hover:bg-surface-hover">Cancel</button>
           </div>
         </div>
       )}
@@ -216,14 +216,14 @@ export default function GoalsManager() {
       {/* Scenario calculator */}
       {savings_goals.length > 0 && (
         <div className="bg-surface rounded-container border border-line p-5">
-          <h2 className="text-base font-semibold text-ink mb-4">Scenario Calculator</h2>
+          <h2 className="text-lg font-semibold text-ink mb-4">Scenario Calculator</h2>
           <p className="text-sm text-ink-muted mb-3">See how changing your monthly contribution affects your goal timeline.</p>
           <div className="flex flex-wrap gap-3">
-            <select value={scenarioGoal?.id || ''} onChange={e => setScenarioGoal(savings_goals.find(g => g.id === e.target.value) || null)} className="px-3 py-2.5 border border-line-strong rounded-container text-sm bg-surface focus:outline-none focus:border-accent">
+            <select value={scenarioGoal?.id || ''} onChange={e => setScenarioGoal(savings_goals.find(g => g.id === e.target.value) || null)} className="h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent">
               <option value="">Select a goal...</option>
               {savings_goals.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
             </select>
-            <input type="number" placeholder="Monthly savings amount" value={scenarioAmt} onChange={e => setScenarioAmt(e.target.value)} className="px-3 py-2.5 border border-line-strong rounded-container text-sm focus:outline-none focus:border-accent" />
+            <input type="number" placeholder="Monthly savings amount" value={scenarioAmt} onChange={e => setScenarioAmt(e.target.value)} className="h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent" />
           </div>
           {scenarioProjection && scenarioGoal && (
             <div className="mt-3 bg-accent-tint rounded-container p-4">

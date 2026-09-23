@@ -7,7 +7,7 @@ export const inputCls = 'w-full px-3 py-2 border border-line-strong rounded-cont
 export function Field({ label, hint, children, className = '' }) {
   return (
     <div className={className}>
-      <label className="block text-caption font-medium text-ink-muted mb-1">{label}</label>
+      <label className="label-micro block mb-1.5">{label}</label>
       {children}
       {hint && <p className="text-micro text-ink-muted mt-1">{hint}</p>}
     </div>
@@ -59,7 +59,7 @@ export function Toggle({ label, checked, onChange, hint }) {
   return (
     <label className="flex items-start gap-2 cursor-pointer select-none">
       <input type="checkbox" checked={!!checked} onChange={e => onChange(e.target.checked)}
-        className="w-4 h-4 mt-0.5 rounded border-line-strong text-accent" />
+        className="mt-0.5 w-4 h-4 rounded-[3px] border-line-strong text-accent focus:ring-accent" />
       <span>
         <span className="text-sm text-ink-secondary">{label}</span>
         {hint && <span className="block text-micro text-ink-muted">{hint}</span>}
@@ -74,7 +74,7 @@ export function Card({ title, subtitle, actions, children }) {
       {(title || actions) && (
         <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
           <div>
-            {title && <h2 className="text-base font-semibold text-ink">{title}</h2>}
+            {title && <h2 className="text-lg font-semibold text-ink">{title}</h2>}
             {subtitle && <p className="text-caption text-ink-muted mt-0.5">{subtitle}</p>}
           </div>
           {actions}

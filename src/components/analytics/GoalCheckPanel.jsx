@@ -48,7 +48,7 @@ export default function GoalCheckPanel() {
         <div className="flex items-start gap-2">
           <Target className="w-4 h-4 text-ink-muted mt-0.5" />
           <div>
-            <h2 className="text-base font-semibold text-ink">Goal Check</h2>
+            <h2 className="text-lg font-semibold text-ink">Goal Check</h2>
             <p className="text-caption text-ink-muted mt-0.5">Your real savings pace vs. what each goal needs to hit its target date</p>
           </div>
         </div>

@@ -49,7 +49,7 @@ export default function BudgetTuneUpPanel() {
         <div className="flex items-start gap-2">
           <Scale className="w-4 h-4 text-ink-muted mt-0.5" />
           <div>
-            <h2 className="text-base font-semibold text-ink">Budget Tune-Up</h2>
+            <h2 className="text-lg font-semibold text-ink">Budget Tune-Up</h2>
             <p className="text-caption text-ink-muted mt-0.5">
               {result.insufficient
                 ? 'Compares your budgets with how you actually spend.'
@@ -91,10 +91,10 @@ export default function BudgetTuneUpPanel() {
                 <p className="text-caption text-ink-muted mt-1.5">{explain(s)}</p>
                 {billNote(s) && <p className="text-caption text-ink-secondary mt-1">{billNote(s)}</p>}
                 <div className="flex gap-2 mt-2">
-                  <button onClick={() => apply(s)} className="px-3 py-1.5 bg-accent hover:bg-accent-hover text-ink-inverse text-caption font-medium rounded-control">
+                  <button onClick={() => apply(s)} className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-7 px-2.5 text-caption bg-accent hover:bg-accent-hover text-ink-inverse">
                     {s.type === 'add' ? `Set ${formatCurrency(s.suggested)} budget` : `Change to ${formatCurrency(s.suggested)}`}
                   </button>
-                  <button onClick={() => dismiss(s)} className="px-3 py-1.5 border border-line-strong text-ink-secondary text-caption rounded-control hover:bg-surface-sunk">Dismiss</button>
+                  <button onClick={() => dismiss(s)} className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-7 px-2.5 text-caption border border-line-strong text-ink hover:bg-surface-hover">Dismiss</button>
                 </div>
               </div>
             );

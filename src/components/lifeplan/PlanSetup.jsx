@@ -62,7 +62,7 @@ export default function PlanSetup({ plan, setPlan, state, snapshot }) {
       <Card
         title="Income"
         subtitle="Each job or income source, when it starts, and how it grows. Leave the end date blank to run it until retirement."
-        actions={<button onClick={addIncome} className="flex items-center gap-2 px-3 py-2 bg-accent hover:bg-accent-hover text-ink-inverse rounded-container text-sm font-medium"><Plus className="w-3.5 h-3.5" />Add income</button>}
+        actions={<button onClick={addIncome} className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-9 px-3.5 text-sm bg-accent hover:bg-accent-hover text-ink-inverse"><Plus className="w-3.5 h-3.5" />Add income</button>}
       >
         {plan.incomes.length === 0 ? (
           <p className="text-sm text-ink-muted text-center py-6">

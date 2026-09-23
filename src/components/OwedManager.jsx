@@ -94,21 +94,21 @@ function OpenItem({ item, getCategory, onUpdate, onEdit }) {
               type="number" min="0" step="0.01" autoFocus placeholder={item.remaining.toFixed(2)} value={amount}
               onChange={e => setAmount(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') savePartial(); if (e.key === 'Escape') setMode(null); }}
-              className="w-28 pl-6 pr-2 py-1.5 border border-line-strong rounded-control text-sm bg-surface focus:outline-none focus:border-positive"
+              className="w-28 h-9 pl-6 pr-2 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent"
               aria-label="Amount paid back"
             />
           </div>
           <input type="date" value={date} onChange={e => setDate(e.target.value)}
             className="px-2 py-1.5 border border-line-strong rounded-control text-sm bg-surface focus:outline-none focus:border-positive" aria-label="Date paid back" />
           <button onClick={savePartial} disabled={!(parseFloat(amount) > 0)} className="px-3 py-1.5 bg-positive hover:bg-positive disabled:opacity-40 text-ink-inverse text-caption font-medium rounded-control">Record</button>
-          <button onClick={() => setMode(null)} className="px-3 py-1.5 border border-line-strong text-ink-secondary text-caption rounded-control hover:bg-surface">Cancel</button>
+          <button onClick={() => setMode(null)} className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-7 px-2.5 text-caption border border-line-strong text-ink hover:bg-surface-hover">Cancel</button>
           {parseFloat(amount) > item.remaining && <span className="text-caption text-ink-muted">Only {formatCurrency(item.remaining)} is owed — that's what will be recorded.</span>}
         </div>
       ) : mode === 'forgive' ? (
         <div className="flex flex-wrap items-center gap-2 mt-3 bg-surface-sunk rounded-control p-2">
           <span className="text-caption text-ink-secondary">Stop tracking the {formatCurrency(item.remaining)} still owed? It stays counted as your spending.</span>
           <button onClick={() => { onUpdate(setForgiven(t, true)); setMode(null); }} className="px-3 py-1.5 bg-ink hover:bg-ink text-ink-inverse text-caption font-medium rounded-control">Forgive</button>
-          <button onClick={() => setMode(null)} className="px-3 py-1.5 border border-line-strong text-ink-secondary text-caption rounded-control hover:bg-surface">Cancel</button>
+          <button onClick={() => setMode(null)} className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-7 px-2.5 text-caption border border-line-strong text-ink hover:bg-surface-hover">Cancel</button>
         </div>
       ) : (
         <div className="flex flex-wrap gap-2 mt-3">
@@ -117,7 +117,7 @@ function OpenItem({ item, getCategory, onUpdate, onEdit }) {
             <Check className="w-3.5 h-3.5" />Paid back in full
           </button>
           <button onClick={() => setMode('partial')} className="px-3 py-1.5 border border-positive text-positive text-caption font-medium rounded-control hover:bg-positive-tint">Partial payment…</button>
-          <button onClick={() => setMode('forgive')} className="px-3 py-1.5 border border-line-strong text-ink-secondary text-caption rounded-control hover:bg-surface-sunk">Forgive</button>
+          <button onClick={() => setMode('forgive')} className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-7 px-2.5 text-caption border border-line-strong text-ink hover:bg-surface-hover">Forgive</button>
           <button onClick={() => onEdit(t)} className="inline-flex items-center gap-1 px-2 py-1.5 text-ink-muted hover:text-accent text-caption rounded-control hover:bg-accent-tint" title="Edit purchase or amount owed">
             <Edit2 className="w-3.5 h-3.5" />Edit
           </button>
@@ -151,7 +151,7 @@ export default function OwedManager() {
         <div className="flex items-start gap-2 mb-4">
           <HandCoins className="w-4 h-4 text-positive mt-0.5" />
           <div>
-            <h2 className="text-base font-semibold text-ink">Waiting to be paid back</h2>
+            <h2 className="text-lg font-semibold text-ink">Waiting to be paid back</h2>
             <p className="text-caption text-ink-muted mt-0.5">
               Purchases you fronted for others. The full amount counts as your spending until it's paid back; each repayment lowers
               that purchase's month.
@@ -178,7 +178,7 @@ export default function OwedManager() {
       {summary.closed.length > 0 && (
         <div className="bg-surface rounded-container border border-line p-5">
           <button onClick={() => setShowClosed(s => !s)} className="flex items-center justify-between w-full text-left" aria-expanded={showClosed}>
-            <h2 className="text-base font-semibold text-ink">Settled ({summary.closed.length})</h2>
+            <h2 className="text-lg font-semibold text-ink">Settled ({summary.closed.length})</h2>
             <ChevronDown className={`w-4 h-4 text-ink-muted transition-transform ${showClosed ? 'rotate-180' : ''}`} />
           </button>
           {showClosed && (

@@ -24,7 +24,7 @@ export default function TagsPanel({ transactions, month, year }) {
       <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
         <div className="flex items-center gap-2">
           <Tags className="w-4 h-4 text-ink-muted" />
-          <h2 className="text-base font-semibold text-ink">Spending by Tag</h2>
+          <h2 className="text-lg font-semibold text-ink">Spending by Tag</h2>
         </div>
         <div className="flex bg-surface-hover rounded-control p-0.5 text-caption font-medium">
           {[['month', format(new Date(year, month, 1), 'MMM yyyy')], ['all', 'All time']].map(([val, label]) => (

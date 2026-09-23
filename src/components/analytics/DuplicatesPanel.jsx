@@ -39,7 +39,7 @@ export default function DuplicatesPanel() {
             <CopyX className="w-4 h-4 text-negative" />
           </div>
           <div>
-            <h2 className="text-base font-semibold text-ink">Possible Double Charges</h2>
+            <h2 className="text-lg font-semibold text-ink">Possible Double Charges</h2>
             <p className="text-caption text-ink-muted mt-0.5">Same merchant and exact amount within a couple of days (last 90 days). Check your statement, then dispute or remove the extra entry.</p>
           </div>
         </div>
@@ -65,7 +65,7 @@ export default function DuplicatesPanel() {
                 <div className="flex items-center gap-2">
                   <span className="text-caption text-ink-muted">Delete the {fmtDate(d.second.date)} entry?</span>
                   <button onClick={() => removeSecond(d)} className="px-3 py-1.5 bg-negative hover:bg-negative text-ink-inverse text-caption font-medium rounded-control">Delete</button>
-                  <button onClick={() => setConfirming(null)} className="px-3 py-1.5 border border-line-strong text-ink-secondary text-caption rounded-control hover:bg-surface-sunk">Cancel</button>
+                  <button onClick={() => setConfirming(null)} className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-7 px-2.5 text-caption border border-line-strong text-ink hover:bg-surface-hover">Cancel</button>
                 </div>
               ) : (
                 <div className="flex items-center gap-2">

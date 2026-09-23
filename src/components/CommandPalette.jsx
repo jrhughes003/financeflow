@@ -153,7 +153,7 @@ export default function CommandPalette({ open, onClose, onNavigate, onQuickAdd }
             aria-label="Search pages, merchants and actions"
             className="flex-1 py-3.5 text-sm outline-none placeholder:text-ink-muted"
           />
-          <kbd className="text-[10px] text-ink-muted border border-line-strong rounded px-1.5 py-0.5">esc</kbd>
+          <kbd className="text-micro text-ink-muted border border-line rounded-control px-1.5 py-0.5">esc</kbd>
         </div>
 
         <ul ref={listRef} className="max-h-80 overflow-y-auto py-2">
@@ -174,7 +174,7 @@ export default function CommandPalette({ open, onClose, onNavigate, onQuickAdd }
                   <span className="flex-1">{item.label}</span>
                   {item.kind === 'merchant' && <span className="text-caption text-ink-muted">{item.hint}</span>}
                   {item.kind !== 'merchant' && item.hint && (
-                    <kbd className="text-[10px] text-ink-muted border border-line-strong rounded px-1.5 py-0.5">{item.hint}</kbd>
+                    <kbd className="text-micro text-ink-muted border border-line rounded-control px-1.5 py-0.5">{item.hint}</kbd>
                   )}
                   {index === active && <CornerDownLeft className="w-3.5 h-3.5 text-accent shrink-0" />}
                 </button>

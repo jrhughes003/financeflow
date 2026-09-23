@@ -129,7 +129,7 @@ export default function SpendingAnalytics() {
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Pie chart */}
         <div className="bg-surface rounded-container border border-line p-5">
-          <h2 className="text-base font-semibold text-ink mb-4">Spending by Category</h2>
+          <h2 className="text-lg font-semibold text-ink mb-4">Spending by Category</h2>
           {pieData.length === 0
             ? <p className="text-sm text-ink-muted text-center py-8">No spending data for this month.</p>
             : (
@@ -161,7 +161,7 @@ export default function SpendingAnalytics() {
 
         {/* Spending by day of week */}
         <div className="bg-surface rounded-container border border-line p-5">
-          <h2 className="text-base font-semibold text-ink mb-4">Spending by Day of Week</h2>
+          <h2 className="text-lg font-semibold text-ink mb-4">Spending by Day of Week</h2>
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={dow} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
               <CartesianGrid {...chart.grid} />
@@ -178,7 +178,7 @@ export default function SpendingAnalytics() {
       {drillCat && drillData && (
         <div className="bg-surface rounded-container border border-line p-5">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-base font-semibold text-ink">{getCategory(drillCat).name} — Deep Dive</h2>
+            <h2 className="text-lg font-semibold text-ink">{getCategory(drillCat).name} — Deep Dive</h2>
             <button onClick={() => setDrillCat(null)} className="text-caption text-ink-muted hover:text-ink-secondary">✕ Close</button>
           </div>
           <div className="grid grid-cols-3 gap-4 mb-4">
@@ -243,7 +243,7 @@ export default function SpendingAnalytics() {
 
       {/* Monthly trend line chart */}
       <div className="bg-surface rounded-container border border-line p-5">
-        <h2 className="text-base font-semibold text-ink mb-4">Spending Trends (6 months)</h2>
+        <h2 className="text-lg font-semibold text-ink mb-4">Spending Trends (6 months)</h2>
         <div className="flex flex-wrap gap-2 mb-3">
           {majorCats.map(cat => (
             <button
@@ -282,7 +282,7 @@ export default function SpendingAnalytics() {
 
       {/* Budget health trend */}
       <div className="bg-surface rounded-container border border-line p-5">
-        <h2 className="text-base font-semibold text-ink mb-4">Budget adherence — current month</h2>
+        <h2 className="text-lg font-semibold text-ink mb-4">Budget adherence — current month</h2>
         <div className="flex items-center gap-6">
           <div className="w-20 h-20 rounded-container flex items-center justify-center shrink-0" style={{ backgroundColor: health.color + '20' }}>
             <span className="text-4xl font-black" style={{ color: health.color }}>{health.grade}</span>

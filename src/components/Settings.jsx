@@ -74,7 +74,7 @@ export default function Settings() {
       <div className="bg-surface rounded-container border border-line p-5">
         <div className="flex items-center gap-2 mb-1">
           <Sparkles className="w-4 h-4 text-ink-muted" />
-          <h2 className="text-base font-semibold text-ink">AI Features</h2>
+          <h2 className="text-lg font-semibold text-ink">AI Features</h2>
         </div>
         <p className="text-sm text-ink-muted mb-4">
           Optional. Uses your own Anthropic API key for smart categorization, natural-language
@@ -97,7 +97,7 @@ export default function Settings() {
               </span>
             </div>
 
-            <label className="block text-caption font-medium text-ink-muted mb-1">Anthropic API Key</label>
+            <label className="label-micro block mb-1.5">Anthropic API Key</label>
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <KeyRound className="w-4 h-4 text-ink-muted absolute left-3 top-1/2 -translate-y-1/2" />
@@ -106,10 +106,10 @@ export default function Settings() {
                   value={keyInput}
                   onChange={e => setKeyInput(e.target.value)}
                   placeholder={status.hasKey ? '•••••••• (a key is saved)' : 'sk-ant-...'}
-                  className="w-full pl-9 pr-3 py-2 border border-line-strong rounded-control text-sm focus:outline-none focus:border-accent"
+                  className="w-full h-9 pl-8 pr-3 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent"
                 />
               </div>
-              <button onClick={saveKey} disabled={busy || !keyInput.trim()} className="px-4 py-2 bg-accent hover:bg-accent-hover disabled:opacity-50 text-ink-inverse text-sm rounded-control font-medium">
+              <button onClick={saveKey} disabled={busy || !keyInput.trim()} className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-9 px-3.5 text-sm bg-accent hover:bg-accent-hover text-ink-inverse">
                 {status.hasKey ? 'Replace' : 'Save'}
               </button>
               {status.hasKey && (
@@ -139,7 +139,7 @@ export default function Settings() {
 
       {/* Backup & restore */}
       <div className="bg-surface rounded-container border border-line p-5">
-        <h2 className="text-base font-semibold text-ink mb-3">Backup & Restore</h2>
+        <h2 className="text-lg font-semibold text-ink mb-3">Backup & Restore</h2>
         <p className="text-sm text-ink-muted mb-4">Export a full JSON backup, or restore one (also the way to move data from the web app into the desktop app).</p>
         <div className="flex gap-2">
           <button onClick={() => exportToJSON(state)} className="flex items-center gap-2 px-4 py-2 bg-surface-hover hover:bg-surface-hover text-ink-secondary text-sm rounded-control font-medium">
@@ -154,7 +154,7 @@ export default function Settings() {
 
       {/* Demo data */}
       <div className="bg-surface rounded-container border border-line p-5">
-        <h2 className="text-base font-semibold text-ink mb-3">Demo Data</h2>
+        <h2 className="text-lg font-semibold text-ink mb-3">Demo Data</h2>
         <p className="text-sm text-ink-muted mb-4">
           Fill the app with about 8 months of generated transactions, budgets, goals, debts and a
           Plan Ahead setup, so every chart and insight has something to show. Replaces your current data.
@@ -169,7 +169,7 @@ export default function Settings() {
 
       {/* Danger zone */}
       <div className="bg-surface rounded-container border border-negative p-5">
-        <h2 className="text-base font-semibold text-negative mb-3">Danger Zone</h2>
+        <h2 className="text-lg font-semibold text-negative mb-3">Danger Zone</h2>
         <button
           onClick={() => { if (window.confirm('Reset all data to the sample defaults? This cannot be undone.')) dispatch({ type: 'RESET_DATA' }); }}
           className="flex items-center gap-2 px-4 py-2 border border-negative text-negative hover:bg-negative-tint text-sm rounded-control font-medium"

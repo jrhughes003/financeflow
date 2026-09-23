@@ -145,8 +145,8 @@ export default function TransactionHistory() {
             <p className="text-base font-semibold text-ink mb-1">Delete this transaction?</p>
             <p className="text-sm text-ink-secondary mb-4">You can undo this from the toast that appears.</p>
             <div className="flex gap-3">
-              <button onClick={() => setDeleteId(null)} className="flex-1 h-9 border border-line-strong rounded-control text-sm font-medium text-ink hover:bg-surface-hover">Cancel</button>
-              <button onClick={() => handleDelete(deleteId)} className="flex-1 h-9 bg-negative hover:opacity-90 text-ink-inverse rounded-control text-sm font-medium">Delete</button>
+              <button onClick={() => setDeleteId(null)} className="flex-1 inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-9 px-3.5 text-sm border border-line-strong text-ink hover:bg-surface-hover">Cancel</button>
+              <button onClick={() => handleDelete(deleteId)} className="flex-1 inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-9 px-3.5 text-sm bg-negative hover:opacity-90 text-ink-inverse">Delete</button>
             </div>
           </div>
         </div>
@@ -161,21 +161,21 @@ export default function TransactionHistory() {
             placeholder="Search merchant, notes, tags..."
             value={search}
             onChange={e => { setSearch(e.target.value); setPage(1); }}
-            className="w-full h-9 pl-8 pr-3 bg-surface border border-line-strong rounded-control text-sm placeholder:text-ink-muted focus:outline-none focus:border-accent"
+            className="w-full h-9 pl-8 pr-3 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent"
           />
         </div>
         <button onClick={() => setShowFilters(s => !s)} className={`flex items-center gap-2 h-9 px-3 border rounded-control text-sm font-medium transition-colors ${showFilters ? 'border-accent text-accent-ink bg-accent-tint' : 'border-line-strong text-ink hover:bg-surface-hover'}`}>
           <Filter className="w-4 h-4" /> Filters
         </button>
-        <button onClick={() => exportToCSV(filtered)} className="flex items-center gap-2 h-9 px-3 border border-line-strong rounded-control text-sm font-medium text-ink hover:bg-surface-hover">
+        <button onClick={() => exportToCSV(filtered)} className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-9 px-3.5 text-sm border border-line-strong text-ink hover:bg-surface-hover">
           <Download className="w-4 h-4" /> Export
         </button>
-        <label className="flex items-center gap-2 h-9 px-3 border border-line-strong rounded-control text-sm font-medium text-ink hover:bg-surface-hover cursor-pointer">
+        <label className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-9 px-3.5 text-sm border border-line-strong text-ink hover:bg-surface-hover cursor-pointer">
           <Upload className="w-4 h-4" /> Import CSV
           <input ref={importRef} type="file" accept=".csv" className="hidden" onChange={handleImport} />
         </label>
         {aiEnabled && (
-          <button onClick={() => setShowPaste(s => !s)} className="flex items-center gap-2 h-9 px-3 border border-line-strong text-ink-secondary rounded-control text-sm font-medium hover:bg-surface-hover">
+          <button onClick={() => setShowPaste(s => !s)} className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-9 px-3.5 text-sm border border-line-strong text-ink hover:bg-surface-hover">
             <Sparkles className="w-4 h-4" /> Paste receipt
           </button>
         )}
@@ -190,10 +190,10 @@ export default function TransactionHistory() {
             value={pasteText}
             onChange={e => setPasteText(e.target.value)}
             placeholder="Paste messy text here — line items, amounts, dates…"
-            className="w-full px-3 py-2 border border-line-strong rounded-control text-sm bg-surface focus:outline-none focus:border-accent resize-y"
+            className="w-full px-2.5 py-2 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent resize-y"
           />
           <div className="flex items-center gap-2">
-            <button onClick={handleParsePaste} disabled={pasteBusy || !pasteText.trim()} className="h-9 px-4 bg-accent hover:bg-accent-hover disabled:opacity-40 text-ink-inverse text-sm rounded-control font-medium">
+            <button onClick={handleParsePaste} disabled={pasteBusy || !pasteText.trim()} className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-9 px-3.5 text-sm bg-accent hover:bg-accent-hover text-ink-inverse">
               {pasteBusy ? 'Parsing…' : 'Extract transactions'}
             </button>
             {pasteMsg && <span className="text-caption text-negative">{pasteMsg}</span>}
@@ -206,30 +206,30 @@ export default function TransactionHistory() {
       {showFilters && (
         <div className="bg-surface-sunk border border-line rounded-container p-4 grid grid-cols-2 md:grid-cols-3 gap-3">
           <div>
-            <label className="label-micro block mb-1">Category</label>
-            <select value={filterCategory} onChange={e => { setFilterCategory(e.target.value); setPage(1); }} className="w-full h-9 px-2.5 border border-line-strong rounded-control text-sm bg-surface focus:outline-none focus:border-accent">
+            <label className="label-micro block mb-1.5">Category</label>
+            <select value={filterCategory} onChange={e => { setFilterCategory(e.target.value); setPage(1); }} className="w-full h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent">
               <option value="">All categories</option>
               {allCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
           <div>
-            <label className="label-micro block mb-1">From Date</label>
-            <input type="date" value={filterDateFrom} onChange={e => { setFilterDateFrom(e.target.value); setPage(1); }} className="w-full h-9 px-2.5 border border-line-strong rounded-control text-sm bg-surface focus:outline-none focus:border-accent" />
+            <label className="label-micro block mb-1.5">From Date</label>
+            <input type="date" value={filterDateFrom} onChange={e => { setFilterDateFrom(e.target.value); setPage(1); }} className="w-full h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent" />
           </div>
           <div>
-            <label className="label-micro block mb-1">To Date</label>
-            <input type="date" value={filterDateTo} onChange={e => { setFilterDateTo(e.target.value); setPage(1); }} className="w-full h-9 px-2.5 border border-line-strong rounded-control text-sm bg-surface focus:outline-none focus:border-accent" />
+            <label className="label-micro block mb-1.5">To Date</label>
+            <input type="date" value={filterDateTo} onChange={e => { setFilterDateTo(e.target.value); setPage(1); }} className="w-full h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent" />
           </div>
           <div>
-            <label className="label-micro block mb-1">Min Amount</label>
-            <input type="number" placeholder="$0" value={filterMinAmt} onChange={e => { setFilterMinAmt(e.target.value); setPage(1); }} className="w-full h-9 px-2.5 border border-line-strong rounded-control text-sm bg-surface focus:outline-none focus:border-accent" />
+            <label className="label-micro block mb-1.5">Min Amount</label>
+            <input type="number" placeholder="$0" value={filterMinAmt} onChange={e => { setFilterMinAmt(e.target.value); setPage(1); }} className="w-full h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent" />
           </div>
           <div>
-            <label className="label-micro block mb-1">Max Amount</label>
-            <input type="number" placeholder="Any" value={filterMaxAmt} onChange={e => { setFilterMaxAmt(e.target.value); setPage(1); }} className="w-full h-9 px-2.5 border border-line-strong rounded-control text-sm bg-surface focus:outline-none focus:border-accent" />
+            <label className="label-micro block mb-1.5">Max Amount</label>
+            <input type="number" placeholder="Any" value={filterMaxAmt} onChange={e => { setFilterMaxAmt(e.target.value); setPage(1); }} className="w-full h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent" />
           </div>
           <div className="flex items-end">
-            <button onClick={() => { setFilterCategory(''); setFilterDateFrom(''); setFilterDateTo(''); setFilterMinAmt(''); setFilterMaxAmt(''); setSearch(''); setPage(1); }} className="w-full h-9 px-3 border border-line-strong rounded-control text-sm text-ink hover:bg-surface">Clear Filters</button>
+            <button onClick={() => { setFilterCategory(''); setFilterDateFrom(''); setFilterDateTo(''); setFilterMinAmt(''); setFilterMaxAmt(''); setSearch(''); setPage(1); }} className="w-full inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-9 px-3.5 text-sm border border-line-strong text-ink hover:bg-surface-hover">Clear Filters</button>
           </div>
         </div>
       )}
@@ -322,9 +322,9 @@ export default function TransactionHistory() {
         <div className="px-4 py-2.5 border-t border-line flex flex-wrap items-center justify-between gap-2 bg-surface-sunk">
           <span className="text-caption text-ink-secondary">{filtered.length} transactions · <Money value={total} size="caption" className="text-ink font-medium" /></span>
           <div className="flex items-center gap-2">
-            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="h-7 px-2.5 text-caption border border-line-strong rounded-control disabled:opacity-40 hover:bg-surface text-ink">Prev</button>
+            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-7 px-2.5 text-caption border border-line-strong text-ink hover:bg-surface-hover">Prev</button>
             <span className="text-caption text-ink-secondary money">{page} / {Math.max(1, totalPages)}</span>
-            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="h-7 px-2.5 text-caption border border-line-strong rounded-control disabled:opacity-40 hover:bg-surface text-ink">Next</button>
+            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-7 px-2.5 text-caption border border-line-strong text-ink hover:bg-surface-hover">Next</button>
           </div>
         </div>
       </div>

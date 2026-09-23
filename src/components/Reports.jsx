@@ -137,10 +137,10 @@ export default function Reports() {
         <span className="font-semibold text-ink-secondary min-w-32 text-center">{format(new Date(year, month, 1), 'MMMM yyyy')}</span>
         <button onClick={() => changeMonth(1)} className="p-2 rounded-control hover:bg-surface-hover text-ink-secondary">›</button>
         <div className="ml-auto flex gap-2">
-          <button onClick={handleExportCSV} className="flex items-center gap-2 px-3 py-2 border border-line-strong rounded-container text-sm font-medium text-ink-secondary hover:bg-surface-sunk">
+          <button onClick={handleExportCSV} className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-9 px-3.5 text-sm border border-line-strong text-ink hover:bg-surface-hover">
             <Download className="w-4 h-4" /> Export CSV
           </button>
-          <button onClick={handleExportJSON} className="flex items-center gap-2 px-3 py-2 border border-line-strong rounded-container text-sm font-medium text-ink-secondary hover:bg-surface-sunk">
+          <button onClick={handleExportJSON} className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-9 px-3.5 text-sm border border-line-strong text-ink hover:bg-surface-hover">
             <FileText className="w-4 h-4" /> Backup JSON
           </button>
         </div>
@@ -148,7 +148,7 @@ export default function Reports() {
 
       {/* Monthly summary */}
       <div className="bg-surface rounded-container border border-line p-5">
-        <h2 className="text-base font-semibold text-ink mb-4">Monthly Report — {format(new Date(year, month, 1), 'MMMM yyyy')}</h2>
+        <h2 className="text-lg font-semibold text-ink mb-4">Monthly Report — {format(new Date(year, month, 1), 'MMMM yyyy')}</h2>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
           {[
             { label: 'Income', value: formatCurrency(income), color: 'text-positive', bg: 'bg-positive-tint' },
@@ -199,9 +199,9 @@ export default function Reports() {
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-ink-muted" />
-              <h2 className="text-base font-semibold text-ink">AI Insights</h2>
+              <h2 className="text-lg font-semibold text-ink">AI Insights</h2>
             </div>
-            <button onClick={generateInsights} disabled={aiBusy} className="px-3 py-2 bg-accent hover:bg-accent-hover disabled:opacity-50 text-ink-inverse text-sm rounded-control font-medium">
+            <button onClick={generateInsights} disabled={aiBusy} className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-9 px-3.5 text-sm bg-accent hover:bg-accent-hover text-ink-inverse">
               {aiBusy ? 'Thinking…' : 'Generate summary'}
             </button>
           </div>
@@ -213,7 +213,7 @@ export default function Reports() {
               onChange={e => setQuestion(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); askQuestion(); } }}
               placeholder="Ask about this month's spending…"
-              className="flex-1 px-3 py-2 border border-line-strong rounded-control text-sm focus:outline-none focus:border-accent"
+              className="flex-1 h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent"
             />
             <button onClick={askQuestion} disabled={aiBusy || !question.trim()} className="px-3 py-2 border border-line-strong text-ink-secondary hover:bg-surface-sunk disabled:opacity-50 text-sm rounded-control font-medium">Ask</button>
           </div>
@@ -235,7 +235,7 @@ export default function Reports() {
       {/* Biggest Variance */}
       {biggestVariance.length > 0 && (
         <div className="bg-surface rounded-container border border-line p-5">
-          <h2 className="text-base font-semibold text-ink mb-3">Biggest Budget Variances</h2>
+          <h2 className="text-lg font-semibold text-ink mb-3">Biggest Budget Variances</h2>
           <div className="space-y-2">
             {biggestVariance.map(s => {
               const cat = getCategory(s.category);
@@ -260,7 +260,7 @@ export default function Reports() {
 
       {/* YTD Summary */}
       <div className="bg-surface rounded-container border border-line p-5">
-        <h2 className="text-base font-semibold text-ink mb-4">Year-to-Date ({year})</h2>
+        <h2 className="text-lg font-semibold text-ink mb-4">Year-to-Date ({year})</h2>
         <div className="grid grid-cols-2 gap-4 mb-4">
           <div className="bg-caution-tint rounded-container p-3">
             <p className="text-caption text-ink-muted mb-1">YTD Expenses</p>
@@ -284,15 +284,15 @@ export default function Reports() {
 
       {/* Custom report */}
       <div className="bg-surface rounded-container border border-line p-5">
-        <h2 className="text-base font-semibold text-ink mb-3">Custom Date Range Report</h2>
+        <h2 className="text-lg font-semibold text-ink mb-3">Custom Date Range Report</h2>
         <div className="flex flex-wrap gap-3 mb-4">
           <div>
-            <label className="block text-caption font-medium text-ink-muted mb-1">From</label>
-            <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} className="px-3 py-2 border border-line-strong rounded-control text-sm focus:outline-none focus:border-accent" />
+            <label className="label-micro block mb-1.5">From</label>
+            <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} className="h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent" />
           </div>
           <div>
-            <label className="block text-caption font-medium text-ink-muted mb-1">To</label>
-            <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} className="px-3 py-2 border border-line-strong rounded-control text-sm focus:outline-none focus:border-accent" />
+            <label className="label-micro block mb-1.5">To</label>
+            <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} className="h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent" />
           </div>
           {customFrom && customTo && (
             <button onClick={() => exportToCSV(customTx, `report_${customFrom}_to_${customTo}.csv`)} className="flex items-center gap-2 self-end px-3 py-2 border border-line-strong rounded-control text-sm text-ink-secondary hover:bg-surface-sunk">

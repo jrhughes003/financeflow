@@ -90,7 +90,7 @@ export default function BudgetComparison() {
       {/* Bar chart */}
       {chartData.length > 0 && (
         <div className="bg-surface rounded-container border border-line p-5">
-          <h2 className="text-base font-semibold text-ink mb-4">Budget vs Actual</h2>
+          <h2 className="text-lg font-semibold text-ink mb-4">Budget vs Actual</h2>
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
               <CartesianGrid {...chart.grid} />
@@ -178,7 +178,7 @@ export default function BudgetComparison() {
 
       {/* Monthly trend table */}
       <div className="bg-surface rounded-container border border-line p-5">
-        <h2 className="text-base font-semibold text-ink mb-4">6-Month Spending Trend by Category</h2>
+        <h2 className="text-lg font-semibold text-ink mb-4">6-Month Spending Trend by Category</h2>
         <div className="overflow-x-auto">
           <table className="w-full text-caption">
             <thead>

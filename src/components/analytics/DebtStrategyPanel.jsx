@@ -42,7 +42,7 @@ export default function DebtStrategyPanel() {
       <div className="bg-surface rounded-container border border-line p-5">
         <div className="flex items-center gap-2 mb-1">
           <Landmark className="w-4 h-4 text-ink-muted" />
-          <h2 className="text-base font-semibold text-ink">Debt Payoff Strategy</h2>
+          <h2 className="text-lg font-semibold text-ink">Debt Payoff Strategy</h2>
         </div>
         <p className="text-sm text-ink-muted">No debts with a balance are tracked — nothing to plan here.</p>
       </div>
@@ -67,7 +67,7 @@ export default function DebtStrategyPanel() {
       <div className="flex items-start gap-2 mb-4">
         <Landmark className="w-4 h-4 text-ink-muted mt-0.5" />
         <div>
-          <h2 className="text-base font-semibold text-ink">Debt Payoff Strategy</h2>
+          <h2 className="text-lg font-semibold text-ink">Debt Payoff Strategy</h2>
           <p className="text-caption text-ink-muted mt-0.5">
             {owing.length} debt{owing.length > 1 ? 's' : ''} · {formatCurrency(owing.reduce((s, d) => s + Number(d.balance), 0))} total · {formatCurrency(totalMin)}/mo in minimums.
             When a debt is paid off, its minimum rolls into the next one.
@@ -106,7 +106,7 @@ export default function DebtStrategyPanel() {
                 <span className="flex items-center gap-1.5 text-sm font-semibold text-ink">
                   <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: s.color }} />{s.label}
                 </span>
-                {recommended && <span className="text-caption font-medium text-accent-ink bg-accent-tint px-2 py-0.5 rounded-full">Recommended</span>}
+                {recommended && <span className="text-micro font-medium uppercase tracking-[0.06em] text-accent-ink bg-accent-tint px-1.5 py-0.5 rounded-control">Recommended</span>}
               </div>
               <p className="text-caption text-ink-muted mb-2">{s.blurb}</p>
               {r.feasible ? (

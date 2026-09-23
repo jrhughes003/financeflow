@@ -128,7 +128,7 @@ export default function PlanScenarios({ plan, setPlan, state, result }) {
               <div key={sc.id} className="flex flex-wrap items-center gap-3 border border-line rounded-container p-3">
                 <label className="flex items-center gap-2 cursor-pointer select-none flex-1 min-w-48">
                   <input type="checkbox" checked={selected.includes(sc.id)} onChange={() => toggle(sc.id)}
-                    className="w-4 h-4 rounded border-line-strong text-accent" />
+                    className="w-4 h-4 rounded-[3px] border-line-strong text-accent focus:ring-accent" />
                   <span>
                     <span className="text-sm font-medium text-ink">{sc.name}</span>
                     <span className="block text-caption text-ink-muted">saved {fmtDate(sc.savedAt)}</span>
@@ -137,8 +137,8 @@ export default function PlanScenarios({ plan, setPlan, state, result }) {
                 {confirmLoad === sc.id ? (
                   <div className="flex items-center gap-2">
                     <span className="text-caption text-ink-secondary">Replace the current plan with this one?</span>
-                    <button onClick={() => load(sc)} className="px-3 py-1.5 bg-accent hover:bg-accent-hover text-ink-inverse text-caption font-medium rounded-control">Load it</button>
-                    <button onClick={() => setConfirmLoad(null)} className="px-3 py-1.5 border border-line-strong text-ink-secondary text-caption rounded-control hover:bg-surface-sunk">Cancel</button>
+                    <button onClick={() => load(sc)} className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-7 px-2.5 text-caption bg-accent hover:bg-accent-hover text-ink-inverse">Load it</button>
+                    <button onClick={() => setConfirmLoad(null)} className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-7 px-2.5 text-caption border border-line-strong text-ink hover:bg-surface-hover">Cancel</button>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">
@@ -216,7 +216,7 @@ export default function PlanScenarios({ plan, setPlan, state, result }) {
           <NumberField label="Market swing (volatility)" value={volatility} onChange={setVolatility} suffix="%" step="1"
             hint="Year-to-year variation. A balanced portfolio is roughly 10–12%; all stocks closer to 16–18%." className="w-56" />
           <div className="w-40">
-            <label className="block text-caption font-medium text-ink-muted mb-1">Runs</label>
+            <label className="label-micro block mb-1.5">Runs</label>
             <select value={trials} onChange={e => setTrials(e.target.value)} className={inputCls}>
               {[100, 300, 500, 1000].map(t => <option key={t} value={t}>{t}</option>)}
             </select>

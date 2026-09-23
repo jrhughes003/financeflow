@@ -81,7 +81,7 @@ export default function ForecastPanel() {
       <div className="bg-surface rounded-container border border-line p-5">
         <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
           <div>
-            <h2 className="text-base font-semibold text-ink">{monthLabel} Month-End Projection</h2>
+            <h2 className="text-lg font-semibold text-ink">{monthLabel} Month-End Projection</h2>
             <p className="text-caption text-ink-muted mt-0.5">Day {p.daysElapsed} of {p.daysInMonth} · based on your pace, scheduled bills, and {p.historyMonths ? `${p.historyMonths} month${p.historyMonths > 1 ? 's' : ''} of history` : 'no earlier history'}</p>
           </div>
           <span className={`text-caption font-medium px-2.5 py-1 rounded-full ${conf.cls}`}>{conf.label}</span>
@@ -188,7 +188,7 @@ export default function ForecastPanel() {
 
       {/* Cash-flow outlook */}
       <div className="bg-surface rounded-container border border-line p-5">
-        <h2 className="text-base font-semibold text-ink">Cash-Flow Outlook — Next {cf.rows.length} Months</h2>
+        <h2 className="text-lg font-semibold text-ink">Cash-Flow Outlook — Next {cf.rows.length} Months</h2>
         <p className="text-caption text-ink-muted mt-0.5 mb-4">
           Projected savings built up over time: income minus scheduled and periodic bills minus your typical spending
           ({formatCurrency(cf.discretionaryAverage)}/mo, usually {formatCurrency(cf.discretionaryRange[0])}–{formatCurrency(cf.discretionaryRange[1])}).

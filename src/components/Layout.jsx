@@ -146,7 +146,7 @@ export default function Layout({ currentPage, setCurrentPage, onQuickAdd, childr
         <div className="px-3 py-3">
           <button
             onClick={() => { onQuickAdd(); setSidebarOpen(false); }}
-            className="w-full flex items-center justify-center gap-2 bg-accent hover:bg-accent-hover text-ink-inverse text-sm font-medium h-9 px-4 rounded-control transition-colors"
+            className="w-full inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-9 px-3.5 text-sm bg-accent hover:bg-accent-hover text-ink-inverse"
           >
             <Plus className="w-4 h-4" />
             Add transaction

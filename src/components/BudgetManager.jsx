@@ -45,11 +45,11 @@ function BudgetRow({ budget, spending, carry = 0, effectiveBudget, onEdit, onDel
         <div className="space-y-2">
           <div className="flex gap-2 items-center">
             <label className="text-caption text-ink-muted w-20 shrink-0">Budget</label>
-            <input type="number" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} className="flex-1 px-2 py-1.5 border border-line-strong rounded-control text-sm focus:outline-none focus:border-accent" placeholder="0.00" />
+            <input type="number" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} className="flex-1 h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent" placeholder="0.00" />
           </div>
           <div className="flex gap-2 items-center">
             <label className="text-caption text-ink-muted w-20 shrink-0">Flex %</label>
-            <input type="number" min="0" max="50" value={form.flex} onChange={e => setForm(f => ({ ...f, flex: e.target.value }))} className="flex-1 px-2 py-1.5 border border-line-strong rounded-control text-sm focus:outline-none focus:border-accent" placeholder="0" />
+            <input type="number" min="0" max="50" value={form.flex} onChange={e => setForm(f => ({ ...f, flex: e.target.value }))} className="flex-1 h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent" placeholder="0" />
           </div>
           <label className="flex items-center gap-2 text-caption text-ink-secondary">
             <input type="checkbox" checked={form.rollover} onChange={e => setForm(f => ({ ...f, rollover: e.target.checked }))} className="rounded" />
@@ -175,7 +175,7 @@ export default function BudgetManager() {
             value={newCatName}
             onChange={e => setNewCatName(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleCreateCategory()}
-            className="w-full px-3 py-2.5 border border-line-strong rounded-container text-sm bg-surface focus:outline-none focus:border-accent"
+            className="w-full h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent"
             autoFocus
           />
           <div>
@@ -196,8 +196,8 @@ export default function BudgetManager() {
             </div>
           )}
           <div className="flex gap-2">
-            <button onClick={handleCreateCategory} className="px-4 py-2 bg-accent hover:bg-accent-hover text-ink-inverse text-sm rounded-container font-medium">Create Category</button>
-            <button onClick={() => { setShowNewCat(false); setNewCatName(''); }} className="px-4 py-2 border border-line-strong text-ink-secondary text-sm rounded-container hover:bg-surface">Cancel</button>
+            <button onClick={handleCreateCategory} className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-9 px-3.5 text-sm bg-accent hover:bg-accent-hover text-ink-inverse">Create Category</button>
+            <button onClick={() => { setShowNewCat(false); setNewCatName(''); }} className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-9 px-3.5 text-sm border border-line-strong text-ink hover:bg-surface-hover">Cancel</button>
           </div>
         </div>
       )}
@@ -245,19 +245,19 @@ export default function BudgetManager() {
           <h3 className="text-sm font-semibold text-accent-ink">Set Monthly Budget</h3>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-caption font-medium text-ink-muted mb-1">Category</label>
-              <select value={newCat} onChange={e => setNewCat(e.target.value)} className="w-full px-3 py-2 border border-line-strong rounded-control text-sm bg-surface focus:outline-none focus:border-accent">
+              <label className="label-micro block mb-1.5">Category</label>
+              <select value={newCat} onChange={e => setNewCat(e.target.value)} className="w-full h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent">
                 <option value="">Select...</option>
                 {allCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-caption font-medium text-ink-muted mb-1">Monthly Budget ($)</label>
-              <input type="number" placeholder="0" value={newAmt} onChange={e => setNewAmt(e.target.value)} className="w-full px-3 py-2 border border-line-strong rounded-control text-sm focus:outline-none focus:border-accent" />
+              <label className="label-micro block mb-1.5">Monthly Budget ($)</label>
+              <input type="number" placeholder="0" value={newAmt} onChange={e => setNewAmt(e.target.value)} className="w-full h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent" />
             </div>
             <div>
-              <label className="block text-caption font-medium text-ink-muted mb-1">Flex Tolerance %</label>
-              <input type="number" min="0" max="50" placeholder="10" value={newFlex} onChange={e => setNewFlex(e.target.value)} className="w-full px-3 py-2 border border-line-strong rounded-control text-sm focus:outline-none focus:border-accent" />
+              <label className="label-micro block mb-1.5">Flex Tolerance %</label>
+              <input type="number" min="0" max="50" placeholder="10" value={newFlex} onChange={e => setNewFlex(e.target.value)} className="w-full h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent" />
             </div>
             <div className="flex items-end pb-2">
               <label className="flex items-center gap-2 text-sm text-ink-secondary cursor-pointer">
@@ -267,8 +267,8 @@ export default function BudgetManager() {
             </div>
           </div>
           <div className="flex gap-2">
-            <button onClick={handleAdd} className="px-4 py-2 bg-accent hover:bg-accent-hover text-ink-inverse text-sm rounded-control font-medium">Save Budget</button>
-            <button onClick={() => setShowAdd(false)} className="px-4 py-2 border border-line-strong text-ink-secondary text-sm rounded-control hover:bg-surface">Cancel</button>
+            <button onClick={handleAdd} className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-9 px-3.5 text-sm bg-accent hover:bg-accent-hover text-ink-inverse">Save Budget</button>
+            <button onClick={() => setShowAdd(false)} className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-9 px-3.5 text-sm border border-line-strong text-ink hover:bg-surface-hover">Cancel</button>
           </div>
         </div>
       )}

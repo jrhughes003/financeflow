@@ -91,7 +91,7 @@ export default function SavingsPanel() {
       <div className="space-y-6">
       <DuplicatesPanel />
       <div className="bg-surface rounded-container border border-line p-5">
-        <h2 className="text-base font-semibold text-ink mb-1">Savings Opportunities</h2>
+        <h2 className="text-lg font-semibold text-ink mb-1">Savings Opportunities</h2>
         <p className="text-sm text-ink-muted">Savings suggestions appear once you have at least one full month of transactions.</p>
       </div>
       </div>
@@ -106,7 +106,7 @@ export default function SavingsPanel() {
       <div className="bg-surface rounded-container border border-line p-5">
         <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
           <div>
-            <h2 className="text-base font-semibold text-ink">Savings Opportunities</h2>
+            <h2 className="text-lg font-semibold text-ink">Savings Opportunities</h2>
             <p className="text-caption text-ink-muted mt-0.5">Based on your last {averages.months} full month{averages.months > 1 ? 's' : ''} of spending</p>
           </div>
           {totalPotential > 0 && (
@@ -158,7 +158,7 @@ export default function SavingsPanel() {
         <div className="bg-surface rounded-container border border-line p-5">
           <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
             <div>
-              <h2 className="text-base font-semibold text-ink">Recurring Charges</h2>
+              <h2 className="text-lg font-semibold text-ink">Recurring Charges</h2>
               <p className="text-caption text-ink-muted mt-0.5">{review.count} recurring charge{review.count > 1 ? 's' : ''}, from your templates and ones detected in your history. Cancel any you don't use.</p>
             </div>
             <div className="text-right">
@@ -186,7 +186,7 @@ export default function SavingsPanel() {
         <div className="flex items-start justify-between gap-3 mb-4">
           <div className="flex items-center gap-2">
             <SlidersHorizontal className="w-4 h-4 text-ink-muted" />
-            <h2 className="text-base font-semibold text-ink">What-If Simulator</h2>
+            <h2 className="text-lg font-semibold text-ink">What-If Simulator</h2>
           </div>
           {Object.values(cuts).some(Boolean) && (
             <button onClick={() => setCuts({})} className="flex items-center gap-1 text-caption text-ink-muted hover:text-ink-secondary">
@@ -257,7 +257,7 @@ export default function SavingsPanel() {
                   <select
                     value={goal.id}
                     onChange={e => setGoalId(e.target.value)}
-                    className="text-sm border border-line-strong rounded-control px-2 py-1 bg-surface focus:outline-none focus:border-accent"
+                    className="h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent"
                   >
                     {openGoals.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
                   </select>

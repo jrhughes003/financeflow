@@ -66,7 +66,7 @@ export default function HabitsPanel() {
       <div className="bg-surface rounded-container border border-line p-5">
         <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
           <div>
-            <h2 className="text-base font-semibold text-ink">Spending Calendar</h2>
+            <h2 className="text-lg font-semibold text-ink">Spending Calendar</h2>
             <p className="text-caption text-ink-muted mt-0.5">Everyday spending per day — scheduled bills and periodic charges aren't counted</p>
           </div>
           <div className="flex items-center gap-2">
@@ -134,7 +134,7 @@ export default function HabitsPanel() {
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Month rhythm */}
         <div className="bg-surface rounded-container border border-line p-5">
-          <h2 className="text-base font-semibold text-ink">Month Rhythm</h2>
+          <h2 className="text-lg font-semibold text-ink">Month Rhythm</h2>
           <p className="text-caption text-ink-muted mt-0.5 mb-3">Average everyday spending per day{rhythm.months ? `, last ${rhythm.months} month${rhythm.months > 1 ? 's' : ''}` : ''}</p>
           {rhythm.months === 0 ? (
             <p className="text-sm text-ink-muted text-center py-8">Needs at least one full month of history.</p>
@@ -167,7 +167,7 @@ export default function HabitsPanel() {
 
         {/* Purchase sizes */}
         <div className="bg-surface rounded-container border border-line p-5">
-          <h2 className="text-base font-semibold text-ink">Purchase Sizes</h2>
+          <h2 className="text-lg font-semibold text-ink">Purchase Sizes</h2>
           <p className="text-caption text-ink-muted mt-0.5 mb-3">Last {sizes.days} days · {sizes.count} purchases · {formatCurrency(sizes.total)}</p>
           {sizes.count === 0 ? (
             <p className="text-sm text-ink-muted text-center py-8">No purchases in the last {sizes.days} days.</p>

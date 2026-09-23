@@ -43,12 +43,12 @@ function AmountDateForm({ label, amountLabel, submitLabel, defaultAmount = '', o
           <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-ink-muted">$</span>
           <input type="number" min="0" step="0.01" autoFocus value={amount} onChange={e => setAmount(e.target.value)} aria-label={amountLabel}
             onKeyDown={e => { if (e.key === 'Enter' && ok) onSubmit({ amount, date }); if (e.key === 'Escape') onCancel(); }}
-            className="w-36 pl-6 pr-2 py-1.5 border border-line-strong rounded-control text-sm bg-surface focus:outline-none focus:border-accent" />
+            className="w-36 h-9 pl-6 pr-2 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent" />
         </div>
         <input type="date" value={date} max={todayStr()} onChange={e => setDate(e.target.value)} aria-label="Date"
-          className="px-2 py-1.5 border border-line-strong rounded-control text-sm bg-surface focus:outline-none focus:border-accent" />
+          className="h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent" />
         <button disabled={!ok} onClick={() => onSubmit({ amount, date })} className="px-3 py-1.5 bg-accent hover:bg-accent-hover disabled:opacity-40 text-ink-inverse text-caption font-medium rounded-control">{submitLabel}</button>
-        <button onClick={onCancel} className="px-3 py-1.5 border border-line-strong text-ink-secondary text-caption rounded-control hover:bg-surface">Cancel</button>
+        <button onClick={onCancel} className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-7 px-2.5 text-caption border border-line-strong text-ink hover:bg-surface-hover">Cancel</button>
       </div>
       {hint && <p className="text-caption text-ink-muted mt-1.5">{hint}</p>}
     </div>
@@ -132,10 +132,10 @@ function AccountCard({ inv, onUpdate, onEdit, onDelete }) {
           <button onClick={() => setMode('sync')} className="inline-flex items-center gap-1 px-3 py-1.5 bg-accent hover:bg-accent-hover text-ink-inverse text-caption font-medium rounded-control">
             <RefreshCw className="w-3.5 h-3.5" />Update from statement
           </button>
-          <button onClick={() => setMode('withdrawal')} className="inline-flex items-center gap-1 px-3 py-1.5 border border-line-strong text-ink-secondary text-caption font-medium rounded-control hover:bg-surface-sunk">
+          <button onClick={() => setMode('withdrawal')} className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-7 px-2.5 text-caption border border-line-strong text-ink hover:bg-surface-hover">
             <ArrowDownCircle className="w-3.5 h-3.5" />Log extra withdrawal
           </button>
-          <button onClick={() => setMode('deposit')} className="inline-flex items-center gap-1 px-3 py-1.5 border border-line-strong text-ink-secondary text-caption font-medium rounded-control hover:bg-surface-sunk">
+          <button onClick={() => setMode('deposit')} className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-7 px-2.5 text-caption border border-line-strong text-ink hover:bg-surface-hover">
             <ArrowUpCircle className="w-3.5 h-3.5" />Log deposit
           </button>
         </div>
@@ -287,8 +287,8 @@ export default function InvestmentTracker() {
       {/* Holdings */}
       <div className="bg-surface rounded-container border border-line p-5">
         <div className="flex items-center justify-between mb-1">
-          <h2 className="text-base font-semibold text-ink">Accounts & Holdings</h2>
-          <button onClick={() => { setShowForm(s => !s); setEditId(null); setForm({ ...EMPTY_FORM, asOfDate: todayStr() }); }} className="flex items-center gap-2 px-3 py-2 bg-accent hover:bg-accent-hover text-ink-inverse rounded-container text-sm font-medium">
+          <h2 className="text-lg font-semibold text-ink">Accounts & Holdings</h2>
+          <button onClick={() => { setShowForm(s => !s); setEditId(null); setForm({ ...EMPTY_FORM, asOfDate: todayStr() }); }} className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-9 px-3.5 text-sm bg-accent hover:bg-accent-hover text-ink-inverse">
             <Plus className="w-3.5 h-3.5" /> Add Account
           </button>
         </div>
@@ -298,53 +298,53 @@ export default function InvestmentTracker() {
         </p>
 
         {showForm && (
-          <div className="bg-accent-tint border border-accent rounded-container p-4 mb-4 space-y-3">
+          <div className="bg-accent-tint rounded-container p-4 mb-4 space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2">
-                <label className="block text-caption font-medium text-ink-muted mb-1">Account name</label>
+                <label className="label-micro block mb-1.5">Account name</label>
                 <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Advisor portfolio" className={inputCls} />
               </div>
               <div>
-                <label className="block text-caption font-medium text-ink-muted mb-1">Type</label>
+                <label className="label-micro block mb-1.5">Type</label>
                 <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))} className={inputCls}>
                   {TYPES.map(t => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}
                 </select>
               </div>
               <div>
-                <label className="block text-caption font-medium text-ink-muted mb-1">Expected annual return %</label>
+                <label className="label-micro block mb-1.5">Expected annual return %</label>
                 <input type="number" step="0.1" value={form.annualReturn} onChange={e => setForm(f => ({ ...f, annualReturn: e.target.value }))} placeholder="7" className={inputCls} />
               </div>
               <div>
-                <label className="block text-caption font-medium text-ink-muted mb-1">Balance</label>
+                <label className="label-micro block mb-1.5">Balance</label>
                 <input type="number" value={form.currentValue} onChange={e => setForm(f => ({ ...f, currentValue: e.target.value }))} placeholder="$0" className={inputCls} />
               </div>
               <div>
-                <label className="block text-caption font-medium text-ink-muted mb-1">Balance as of (statement date)</label>
+                <label className="label-micro block mb-1.5">Balance as of (statement date)</label>
                 <input type="date" max={todayStr()} value={form.asOfDate} onChange={e => setForm(f => ({ ...f, asOfDate: e.target.value }))} className={inputCls} />
               </div>
               <div>
-                <label className="block text-caption font-medium text-ink-muted mb-1">Monthly withdrawal (optional)</label>
+                <label className="label-micro block mb-1.5">Monthly withdrawal (optional)</label>
                 <input type="number" value={form.monthlyWithdrawal} onChange={e => setForm(f => ({ ...f, monthlyWithdrawal: e.target.value }))} placeholder="$0" className={inputCls} />
               </div>
               <div>
-                <label className="block text-caption font-medium text-ink-muted mb-1">Withdrawn on day of month</label>
+                <label className="label-micro block mb-1.5">Withdrawn on day of month</label>
                 <input type="number" min="1" max="28" value={form.withdrawalDay} onChange={e => setForm(f => ({ ...f, withdrawalDay: e.target.value }))} className={inputCls} />
               </div>
               {parseFloat(form.monthlyWithdrawal) > 0 && (
                 <label className="col-span-2 flex items-center gap-2 text-sm text-ink-secondary cursor-pointer select-none">
                   <input type="checkbox" checked={form.withdrawalCountsAsIncome} onChange={e => setForm(f => ({ ...f, withdrawalCountsAsIncome: e.target.checked }))}
-                    className="w-4 h-4 rounded border-line-strong text-accent" />
+                    className="w-4 h-4 rounded-[3px] border-line-strong text-accent focus:ring-accent" />
                   Count the monthly withdrawal as income (it's what I live on)
                 </label>
               )}
               <div className="col-span-2">
-                <label className="block text-caption font-medium text-ink-muted mb-1">Cost basis (optional)</label>
+                <label className="label-micro block mb-1.5">Cost basis (optional)</label>
                 <input type="number" value={form.costBasis} onChange={e => setForm(f => ({ ...f, costBasis: e.target.value }))} placeholder="$0" className={inputCls} />
               </div>
             </div>
             <div className="flex gap-2">
-              <button onClick={handleSave} className="px-4 py-2 bg-accent hover:bg-accent-hover text-ink-inverse text-sm rounded-control font-medium">Save</button>
-              <button onClick={() => { setShowForm(false); setEditId(null); }} className="px-4 py-2 border border-line-strong text-ink-secondary text-sm rounded-control hover:bg-surface">Cancel</button>
+              <button onClick={handleSave} className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-9 px-3.5 text-sm bg-accent hover:bg-accent-hover text-ink-inverse">Save</button>
+              <button onClick={() => { setShowForm(false); setEditId(null); }} className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-9 px-3.5 text-sm border border-line-strong text-ink hover:bg-surface-hover">Cancel</button>
             </div>
           </div>
         )}
@@ -384,7 +384,7 @@ export default function InvestmentTracker() {
       <div className="grid lg:grid-cols-2 gap-5">
         {/* Allocation */}
         <div className="bg-surface rounded-container border border-line p-5">
-          <h2 className="text-base font-semibold text-ink mb-4">Allocation</h2>
+          <h2 className="text-lg font-semibold text-ink mb-4">Allocation</h2>
           {pieData.length === 0
             ? <p className="text-sm text-ink-muted text-center py-8">No accounts tracked.</p>
             : (
@@ -402,7 +402,7 @@ export default function InvestmentTracker() {
 
         {/* Projection */}
         <div className="bg-surface rounded-container border border-line p-5">
-          <h2 className="text-base font-semibold text-ink mb-4">Long-Term Projection</h2>
+          <h2 className="text-lg font-semibold text-ink mb-4">Long-Term Projection</h2>
           <div className="mb-4">
             <label className="block text-caption font-medium text-ink-muted mb-2">Years to project: <strong>{projYears}</strong></label>
             <input type="range" min="1" max="40" value={projYears} onChange={e => setProjYears(Number(e.target.value))} className="w-full accent-blue-600" />

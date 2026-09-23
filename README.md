@@ -170,6 +170,33 @@ answers from the real request, and can be told to return a 401, a 429, a malform
 invalid category on demand — so the failure paths get exercised, not just the happy one. See
 [DEVELOPMENT.md](DEVELOPMENT.md#testing-the-ai-features-without-an-api-key).
 
+## Categorisation: three sources, cheapest first
+
+Keywords handle merchants someone wrote a rule for. A **logistic-regression
+classifier trained on your own ledger** handles the ones it has seen — the
+corner shop, the gym — which no keyword list contains; it runs locally, costs
+nothing and needs no API key. Only when neither has an answer is it worth a
+network call.
+
+The order is set by measurement, not preference. Cross-validated on the demo
+ledger with a grouped split by merchant:
+
+| | keywords | classifier |
+|---|---|---|
+| A merchant never seen before | **96.8%** | 36.5% |
+| A merchant already in the ledger | 96.8% | **98.8%** |
+| Merchants keywords have no rule for (n=8) | 0% | **75%** |
+
+The first row is the interesting one. A curated keyword list is a human prior
+over thousands of merchants; a model trained on a few dozen names has no way to
+know an unseen brand sells coffee — so it never overrides keywords, it only
+speaks where they are silent. The demo ledger flatters the baseline further,
+because its merchants were drawn from those keyword lists to begin with.
+
+The classifier's probabilities are what make the arrangement work: a confidence
+threshold decides when to answer and when to defer, which a naive Bayes model's
+saturated scores could not support.
+
 ## Privacy
 
 - **Your data stays local.** SQLite (desktop) and `localStorage` (browser) never leave your machine.

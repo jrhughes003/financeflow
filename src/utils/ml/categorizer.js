@@ -1,0 +1,96 @@
+// A merchant classifier trained on the user's own ledger.
+//
+// The app categorises in three ways, and they suit different situations:
+//
+//   keywords   fast, free, and right about the merchants someone thought to
+//              list — but it knows nothing about how *this* person spends, and
+//              falls back to "products" for everything it hasn't seen
+//   this model learns from the ledger, so it picks up the local coffee shop and
+//              the user's own corrections without anyone writing a rule
+//   the LLM    handles a merchant nobody has ever seen, at the cost of a
+//              network round trip and a fraction of a cent
+//
+// So the order is: keywords, then this, then the LLM — and because logistic
+// regression gives calibrated probabilities, "then the LLM" can be conditioned
+// on the model actually being unsure rather than on it having no opinion.
+
+import { buildVocabulary, vectorise, normaliseMerchant } from './features';
+import { fit, predict } from './logreg';
+
+// Below this, the model's answer isn't worth acting on alone.
+export const CONFIDENCE_THRESHOLD = 0.6;
+
+// Fewer examples than this, or fewer than two categories, and there is nothing
+// to learn: the model would just memorise a handful of merchants.
+export const MIN_EXAMPLES = 12;
+export const MIN_PER_CLASS = 2;
+
+/**
+ * Training rows from a ledger: one per transaction that has a merchant and a
+ * real category. Savings transfers carry a synthetic category and a synthetic
+ * merchant, so they are excluded — including them would teach the model that
+ * "savings →" predicts the savings pseudo-category, which is circular.
+ */
+export function trainingData(transactions = []) {
+  return transactions
+    .filter(t => t.merchant && t.category && t.kind !== 'savings' && t.category !== 'savings')
+    .map(t => ({ merchant: t.merchant, category: t.category }))
+    .filter(row => normaliseMerchant(row.merchant).length > 1);
+}
+
+/** Categories with enough examples to be learnable. */
+function usableClasses(rows) {
+  const counts = new Map();
+  rows.forEach(r => counts.set(r.category, (counts.get(r.category) || 0) + 1));
+  return [...counts.entries()]
+    .filter(([, count]) => count >= MIN_PER_CLASS)
+    .map(([category]) => category)
+    .sort();
+}
+
+/**
+ * Train on a ledger. Returns null when there isn't enough to learn from, which
+ * callers treat as "fall back to keywords" rather than as an error.
+ */
+export function train(transactions, options = {}) {
+  const rows = trainingData(transactions);
+  const classes = usableClasses(rows);
+  if (rows.length < MIN_EXAMPLES || classes.length < 2) return null;
+
+  const usable = rows.filter(r => classes.includes(r.category));
+  const vocabulary = buildVocabulary(usable.map(r => r.merchant), options);
+  if (!vocabulary.size) return null;
+
+  const labelOf = new Map(classes.map((c, i) => [c, i]));
+  const samples = usable.map(r => ({
+    vector: vectorise(r.merchant, vocabulary, options),
+    label: labelOf.get(r.category),
+  }));
+
+  const model = fit(samples, { dimensions: vocabulary.size, classes: classes.length, ...options });
+  return {
+    model,
+    vocabulary,
+    classes,
+    trainedOn: usable.length,
+    options,
+  };
+}
+
+/**
+ * Predict a category. Returns null when the classifier has no real opinion, so
+ * a caller can tell "unsure" from "confidently products".
+ */
+export function classify(trained, merchant) {
+  if (!trained || !merchant) return null;
+  const vector = vectorise(merchant, trained.vocabulary, trained.options);
+  if (!vector.size) return null; // nothing recognisable in this descriptor
+
+  const { label, confidence, probabilities } = predict(trained.model, vector);
+  return {
+    category: trained.classes[label],
+    confidence,
+    confident: confidence >= (trained.options.threshold ?? CONFIDENCE_THRESHOLD),
+    probabilities: Object.fromEntries(trained.classes.map((c, i) => [c, probabilities[i]])),
+  };
+}

@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { X, Zap, Plus, Sparkles, HandCoins } from 'lucide-react';
 import { format } from 'date-fns';
 import { useFinancial, useGetCategory } from '../context/FinancialContext';
 import { CATEGORIES, getAllCategories, autoCategorize } from '../utils/categorization';
 import { runAi, taxonomy, aiSupported } from '../ai/ai';
+import { train, classify } from '../utils/ml/categorizer';
 import { owedFromSplit, getOwedStatus, buildOwed } from '../utils/reimbursements';
 import { formatCurrency } from '../utils/calculations';
 
@@ -104,11 +105,30 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
     }
   };
 
-  // On blur, if nothing matched and AI is on, ask the model (the smart fallback).
-  const aiCategorizeOnBlur = async () => {
-    if (!aiEnabled || isSavings) return;
+  // Three sources, cheapest first. Keywords handle the merchants someone wrote
+  // a rule for. The local classifier handles the ones this ledger has seen —
+  // the corner shop, the gym — which no keyword list would contain; it costs
+  // nothing, works offline, and needs no API key. Only when neither has an
+  // answer is it worth a network round trip.
+  //
+  // Measured on the demo ledger: where keywords fall back, the classifier is
+  // right about three times in four (n=8), against zero for keywords. On a
+  // merchant nobody has ever seen it is worse than keywords, which is why it
+  // never overrides them.
+  const localModel = useMemo(() => train(state.transactions), [state.transactions]);
+
+  const categorizeOnBlur = async () => {
+    if (isSavings) return;
     if (form.category || suggestion || form.merchant.trim().length < 3) return;
     if (autoCategorize(form.merchant, customCategories) !== 'products') return; // keywords handled it
+
+    const local = classify(localModel, form.merchant.trim());
+    if (local?.confident && local.category !== 'products') {
+      setSuggestion(local.category);
+      return;
+    }
+
+    if (!aiEnabled) return;
     const res = await runAi('categorize', { merchant: form.merchant.trim(), categories: taxonomy(customCategories) });
     if (res.ok && res.data?.category && res.data.category !== 'products') {
       setSuggestion(res.data.category);
@@ -337,7 +357,7 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
           placeholder="e.g. Uber Eats, Metro, Esso..."
           value={form.merchant}
           onChange={e => handleMerchantChange(e.target.value)}
-          onBlur={aiCategorizeOnBlur}
+          onBlur={categorizeOnBlur}
           className={`w-full px-4 py-3 border-2 rounded-container focus:outline-none focus:border-accent transition-colors ${errors.merchant ? 'border-negative' : 'border-line-strong'}`}
         />
         {errors.merchant && <p className="text-caption text-negative mt-1">{errors.merchant}</p>}

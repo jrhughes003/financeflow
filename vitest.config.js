@@ -6,7 +6,7 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,
-    setupFiles: ['./src/test/setup.js'],
+    setupFiles: ['./src/test/setup.ts'],
     // Kept wide enough to survive the TypeScript migration: a test renamed to
     // .ts that no longer matches would simply stop running, and CI would stay
     // green while the coverage quietly disappeared.

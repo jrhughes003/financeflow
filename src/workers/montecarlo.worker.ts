@@ -12,6 +12,14 @@
 // cannot be interrupted from outside, however the caller asks.
 
 import { createRun } from '../utils/lifeplan/montecarlo';
+import type { RunRequest, WorkerRequest, WorkerResponse } from '../types/worker';
+
+// `self` in a module worker. Declaring the two members used keeps the message
+// protocol typed without pulling in a lib that fights the DOM one.
+declare const self: {
+  onmessage: ((event: MessageEvent<WorkerRequest>) => void) | null;
+  postMessage: (message: WorkerResponse) => void;
+};
 
 // Small enough that a cancel feels immediate, large enough that the yields
 // don't dominate the run.
@@ -19,9 +27,9 @@ const CHUNK_PAIRS = 12;
 
 let cancelled = false;
 
-const yieldToMessages = () => new Promise(resolve => setTimeout(resolve, 0));
+const yieldToMessages = (): Promise<void> => new Promise(resolve => { setTimeout(resolve, 0); });
 
-async function simulate({ plan, snapshot, options, requestId }) {
+async function simulate({ plan, snapshot, options, requestId }: RunRequest): Promise<void> {
   cancelled = false;
 
   // Dates don't survive structured cloning as Dates when they come from a
@@ -46,12 +54,13 @@ async function simulate({ plan, snapshot, options, requestId }) {
 }
 
 self.onmessage = (event) => {
-  const { type } = event.data || {};
-  if (type === 'run') {
-    simulate(event.data).catch(error => {
-      self.postMessage({ type: 'error', requestId: event.data.requestId, message: String(error?.message || error) });
+  const request = event.data;
+  if (request?.type === 'run') {
+    simulate(request).catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error);
+      self.postMessage({ type: 'error', requestId: request.requestId, message });
     });
-  } else if (type === 'cancel') {
+  } else if (request?.type === 'cancel') {
     cancelled = true;
   }
 };

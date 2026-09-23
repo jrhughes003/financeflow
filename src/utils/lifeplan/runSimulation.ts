@@ -7,11 +7,17 @@
 // fallback still reports progress, so the caller's code path is identical.
 
 import { runMonteCarlo } from './montecarlo';
+import type { SimulationOptions } from './montecarlo';
+import type { LifePlan } from '../../types/lifeplan';
+import type { PlanSnapshot, SimulationOutcome } from '../../types/projection';
+import type {
+  Progress, RunningSimulation, SimulationCall, WorkerResponse,
+} from '../../types/worker';
 
-let worker = null;
+let worker: Worker | null = null;
 let nextRequestId = 1;
 
-function getWorker() {
+function getWorker(): Worker | null {
   if (worker) return worker;
   if (typeof Worker === 'undefined') return null;
   try {
@@ -30,12 +36,16 @@ function getWorker() {
 /**
  * Run the simulation.
  *
- * @param onProgress  ({ completed, total }) => void
- * @returns { promise, cancel } — cancel resolves the promise with
- *          { cancelled: true } rather than rejecting, because abandoning a
- *          simulation is a normal thing for a user to do, not an error.
+ * Cancelling resolves the promise with `{ cancelled: true }` rather than
+ * rejecting, because abandoning a simulation is a normal thing for a user to
+ * do, not an error.
  */
-export function runSimulation(plan, snapshot, options = {}, onProgress = () => {}) {
+export function runSimulation(
+  plan: LifePlan,
+  snapshot: PlanSnapshot,
+  options: SimulationOptions = {},
+  onProgress: (progress: Progress) => void = () => {},
+): RunningSimulation {
   const active = getWorker();
   const requestId = nextRequestId++;
 
@@ -43,18 +53,20 @@ export function runSimulation(plan, snapshot, options = {}, onProgress = () => {
     // No worker: run it here. The UI still blocks, but the result is the same
     // and nothing has to know the difference.
     let cancelled = false;
-    const promise = Promise.resolve().then(() => {
+    const promise = Promise.resolve().then((): SimulationCall => {
       if (cancelled) return { cancelled: true };
-      const result = runMonteCarlo(plan, snapshot, options);
-      onProgress({ completed: result.trials ?? 0, total: result.trials ?? 0 });
+      const result: SimulationOutcome = runMonteCarlo(plan, snapshot, options);
+      const trials = 'trials' in result ? result.trials : 0;
+      onProgress({ completed: trials, total: trials });
       return result;
     });
     return { promise, cancel: () => { cancelled = true; } };
   }
 
-  const promise = new Promise((resolve, reject) => {
-    const handleMessage = (event) => {
-      const data = event.data || {};
+  const promise = new Promise<SimulationCall>((resolve, reject) => {
+    const handleMessage = (event: MessageEvent<WorkerResponse>): void => {
+      const data = event.data;
+      if (!data) return;
       if (data.requestId !== requestId) return; // a stale run's messages
 
       if (data.type === 'progress') {

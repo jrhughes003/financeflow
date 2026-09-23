@@ -4,10 +4,14 @@ import { getGoalProgress } from '../calculations';
 import { getCategoryAverages } from '../insights';
 import { estimateAccountValue } from '../accounts';
 
-let seq = 0;
-export const newId = prefix => `${prefix}_${Date.now().toString(36)}${(seq++).toString(36)}`;
+import type { AppState } from '../../types/state';
+import type { BucketId, LifePlan, PlanScenario } from '../../types/lifeplan';
+import type { PlanSnapshot } from '../../types/projection';
 
-export const BUCKETS = [
+let seq = 0;
+export const newId = (prefix: string): string => `${prefix}_${Date.now().toString(36)}${(seq++).toString(36)}`;
+
+export const BUCKETS: { id: BucketId; label: string }[] = [
   { id: 'nonreg', label: 'Non-registered (taxable)' },
   { id: 'tfsa', label: 'TFSA' },
   { id: 'rrsp', label: 'RRSP' },
@@ -15,7 +19,7 @@ export const BUCKETS = [
   { id: 'cash', label: 'Cash / savings' },
 ];
 
-export function createDefaultPlan() {
+export function createDefaultPlan(): LifePlan {
   return {
     version: 1,
     people: [
@@ -43,13 +47,15 @@ export function createDefaultPlan() {
 }
 
 /** A snapshot copy of the current plan, saved under a name. */
-export function scenarioFromPlan(plan, name) {
+export function scenarioFromPlan(plan: LifePlan, name: string): PlanScenario {
+  // scenarios is dropped on purpose: a saved scenario that carried the others
+  // would nest a copy of every previous one.
   const { scenarios, ...rest } = plan;
   return { id: newId('sc'), name: name || 'Scenario', savedAt: new Date().toISOString(), plan: rest };
 }
 
 /** Fill in any fields added after a plan was saved (forward-compatible). */
-export function normalizePlan(saved) {
+export function normalizePlan(saved: Partial<LifePlan> | null | undefined): LifePlan {
   const d = createDefaultPlan();
   if (!saved) return d;
   return {
@@ -72,7 +78,11 @@ export function normalizePlan(saved) {
  *   debts           existing debts (deferred start dates respected)
  *   historyMonthly  average monthly spending over recent full months
  */
-export function buildSnapshot(state, plan, { today = new Date() } = {}) {
+export function buildSnapshot(
+  state: AppState,
+  plan: LifePlan,
+  { today = new Date() }: { today?: Date } = {},
+): PlanSnapshot {
   const goalsCash = (state.savings_goals || []).reduce((s, g) => s + getGoalProgress(g, state.transactions || []).currentAmount, 0);
   const accounts = (state.investments || []).map(inv => {
     const map = plan.accountMap[inv.id] || {};

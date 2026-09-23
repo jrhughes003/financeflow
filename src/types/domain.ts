@@ -176,6 +176,17 @@ export interface Debt {
   originalBalance?: Money;
   /** Absent means the debt is already in repayment. */
   repaymentStart?: IsoDate;
+  /**
+   * When a promotional rate expires.
+   *
+   * This pair is what makes payoff order a real optimisation rather than a
+   * sorted list: 0% until March and then 25% should be cleared before a card
+   * charging 20% throughout, which neither avalanche (sorts on today's rate)
+   * nor snowball (ignores rates) will do.
+   */
+  promoUntil?: IsoDate;
+  /** The rate that takes over at promoUntil. */
+  postPromoRate?: number;
 }
 
 // --- Recurring charges and categories ---------------------------------------

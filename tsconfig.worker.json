@@ -19,9 +19,21 @@
     "skipLibCheck": true,
     "types": []
   },
-  // The worker imports the life-plan engine, which pulls in the rest of
-  // src/utils and the shared types, and every file in a project's graph has to
-  // be inside its include. None of it touches the DOM, which is the property
-  // that makes it safe to compile under the WebWorker lib.
-  "include": ["src/workers", "src/types", "src/utils"]
+  // Exactly the worker's import graph, listed rather than globbed.
+  //
+  // Every file in a project's graph has to be inside its include, but globbing
+  // src/utils/lifeplan drags in snapshot.ts, which reaches calculations and
+  // insights and from there modules that touch `document`. The whole point of
+  // compiling this separately is that the WebWorker lib has no DOM, so a file
+  // that needs one does not belong here — and naming the five that don't makes
+  // that boundary visible instead of accidental.
+  "include": [
+    "src/workers",
+    "src/types",
+    "src/utils/lifeplan/montecarlo.ts",
+    "src/utils/lifeplan/engine.ts",
+    "src/utils/lifeplan/returns.ts",
+    "src/utils/lifeplan/taxCanada.ts",
+    "src/utils/lifeplan/housing.ts"
+  ]
 }

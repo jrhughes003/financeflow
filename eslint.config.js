@@ -102,4 +102,17 @@ export default [
   //     project service and turns a 3-second lint into a 40-second one, and it
   //     fires no-unsafe-* on every remaining .js boundary.
   ...tseslint.configs.recommended.map(c => ({ ...c, files: ['src/**/*.{ts,tsx}'] })),
+
+  // The TS rule replaces the core one, so it needs the same allowances: the
+  // codebase drops fields with rest destructuring, and JSX counts as a use.
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    rules: {
+      '@typescript-eslint/no-unused-vars': ['error', {
+        varsIgnorePattern: '^[A-Z_]',
+        argsIgnorePattern: '^_',
+        ignoreRestSiblings: true,
+      }],
+    },
+  },
 ]

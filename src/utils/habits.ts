@@ -11,11 +11,17 @@ import { isFixedTransaction, detectIrregularExpenses } from './insights';
 import { withEffectiveAmount } from './reimbursements';
 import { PURCHASE_SIZE_BUCKETS, SYSTEM_TAGS } from './constants';
 
-const roundCents = n => Math.round(n * 100) / 100;
-const sum = arr => arr.reduce((s, v) => s + v, 0);
-const pad = n => String(n).padStart(2, '0');
+import type { Money, RecurringTemplate, Transaction } from '../types/domain';
 
-function everydayFilter(transactions, recurringTemplates, today) {
+const roundCents = (n: number): Money => Math.round(n * 100) / 100;
+const sum = (arr: number[]): number => arr.reduce((s, v) => s + v, 0);
+const pad = (n: number): string => String(n).padStart(2, '0');
+
+function everydayFilter(
+  transactions: Transaction[],
+  recurringTemplates: RecurringTemplate[],
+  today: Date,
+): (t: Transaction) => boolean {
   const { billTransactionIds } = detectIrregularExpenses(transactions, { recurringTemplates, today });
   return t => !isFixedTransaction(t, recurringTemplates, billTransactionIds);
 }
@@ -32,7 +38,14 @@ function everydayFilter(transactions, recurringTemplates, today) {
  *            noSpendDays, elapsedDays, currentStreak, longestStreak,
  *            spendDays, avgPerSpendDay, biggestDay }
  */
-export function getSpendingCalendar(transactions, month, year, { recurringTemplates = [], today = new Date() } = {}) {
+export function getSpendingCalendar(
+  transactions: Transaction[],
+  month: number,
+  year: number,
+  {
+    recurringTemplates = [], today = new Date(),
+  }: { recurringTemplates?: RecurringTemplate[]; today?: Date } = {},
+) {
   const isEveryday = everydayFilter(transactions, recurringTemplates, today);
   const txns = getTransactionsForPeriod(transactions, month, year);
   const todayStr = format(today, 'yyyy-MM-dd');
@@ -64,7 +77,8 @@ export function getSpendingCalendar(transactions, month, year, { recurringTempla
   for (let i = elapsed.length - 1; i >= 0 && elapsed[i].total === 0; i--) current++;
 
   const spendDays = elapsed.filter(d => d.total > 0);
-  const biggest = spendDays.reduce((m, d) => (!m || d.total > m.total ? d : m), null);
+  type Day = (typeof spendDays)[number];
+  const biggest = spendDays.reduce<Day | null>((m, d) => (!m || d.total > m.total ? d : m), null);
   return {
     days,
     // False when nothing at all was recorded — "no-spend" would be misleading.
@@ -83,7 +97,10 @@ export function getSpendingCalendar(transactions, month, year, { recurringTempla
 // Month rhythm (early vs late month)
 // ---------------------------------------------------------------------------
 
-const SEGMENTS = [
+/** Which third of the month a day falls in. */
+type SegmentKey = 'early' | 'mid' | 'late';
+
+const SEGMENTS: { key: SegmentKey; label: string; from: number; to: number }[] = [
   { key: 'early', label: 'Days 1–10', from: 1, to: 10 },
   { key: 'mid', label: 'Days 11–20', from: 11, to: 20 },
   { key: 'late', label: 'Day 21–end', from: 21, to: 31 },
@@ -95,10 +112,15 @@ const SEGMENTS = [
  * "spend right after payday" pattern.
  * @returns { months, segments: [{ key, label, perDay }], earlyVsLatePct }
  */
-export function getMonthRhythm(transactions, { recurringTemplates = [], today = new Date(), lookback = 6 } = {}) {
+export function getMonthRhythm(
+  transactions: Transaction[],
+  {
+    recurringTemplates = [], today = new Date(), lookback = 6,
+  }: { recurringTemplates?: RecurringTemplate[]; today?: Date; lookback?: number } = {},
+) {
   const isEveryday = everydayFilter(transactions, recurringTemplates, today);
-  const totals = { early: 0, mid: 0, late: 0 };
-  const dayCounts = { early: 0, mid: 0, late: 0 };
+  const totals: Record<SegmentKey, number> = { early: 0, mid: 0, late: 0 };
+  const dayCounts: Record<SegmentKey, number> = { early: 0, mid: 0, late: 0 };
   let months = 0;
 
   for (let i = 1; i <= lookback; i++) {
@@ -111,7 +133,8 @@ export function getMonthRhythm(transactions, { recurringTemplates = [], today = 
     txns.filter(isEveryday).forEach(t => {
       const day = Number(t.date.slice(8, 10));
       const seg = SEGMENTS.find(s => day >= s.from && day <= s.to);
-      totals[seg.key] += t.amount;
+      // The segments cover 1-31, so a real date always lands in one.
+      if (seg) totals[seg.key] += t.amount;
     });
   }
 
@@ -138,7 +161,12 @@ export function getMonthRhythm(transactions, { recurringTemplates = [], today = 
  * Answers "is it lots of small stuff or a few big buys?"
  * @returns { count, total, buckets: [{ label, min, max, count, total, countPct, totalPct }] }
  */
-export function getPurchaseSizeBreakdown(transactions, { today = new Date(), days = 90, edges = PURCHASE_SIZE_BUCKETS } = {}) {
+export function getPurchaseSizeBreakdown(
+  transactions: Transaction[],
+  {
+    today = new Date(), days = 90, edges = PURCHASE_SIZE_BUCKETS,
+  }: { today?: Date; days?: number; edges?: number[] } = {},
+) {
   const since = format(addDays(today, -days), 'yyyy-MM-dd');
   const until = format(today, 'yyyy-MM-dd');
   const txns = (transactions || [])
@@ -172,7 +200,7 @@ export function getPurchaseSizeBreakdown(transactions, { today = new Date(), day
 // ---------------------------------------------------------------------------
 
 /** Totals by subcategory for a set of transactions (e.g. one category's month). */
-export function getSubcategoryBreakdown(txns) {
+export function getSubcategoryBreakdown(txns: Transaction[]) {
   const map = new Map();
   (txns || []).forEach(t => {
     const name = (t.subcategory || '').trim() || 'Unspecified';
@@ -192,7 +220,10 @@ export function getSubcategoryBreakdown(txns) {
  * app-added tags are excluded. Pass month/year to limit to one month.
  * @returns [{ tag, total, count, firstDate, lastDate, topCategory }]
  */
-export function getTagBreakdown(transactions, { month, year } = {}) {
+export function getTagBreakdown(
+  transactions: Transaction[],
+  { month, year }: { month?: number; year?: number } = {},
+) {
   const txns = month === undefined
     ? (transactions || []).filter(t => !t.isException && t.kind !== 'savings').map(withEffectiveAmount)
     : getTransactionsForPeriod(transactions, month, year);
@@ -218,7 +249,8 @@ export function getTagBreakdown(transactions, { month, year } = {}) {
     .map(({ byCategory, ...g }) => ({
       ...g,
       total: roundCents(g.total),
-      topCategory: Object.entries(byCategory).sort((a, b) => b[1] - a[1])[0][0],
+      topCategory: Object.entries(byCategory as Record<string, number>)
+        .sort((a, b) => b[1] - a[1])[0][0],
     }))
     .sort((a, b) => b.total - a.total);
 }

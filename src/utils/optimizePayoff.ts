@@ -28,12 +28,38 @@
 import { simulateDebtPayoff } from './planning';
 import { monthsUntilRepayment } from './accounts';
 
+import type { Debt, Money } from '../types/domain';
+import type { PayoffOptions, PayoffSimulation } from '../types/analysis';
+
 // 8! = 40,320 simulations runs in well under a second; 9! = 362,880 does not.
 export const EXHAUSTIVE_LIMIT = 8;
 
-const activeDebts = (debts = []) => debts.filter(d => (Number(d.balance) || 0) > 0);
+/** One ordering, scored. Infinity when the plan never clears at this payment. */
+interface Candidate {
+  cost: Money;
+  result: PayoffSimulation;
+}
 
-function* permutations(items) {
+interface Best extends Candidate {
+  order: string[];
+}
+
+interface GreedyPick extends Candidate {
+  candidate: string;
+  order: string[];
+}
+
+interface SearchResult {
+  best: Best | null;
+  /** How many orderings were simulated, for reporting what the search cost. */
+  searched: number;
+  /** False when the greedy fallback ran, which makes no optimality claim. */
+  exhaustive: boolean;
+}
+
+const activeDebts = (debts: Debt[] = []): Debt[] => debts.filter(d => (Number(d.balance) || 0) > 0);
+
+function* permutations<T>(items: T[]): Generator<T[]> {
   if (items.length <= 1) { yield items; return; }
   for (let i = 0; i < items.length; i += 1) {
     const rest = [...items.slice(0, i), ...items.slice(i + 1)];
@@ -42,7 +68,7 @@ function* permutations(items) {
 }
 
 /** Total interest for one target order; Infinity when the plan never clears. */
-function costOf(debts, order, options) {
+function costOf(debts: Debt[], order: string[], options: PayoffOptions): Candidate {
   const result = simulateDebtPayoff(debts, { ...options, strategy: 'custom', order });
   return {
     cost: result.feasible ? result.totalInterest : Infinity,
@@ -50,8 +76,8 @@ function costOf(debts, order, options) {
   };
 }
 
-function exhaustiveSearch(debts, ids, options) {
-  let best = null;
+function exhaustiveSearch(debts: Debt[], ids: string[], options: PayoffOptions): SearchResult {
+  let best: Best | null = null;
   let searched = 0;
 
   for (const order of permutations(ids)) {
@@ -62,14 +88,14 @@ function exhaustiveSearch(debts, ids, options) {
   return { best, searched, exhaustive: true };
 }
 
-function greedySearch(debts, ids, options) {
+function greedySearch(debts: Debt[], ids: string[], options: PayoffOptions): SearchResult {
   const remaining = [...ids];
-  const order = [];
+  const order: string[] = [];
   let searched = 0;
-  let best = null;
+  let best: GreedyPick | null = null;
 
   while (remaining.length) {
-    let pick = null;
+    let pick: GreedyPick | null = null;
     for (const candidate of remaining) {
       // Score the prefix with this candidate next, letting the rest follow in
       // the order they came — a fixed tail keeps the comparison honest.
@@ -78,6 +104,8 @@ function greedySearch(debts, ids, options) {
       const { cost, result } = costOf(debts, trial, options);
       if (!pick || cost < pick.cost - 0.005) pick = { cost, candidate, result, order: trial };
     }
+    // Every iteration scores at least one candidate, so `pick` is set here.
+    if (!pick) break;
     order.push(pick.candidate);
     remaining.splice(remaining.indexOf(pick.candidate), 1);
     best = pick;
@@ -90,7 +118,12 @@ function greedySearch(debts, ids, options) {
  *
  * @returns null when there is nothing to optimise (no debts, or only one).
  */
-export function optimizePayoff(debts, { extra = 0, today = new Date(), limit = EXHAUSTIVE_LIMIT } = {}) {
+export function optimizePayoff(
+  debts: Debt[],
+  {
+    extra = 0, today = new Date(), limit = EXHAUSTIVE_LIMIT,
+  }: { extra?: Money; today?: Date; limit?: number } = {},
+) {
   const active = activeDebts(debts);
   if (active.length < 2) return null;
 
@@ -124,7 +157,8 @@ export function optimizePayoff(debts, { extra = 0, today = new Date(), limit = E
   }
 
   const byId = new Map(active.map(d => [d.id, d]));
-  const saving = other => (other.feasible ? Math.round((other.totalInterest - best.cost) * 100) / 100 : null);
+  const saving = (other: PayoffSimulation): Money | null =>
+    (other.feasible ? Math.round((other.totalInterest - best.cost) * 100) / 100 : null);
 
   return {
     feasible: true,

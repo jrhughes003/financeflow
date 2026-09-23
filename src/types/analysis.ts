@@ -116,3 +116,45 @@ export interface DateRange {
   start: IsoDate;
   end: IsoDate;
 }
+
+// --- Debt planning -----------------------------------------------------------
+
+/** How extra payments are directed once minimums are covered. */
+export type PayoffStrategy = 'minimum' | 'avalanche' | 'snowball' | 'custom';
+
+export interface DebtPayoffEvent {
+  id: string;
+  name: string;
+  month: number;
+}
+
+export interface PayoffSimulation {
+  strategy: PayoffStrategy;
+  /** False when at least one debt never clears at this payment level. */
+  feasible: boolean;
+  /** Null when it never clears — an honest answer, not a missing one. */
+  months: number | null;
+  totalInterest: Money;
+  totalPaid: Money;
+  debtFreeDate: IsoDate | null;
+  /** When each debt cleared, in the order they did. */
+  payoffs: DebtPayoffEvent[];
+  timeline: { month: number; balance: Money }[];
+  /** Debts that can never be paid at their minimum. */
+  unpayable: { id: string; name: string }[];
+}
+
+export interface PayoffOptions {
+  strategy?: PayoffStrategy;
+  /** Above the minimums, per month. */
+  extra?: Money;
+  today?: Date;
+  /** Debt ids in the order to target them; only used by the 'custom' strategy. */
+  order?: string[] | null;
+}
+
+// Note: the budget-suggestion and goal-status shapes are deliberately not
+// written out here. They carry a dozen fields each and change with the
+// heuristics that produce them, so an inferred return type stays correct where
+// a hand-written one would quietly drift. Parameters are annotated; returns are
+// inferred.

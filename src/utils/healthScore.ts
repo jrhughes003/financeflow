@@ -9,9 +9,36 @@ import { subMonths, format } from 'date-fns';
 import { getTotalIncome, getTransactionsForPeriod, getBudgetStatus, getDisplayCurrency, localeFor } from './calculations';
 import { getIncomeSources, getInvestmentsValue, requiredPayment } from './accounts';
 
-const clamp = (n, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, n));
-const roundCents = n => Math.round(n * 100) / 100;
-const sum = arr => arr.reduce((s, v) => s + v, 0);
+import type { Goal, IsoDate, Money, Transaction } from '../types/domain';
+import type { AppState } from '../types/state';
+
+export interface HealthLabel {
+  label: string;
+  color: string;
+}
+
+/**
+ * One part of the score.
+ *
+ * `available: false` means there wasn't enough history to judge it, and its
+ * weight is redistributed across the rest rather than counted as a zero - a
+ * user with no debts should not be marked down for having none.
+ */
+export interface HealthComponent {
+  key: ComponentKey;
+  label: string;
+  weight: number;
+  available: boolean;
+  score: number;
+  value?: string;
+  detail?: string;
+  /** What to do about it, or null when there is nothing to suggest. */
+  tip?: string | null;
+}
+
+const clamp = (n: number, lo = 0, hi = 100): number => Math.max(lo, Math.min(hi, n));
+const roundCents = (n: number): Money => Math.round(n * 100) / 100;
+const sum = (arr: number[]): number => arr.reduce((s, v) => s + v, 0);
 
 export const HEALTH_WEIGHTS = {
   savings: 25,
@@ -21,6 +48,9 @@ export const HEALTH_WEIGHTS = {
   stability: 15,
 };
 
+/** The five parts the score is built from. */
+export type ComponentKey = keyof typeof HEALTH_WEIGHTS;
+
 // Targets that earn a full score for each part.
 const TARGET_SAVINGS_RATE = 20;   // percent of income
 const TARGET_EMERGENCY_MONTHS = 6;
@@ -28,7 +58,7 @@ const MAX_DEBT_RATIO = 40;        // min payments as % of income → score 0
 const STABLE_CV = 0.1;            // spending variation → 100 at or below
 const UNSTABLE_CV = 0.5;          // → 0 at or above
 
-export function healthLabel(score) {
+export function healthLabel(score: number | null): HealthLabel {
   if (score === null) return { label: 'Not enough data', color: '#94a3b8' };
   if (score >= 80) return { label: 'Excellent', color: '#16a34a' };
   if (score >= 60) return { label: 'Good', color: '#65a30d' };
@@ -36,7 +66,7 @@ export function healthLabel(score) {
   return { label: 'Needs work', color: '#dc2626' };
 }
 
-function monthsBefore(ref, n) {
+function monthsBefore(ref: Date, n: number): { month: number; year: number }[] {
   return Array.from({ length: n }, (_, i) => {
     const d = subMonths(new Date(ref.getFullYear(), ref.getMonth(), 1), i + 1);
     return { month: d.getMonth(), year: d.getFullYear() };
@@ -44,11 +74,11 @@ function monthsBefore(ref, n) {
 }
 
 // Savings balance as of a date: goal opening balances + contributions logged before it.
-function savingsAsOf(goals, transactions, beforeStr) {
+function savingsAsOf(goals: Goal[], transactions: Transaction[], beforeStr: IsoDate): Money {
   const opening = sum((goals || []).map(g => Number(g.currentAmount) || 0));
   const ids = new Set((goals || []).map(g => g.id));
   const contributed = sum((transactions || [])
-    .filter(t => t.kind === 'savings' && ids.has(t.goalId) && (t.date || '') < beforeStr)
+    .filter(t => t.kind === 'savings' && !!t.goalId && ids.has(t.goalId) && (t.date || '') < beforeStr)
     .map(t => Number(t.amount) || 0));
   return opening + contributed;
 }
@@ -58,7 +88,7 @@ function savingsAsOf(goals, transactions, beforeStr) {
  * @returns { score, label, color, components: [{ key, label, score, weight,
  *            available, value, detail, tip }], monthsUsed }
  */
-export function getFinancialHealth(state, { ref = new Date() } = {}) {
+export function getFinancialHealth(state: AppState, { ref = new Date() }: { ref?: Date } = {}) {
   const { transactions = [], budgets = [], incomes = [], savings_goals = [], debts = [], investments = [] } = state || {};
   const income = getTotalIncome(getIncomeSources(incomes, investments));
 
@@ -69,8 +99,11 @@ export function getFinancialHealth(state, { ref = new Date() } = {}) {
   const recent = six.slice(0, 3);
   const avgExpenses = recent.length ? sum(recent.map(m => m.total)) / recent.length : null;
 
-  const components = [];
-  const add = (key, label, c) => components.push({ key, label, weight: HEALTH_WEIGHTS[key], ...c });
+  const components: HealthComponent[] = [];
+  const add = (key: ComponentKey, label: string, c: Partial<HealthComponent>): number =>
+    components.push({
+      key, label, weight: HEALTH_WEIGHTS[key], available: true, score: 0, ...c,
+    });
 
   // 1. Savings rate
   if (income > 0 && avgExpenses !== null) {
@@ -181,7 +214,10 @@ export function getFinancialHealth(state, { ref = new Date() } = {}) {
  * Score for each of the last `months` month-ends (oldest first). Debts and goal
  * opening balances are today's values — the app doesn't keep their history.
  */
-export function getHealthTrend(state, { today = new Date(), months = 6 } = {}) {
+export function getHealthTrend(
+  state: AppState,
+  { today = new Date(), months = 6 }: { today?: Date; months?: number } = {},
+) {
   return Array.from({ length: months }, (_, i) => {
     const ref = subMonths(new Date(today.getFullYear(), today.getMonth(), 1), months - 1 - i);
     const { score } = getFinancialHealth(state, { ref });
@@ -192,7 +228,7 @@ export function getHealthTrend(state, { today = new Date(), months = 6 } = {}) {
 // Whole dollars: these appear mid-sentence in a tip, where cents are noise.
 // Follows the display currency like every other figure — it used to be pinned
 // to en-US/USD, so one tip could disagree with the number it was tipping about.
-function formatWhole(n) {
+function formatWhole(n: number): string {
   const currency = getDisplayCurrency();
   return new Intl.NumberFormat(localeFor(currency), {
     style: 'currency', currency, maximumFractionDigits: 0,

@@ -1,3 +1,4 @@
+import type { LucideIcon } from 'lucide-react';
 import React, { useMemo, useState } from 'react';
 import { format, parseISO } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
@@ -14,7 +15,14 @@ const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const COUNT_COLOR = 'var(--c-ink-muted)';
 const SPEND_COLOR = 'var(--c-data-1)';
 
-function Stat({ label, value, sub, icon: Icon }) {
+function Stat({
+  label, value, sub, icon: Icon,
+}: {
+  label: React.ReactNode;
+  value: React.ReactNode;
+  sub?: React.ReactNode;
+  icon?: LucideIcon;
+}) {
   return (
     <div className="bg-surface-sunk rounded-container p-3">
       <p className="text-caption text-ink-muted flex items-center gap-1">{Icon && <Icon className="w-3.5 h-3.5" />}{label}</p>
@@ -30,7 +38,7 @@ export default function HabitsPanel() {
   const now = new Date();
   const [month, setMonth] = useState(now.getMonth());
   const [year, setYear] = useState(now.getFullYear());
-  const changeMonth = delta => {
+  const changeMonth = (delta: number): void => {
     const d = new Date(year, month + delta, 1);
     setMonth(d.getMonth());
     setYear(d.getFullYear());
@@ -46,7 +54,7 @@ export default function HabitsPanel() {
   // Color steps from the quintiles of this month's spending days.
   const spendTotals = cal.days.filter(d => !d.future && d.total > 0).map(d => d.total);
   const cuts = [0.2, 0.4, 0.6, 0.8].map(p => percentile(spendTotals, p));
-  const step = total => RAMP[cuts.filter(c => total > c).length];
+  const step = (total: number): string => RAMP[cuts.filter(c => total > c).length];
   const leading = cal.days[0].weekday;
   const isCurrentMonth = month === now.getMonth() && year === now.getFullYear();
 
@@ -152,11 +160,11 @@ export default function HabitsPanel() {
                   <CartesianGrid {...chart.grid} />
                   <XAxis dataKey="label" {...chart.xAxis} tick={{ fontSize: 12 }} />
                   <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `$${v}`} />
-                  <Tooltip cursor={{ fill: 'var(--c-surface-hover)' }} formatter={v => [`${formatCurrency(v)}/day`, 'Average']} />
+                  <Tooltip cursor={{ fill: 'var(--c-surface-hover)' }} formatter={v => [`${formatCurrency(chart.asNumber(v))}/day`, 'Average']} />
                   <Bar dataKey="perDay" fill={SPEND_COLOR} radius={[4, 4, 0, 0]} barSize={48} isAnimationActive={false} />
                 </BarChart>
               </ResponsiveContainer>
-              {early > 0 && late > 0 && rhythm.earlyVsLatePct > 15 && (
+              {early > 0 && late > 0 && (rhythm.earlyVsLatePct ?? 0) > 15 && (
                 <p className="text-caption text-ink-muted mt-2">
                   If the first 10 days matched your late-month pace, you'd spend about {formatCurrency((early - late) * 10)} less a month.
                 </p>

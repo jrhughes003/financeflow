@@ -1,3 +1,4 @@
+import type { PeriodPanelProps } from '../../types/navigation';
 import React, { useMemo, useState } from 'react';
 import { format, parseISO } from 'date-fns';
 import { Tags } from 'lucide-react';
@@ -5,11 +6,11 @@ import { useGetCategory } from '../../context/FinancialContext';
 import { formatCurrency } from '../../utils/calculations';
 import { getTagBreakdown } from '../../utils/habits';
 
-const fmt = d => format(parseISO(d.slice(0, 10)), 'MMM d, yyyy');
+const fmt = (d: string): string => format(parseISO(d.slice(0, 10)), 'MMM d, yyyy');
 
 // Spending per tag — cuts across categories (e.g. everything for "vacation").
 // Hidden entirely when the user hasn't tagged anything.
-export default function TagsPanel({ transactions, month, year }) {
+export default function TagsPanel({ transactions, month, year }: PeriodPanelProps) {
   const getCategory = useGetCategory();
   const [scope, setScope] = useState('month'); // 'month' | 'all'
   const allTime = useMemo(() => getTagBreakdown(transactions), [transactions]);

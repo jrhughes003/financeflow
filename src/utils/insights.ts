@@ -79,6 +79,30 @@ export interface SavingsOpportunity {
    */
   monthlySaving: Money | null;
   annualSaving: Money | null;
+
+  // The rest depend on `type`. Optional rather than a discriminated union
+  // because the panel renders them through one shared row; naming them is
+  // still worth more than leaving every read as `unknown`.
+  category?: string;
+  merchant?: string;
+  average?: Money;
+  previousAverage?: Money;
+  budget?: Money;
+  suggestedCutPct?: number;
+  /** frequent_small: how often, and what it adds up to. */
+  perMonth?: number;
+  monthlySpend?: Money;
+  averageAmount?: Money;
+  /** price_increase: what it was, and what it is now. */
+  before?: Money;
+  after?: Money;
+  /** recurring_review: the informational entry. */
+  count?: number;
+  monthlyTotal?: Money;
+  annualTotal?: Money;
+  /** Derived from the function that fills it, rather than restated here. */
+  top?: ReturnType<typeof getRecurringCosts>;
+
   [key: string]: unknown;
 }
 

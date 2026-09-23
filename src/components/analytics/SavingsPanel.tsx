@@ -1,3 +1,4 @@
+import type { SavingsOpportunity } from '../../utils/insights';
 import React, { useMemo, useState } from 'react';
 import { addMonths, format } from 'date-fns';
 import { AlertTriangle, TrendingUp, Coffee, BadgeDollarSign, Repeat, SlidersHorizontal, RotateCcw, Lightbulb } from 'lucide-react';
@@ -18,30 +19,39 @@ const TYPE_ICON = {
 };
 
 const SIM_CATEGORIES = 6;
-const roundTo5 = n => Math.min(100, Math.max(5, Math.round(n / 5) * 5));
+const roundTo5 = (n: number): number => Math.min(100, Math.max(5, Math.round(n / 5) * 5));
 
 // Plain-language title/detail for each opportunity type.
-function describe(o, catName) {
+function describe(
+  o: SavingsOpportunity,
+  catName: (id: string) => string,
+): { title: string; detail: string } {
+  // Each case reads the fields its own `type` guarantees, but the opportunity
+  // is one object rather than a union, so the checker cannot see that. These
+  // keep the copy readable without asserting a guarantee nothing proves.
+  const money = (n: number | undefined): string => formatCurrency(n ?? 0);
+  const cat = (id: string | undefined): string => (id ? catName(id) : 'This category');
+
   switch (o.type) {
     case 'over_budget':
       return {
-        title: `${catName(o.category)} runs over budget`,
-        detail: `Averaging ${formatCurrency(o.average)}/mo against a ${formatCurrency(o.budget)} budget. Getting back to budget saves the difference.`,
+        title: `${cat(o.category)} runs over budget`,
+        detail: `Averaging ${money(o.average)}/mo against a ${money(o.budget)} budget. Getting back to budget saves the difference.`,
       };
     case 'trending_up':
       return {
-        title: `${catName(o.category)} is creeping up`,
-        detail: `Up from ${formatCurrency(o.previousAverage)}/mo to ${formatCurrency(o.average)}/mo over the last few months. Returning to the earlier level saves the difference.`,
+        title: `${cat(o.category)} is creeping up`,
+        detail: `Up from ${money(o.previousAverage)}/mo to ${money(o.average)}/mo over the last few months. Returning to the earlier level saves the difference.`,
       };
     case 'frequent_small':
       return {
         title: `Small purchases at ${o.merchant} add up`,
-        detail: `About ${o.perMonth} visits a month at ~${formatCurrency(o.averageAmount)} each = ${formatCurrency(o.monthlySpend)}/mo. Halving the visits saves the amount shown.`,
+        detail: `About ${o.perMonth} visits a month at ~${money(o.averageAmount)} each = ${money(o.monthlySpend)}/mo. Halving the visits saves the amount shown.`,
       };
     case 'price_increase':
       return {
         title: `${o.merchant} raised its price`,
-        detail: `Went from ${formatCurrency(o.before)} to ${formatCurrency(o.after)}. Worth checking for a cheaper plan or cancelling.`,
+        detail: `Went from ${money(o.before)} to ${money(o.after)}. Worth checking for a cheaper plan or cancelling.`,
       };
     default:
       return { title: '', detail: '' };
@@ -52,7 +62,7 @@ export default function SavingsPanel() {
   const { state } = useFinancial();
   const { transactions, budgets, incomes, savings_goals = [], recurringTemplates = [] } = state;
   const getCategory = useGetCategory();
-  const catName = id => getCategory(id).name;
+  const catName = (id: string): string => getCategory(id).name;
 
   // Heavy scans — only recompute when the data changes, not on every slider move.
   const opportunities = useMemo(
@@ -61,7 +71,7 @@ export default function SavingsPanel() {
   );
   const actionable = opportunities.filter(o => o.monthlySaving !== null);
   const review = opportunities.find(o => o.type === 'recurring_review');
-  const totalPotential = actionable.reduce((s, o) => s + o.annualSaving, 0);
+  const totalPotential = actionable.reduce((s, o) => s + (o.annualSaving ?? 0), 0);
 
   // Simulator inputs
   const averages = useMemo(() => getCategoryAverages(transactions), [transactions]);
@@ -70,19 +80,22 @@ export default function SavingsPanel() {
     .sort((a, b) => b[1] - a[1])
     .slice(0, SIM_CATEGORIES)
     .map(([id]) => id);
-  const [cuts, setCuts] = useState({});
+  const [cuts, setCuts] = useState<Record<string, number>>({});
   const sim = simulateCuts(averages.byCategory, cuts, income);
 
   const openGoals = savings_goals.filter(g => getGoalProgress(g, transactions).percent < 100);
   const [goalId, setGoalId] = useState('');
   const goal = openGoals.find(g => g.id === goalId) || openGoals[0];
   const impact = goal ? goalTimelineImpact(goal, transactions, sim.monthlySaving) : null;
-  const when = months => (months === null ? 'not at the current pace' : months === 0 ? 'already reached' : `${format(addMonths(new Date(), months), 'MMM yyyy')} (${months} mo)`);
+  const when = (months: number | null): string => (months === null ? 'not at the current pace' : months === 0 ? 'already reached' : `${format(addMonths(new Date(), months), 'MMM yyyy')} (${months} mo)`);
 
-  const tryInSimulator = o => {
-    const avg = averages.byCategory[o.category];
-    if (!avg) return;
-    setCuts(c => ({ ...c, [o.category]: roundTo5((o.monthlySaving / avg) * 100) }));
+  const tryInSimulator = (o: SavingsOpportunity): void => {
+    // Only offered for opportunities that name a category with an average to
+    // cut against, which is what the button's own condition checks.
+    const category = o.category;
+    const avg = category ? averages.byCategory[category] : 0;
+    if (!category || !avg) return;
+    setCuts(c => ({ ...c, [category]: roundTo5(((o.monthlySaving ?? 0) / avg) * 100) }));
     document.getElementById('whatif-simulator')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
@@ -125,7 +138,7 @@ export default function SavingsPanel() {
         ) : (
           <div className="space-y-3">
             {actionable.map(o => {
-              const Icon = TYPE_ICON[o.type];
+              const Icon = TYPE_ICON[o.type as keyof typeof TYPE_ICON];
               const { title, detail } = describe(o, catName);
               const canSimulate = o.type !== 'price_increase' && o.category && averages.byCategory[o.category] && simCats.includes(o.category);
               return (
@@ -143,8 +156,8 @@ export default function SavingsPanel() {
                     )}
                   </div>
                   <div className="text-right shrink-0">
-                    <p className="text-sm font-bold text-positive">{formatCurrency(o.annualSaving)}/yr</p>
-                    <p className="text-caption text-ink-muted">{formatCurrency(o.monthlySaving)}/mo</p>
+                    <p className="text-sm font-bold text-positive">{formatCurrency(o.annualSaving ?? 0)}/yr</p>
+                    <p className="text-caption text-ink-muted">{formatCurrency(o.monthlySaving ?? 0)}/mo</p>
                   </div>
                 </div>
               );
@@ -159,14 +172,14 @@ export default function SavingsPanel() {
           <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
             <div>
               <h2 className="text-lg font-semibold text-ink">Recurring Charges</h2>
-              <p className="text-caption text-ink-muted mt-0.5">{review.count} recurring charge{review.count > 1 ? 's' : ''}, from your templates and ones detected in your history. Cancel any you don't use.</p>
+              <p className="text-caption text-ink-muted mt-0.5">{review.count} recurring charge{(review.count ?? 0) > 1 ? 's' : ''}, from your templates and ones detected in your history. Cancel any you don't use.</p>
             </div>
             <div className="text-right">
-              <p className="text-xl font-bold text-ink">{formatCurrency(review.annualTotal)}<span className="text-sm font-medium text-ink-muted">/yr</span></p>
-              <p className="text-caption text-ink-muted">{formatCurrency(review.monthlyTotal)}/mo{income > 0 && ` · ${Math.round((review.monthlyTotal / income) * 100)}% of income`}</p>
+              <p className="text-xl font-bold text-ink">{formatCurrency(review.annualTotal ?? 0)}<span className="text-sm font-medium text-ink-muted">/yr</span></p>
+              <p className="text-caption text-ink-muted">{formatCurrency(review.monthlyTotal ?? 0)}/mo{income > 0 && ` · ${Math.round(((review.monthlyTotal ?? 0) / income) * 100)}% of income`}</p>
             </div>
           </div>
-          {review.top.map(r => (
+          {(review.top ?? []).map(r => (
             <div key={`${r.source}-${r.merchant}`} className="flex justify-between items-center py-1.5 border-b border-line-faint">
               <div>
                 <p className="text-sm text-ink-secondary">{r.merchant}</p>

@@ -161,7 +161,7 @@ export function getBudgetSuggestions(
 
 /** Budget object to save when the user accepts a suggestion. */
 export function applyBudgetSuggestion(
-  suggestion: { budgetId?: string; category: string; suggested: Money },
+  suggestion: { budgetId?: string | null; category: string; suggested: Money },
   budgets: Budget[],
   { defaultFlex = 10, now = Date.now() }: { defaultFlex?: number; now?: number } = {},
 ): Budget {

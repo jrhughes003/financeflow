@@ -1,3 +1,4 @@
+import type { TooltipProps } from 'recharts';
 import React, { useMemo } from 'react';
 import { format } from 'date-fns';
 import {
@@ -23,9 +24,17 @@ const STATUS = {
   ok:    { label: 'On track',    icon: CheckCircle2,  cls: 'text-positive' },
 };
 
+/** One category's month-end projection, as projectMonthEnd returns it. */
+type CategoryProjection = ReturnType<typeof projectMonthEnd>['categories'][number];
+
+/** One month of the cash-flow forecast. */
+type CashFlowRow = ReturnType<typeof forecastCashFlow>['rows'][number];
+
 const LINE_COLOR = 'var(--c-data-1)';
 
-function Stat({ label, value, sub }) {
+function Stat({
+  label, value, sub,
+}: { label: React.ReactNode; value: React.ReactNode; sub?: React.ReactNode }) {
   return (
     <div className="bg-surface-sunk rounded-container p-3">
       <p className="text-caption text-ink-muted">{label}</p>
@@ -36,16 +45,18 @@ function Stat({ label, value, sub }) {
 }
 
 // How much can still be spent per day without exceeding the budget.
-function allowanceText(w, daysLeft) {
-  const left = w.budget - w.actual - w.recurringRemaining;
+function allowanceText(w: CategoryProjection, daysLeft: number): string {
+  // Only called for categories that have a budget, which is what puts them in
+  // the warnings list in the first place.
+  const left = (w.budget ?? 0) - w.actual - w.recurringRemaining;
   if (left <= 0) return 'Spent plus scheduled bills already reach the budget.';
   if (daysLeft <= 0) return '';
   return `Keep it under ${formatCurrency(left / daysLeft)}/day for the rest of the month to stay within budget.`;
 }
 
-function CashFlowTooltip({ active, payload }) {
+function CashFlowTooltip({ active, payload }: TooltipProps<number, string>) {
   if (!active || !payload?.length) return null;
-  const r = payload[0].payload;
+  const r = payload[0].payload as CashFlowRow;
   return (
     <div className="bg-surface border border-line-strong rounded-control p-3 text-caption space-y-0.5">
       <p className="font-semibold text-ink mb-1">{r.label}</p>
@@ -68,11 +79,11 @@ export default function ForecastPanel() {
 
   const p = useMemo(() => projectMonthEnd({ transactions, budgets, recurringTemplates }), [transactions, budgets, recurringTemplates]);
   const cf = useMemo(() => forecastCashFlow({ transactions, incomes, recurringTemplates }), [transactions, incomes, recurringTemplates]);
-  const conf = CONFIDENCE[p.confidence];
+  const conf = CONFIDENCE[p.confidence as keyof typeof CONFIDENCE];
   const monthLabel = format(new Date(p.year, p.month, 1), 'MMMM');
   const t = p.totals;
   const barMax = Math.max(t.projected, t.budget, 1);
-  const seg = v => `${(v / barMax) * 100}%`;
+  const seg = (v: number): string => `${(v / barMax) * 100}%`;
   const last = cf.rows[cf.rows.length - 1];
 
   return (
@@ -118,7 +129,7 @@ export default function ForecastPanel() {
         {p.warnings.length > 0 && (
           <div className="space-y-2 mt-4">
             {p.warnings.map(w => {
-              const s = STATUS[w.status];
+              const s = STATUS[w.status as keyof typeof STATUS];
               const Icon = s.icon;
               return (
                 <div key={w.category} className={`flex items-start gap-3 rounded-container p-3 border ${w.status === 'over' ? 'bg-negative-tint border-negative' : 'bg-caution-tint border-caution'}`}>
@@ -126,8 +137,8 @@ export default function ForecastPanel() {
                   <p className="text-sm text-ink">
                     <span className="font-semibold">{getCategory(w.category).name}</span>
                     {w.status === 'over'
-                      ? <> is on pace for {formatCurrency(w.projected)}, <span className="font-semibold">{formatCurrency(w.overBy)} over</span> its {formatCurrency(w.budget)} budget.</>
-                      : <> is on pace for {formatCurrency(w.projected)}, close to its {formatCurrency(w.budget)} budget.</>}
+                      ? <> is on pace for {formatCurrency(w.projected)}, <span className="font-semibold">{formatCurrency(w.overBy)} over</span> its {formatCurrency(w.budget ?? 0)} budget.</>
+                      : <> is on pace for {formatCurrency(w.projected)}, close to its {formatCurrency(w.budget ?? 0)} budget.</>}
                     {' '}{allowanceText(w, p.daysInMonth - p.daysElapsed)}
                   </p>
                 </div>
@@ -154,7 +165,7 @@ export default function ForecastPanel() {
               <tbody>
                 {p.categories.map(c => {
                   const cat = getCategory(c.category);
-                  const s = STATUS[c.status];
+                  const s = STATUS[c.status as keyof typeof STATUS];
                   const Icon = s?.icon;
                   return (
                     <tr key={c.category} className="border-b border-line-faint">

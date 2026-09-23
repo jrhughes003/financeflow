@@ -20,7 +20,8 @@
     "esModuleInterop": true,
     "strict": true,
     "skipLibCheck": true,
-    "types": ["node"]
+    // vite/client because the src/ modules this pulls in read import.meta.env.
+    "types": ["node", "vite/client"]
   },
   // src/ too: the harness drives the real shipped modules rather than copies
   // of them, which is the point of it — so its graph reaches into the app.

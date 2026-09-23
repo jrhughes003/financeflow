@@ -1,3 +1,4 @@
+import * as chart from '../ui/chartTheme';
 import React, { useMemo, useState } from 'react';
 import { format, parseISO } from 'date-fns';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
@@ -9,13 +10,16 @@ import { optimizePayoff } from '../../utils/optimizePayoff';
 import { getSavingsOpportunities } from '../../utils/insights';
 import { requiredPayment, isInRepayment } from '../../utils/accounts';
 
-const STRATEGIES = [
+/** The three comparable strategies. `custom` is the optimiser's, not a card. */
+type StrategyKey = 'minimum' | 'avalanche' | 'snowball';
+
+const STRATEGIES: { key: StrategyKey; label: string; color: string; blurb: string }[] = [
   { key: 'minimum', label: 'Minimums only', color: 'var(--c-ink-muted)', blurb: 'Pay each debt its minimum, nothing more.' },
   { key: 'avalanche', label: 'Avalanche', color: 'var(--c-data-1)', blurb: 'Extra money to the highest interest rate first — least interest paid.' },
   { key: 'snowball', label: 'Snowball', color: 'var(--c-caution)', blurb: 'Extra money to the smallest balance first — quickest early wins.' },
 ];
-const fmtMonth = d => (d ? format(parseISO(d), 'MMM yyyy') : '—');
-const duration = m => {
+const fmtMonth = (d: string | null): string => (d ? format(parseISO(d), 'MMM yyyy') : '—');
+const duration = (m: number | null): string => {
   if (m === null) return 'Never';
   const y = Math.floor(m / 12), r = m % 12;
   return [y && `${y} yr`, r && `${r} mo`].filter(Boolean).join(' ') || '0 mo';
@@ -32,7 +36,7 @@ export default function DebtStrategyPanel() {
   const potential = useMemo(() => Math.round(
     getSavingsOpportunities({ transactions, budgets, recurringTemplates })
       .filter(o => o.monthlySaving !== null)
-      .reduce((s, o) => s + o.monthlySaving, 0) / 10,
+      .reduce((s, o) => s + (o.monthlySaving ?? 0), 0) / 10,
   ) * 10, [transactions, budgets, recurringTemplates]);
 
   const cmp = useMemo(() => compareDebtStrategies(owing, { extra }), [owing, extra]);
@@ -61,8 +65,8 @@ export default function DebtStrategyPanel() {
 
   // One row per month with each strategy's remaining balance.
   const len = Math.max(...STRATEGIES.map(s => cmp[s.key].timeline.length));
-  const chart = Array.from({ length: len }, (_, i) => {
-    const row = { month: i };
+  const series = Array.from({ length: len }, (_, i) => {
+    const row: { month: number } & Partial<Record<StrategyKey, number>> = { month: i };
     STRATEGIES.forEach(s => { const p = cmp[s.key].timeline[i]; if (p) row[s.key] = p.balance; });
     return row;
   });
@@ -120,7 +124,7 @@ export default function DebtStrategyPanel() {
                   <p className="text-caption text-ink-muted">Debt-free in {duration(r.months)} · {formatCurrency(r.totalInterest)} interest</p>
                 </>
               ) : (
-                <p className="text-sm text-negative flex items-start gap-1"><AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />Payments don't cover the interest{r.unpayable?.length ? ` on ${r.unpayable.map(u => u.name).join(', ')}` : ''}.</p>
+                <p className="text-sm text-negative flex items-start gap-1"><AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />Payments don't cover the interest{r.unpayable?.length ? ` on ${r.unpayable.map((u: { name: string }) => u.name).join(', ')}` : ''}.</p>
               )}
             </div>
           );
@@ -131,7 +135,7 @@ export default function DebtStrategyPanel() {
         <p className="text-sm text-ink-secondary mb-4">With no extra money, avalanche and snowball only differ by rolling paid-off minimums forward. Move the slider to see how much faster you could be debt-free.</p>
       ) : best.feasible && cmp.interestSaved !== null && (
         <p className="text-sm text-ink-secondary mb-4">
-          Paying {formatCurrency(extra)}/mo extra with the <span className="font-semibold">{STRATEGIES.find(s => s.key === cmp.recommended).label.toLowerCase()}</span> method
+          Paying {formatCurrency(extra)}/mo extra with the <span className="font-semibold">{(STRATEGIES.find(s => s.key === cmp.recommended)?.label ?? '').toLowerCase()}</span> method
           gets you debt-free <span className="font-semibold">{duration(cmp.monthsSaved)} sooner</span> and saves <span className="font-semibold">{formatCurrency(cmp.interestSaved)}</span> in interest.
           {cmp.recommended === 'snowball' && ' It costs almost the same as avalanche but clears your first debt sooner.'}
         </p>
@@ -141,7 +145,7 @@ export default function DebtStrategyPanel() {
         <div className="bg-accent-tint rounded-container p-4 mb-4">
           <p className="text-sm text-accent-ink">
             <span className="font-medium">A cheaper order exists.</span> Paying{' '}
-            {optimal.order.map(o => o.name).join(' → ')} costs{' '}
+            {(optimal.order ?? []).map(o => o.name).join(' → ')} costs{' '}
             <span className="font-medium">{formatCurrency(optimal.savingVsAvalanche)}</span> less interest than
             avalanche{optimal.exhaustive ? ', and no other order is cheaper' : ''}.
           </p>
@@ -165,11 +169,11 @@ export default function DebtStrategyPanel() {
       <div className="grid lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
           <ResponsiveContainer width="100%" height={240}>
-            <LineChart data={chart} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+            <LineChart data={series} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
               <CartesianGrid {...chart.grid} />
               <XAxis dataKey="month" tick={{ fontSize: 11 }} tickFormatter={m => (m % 12 === 0 ? `${m / 12}y` : `${m}m`)} interval="preserveStartEnd" minTickGap={30} />
               <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `$${Math.round(v / 1000)}k`} />
-              <Tooltip labelFormatter={m => `Month ${m}`} formatter={(v, name) => [formatCurrency(v), name]} />
+              <Tooltip labelFormatter={m => `Month ${m}`} formatter={(v, name) => [formatCurrency(chart.asNumber(v)), name]} />
               <Legend wrapperStyle={{ fontSize: 12 }} />
               {STRATEGIES.map(s => (
                 <Line key={s.key} dataKey={s.key} name={s.label} stroke={s.color} strokeWidth={2} dot={false} isAnimationActive={false} connectNulls={false} />
@@ -178,7 +182,7 @@ export default function DebtStrategyPanel() {
           </ResponsiveContainer>
         </div>
         <div>
-          <p className="text-sm font-semibold text-ink-secondary mb-2">Payoff order ({STRATEGIES.find(s => s.key === cmp.recommended).label})</p>
+          <p className="text-sm font-semibold text-ink-secondary mb-2">Payoff order ({STRATEGIES.find(s => s.key === cmp.recommended)?.label})</p>
           {best.payoffs.map((p, i) => (
             <div key={p.id} className="flex justify-between py-1.5 border-b border-line-faint text-sm">
               <span className="text-ink-secondary">{i + 1}. {p.name}</span>

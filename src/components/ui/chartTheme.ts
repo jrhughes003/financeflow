@@ -66,3 +66,15 @@ export const legend = {
   iconSize: 10,
   wrapperStyle: { fontSize: 12, color: 'var(--c-ink-secondary)', paddingTop: 8 },
 };
+
+/**
+ * Coerce a Recharts formatter argument to a number.
+ *
+ * Recharts types formatter values as ValueType — string, number, or an array of
+ * either, because a stacked or range series passes both ends. Every formatter
+ * in this app wants a single number, so they all go through here rather than
+ * each asserting its own way.
+ */
+export function asNumber(value: unknown): number {
+  return Number(Array.isArray(value) ? value[0] : value) || 0;
+}

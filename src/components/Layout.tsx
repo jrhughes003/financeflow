@@ -5,10 +5,27 @@ import {
   Settings as SettingsIcon, HandCoins, Milestone, ChevronDown, Receipt, LineChart, PiggyBank
 } from 'lucide-react';
 import DemoBanner from './DemoBanner';
+import type { LucideIcon } from 'lucide-react';
+import type { NavBadge as Badge, NavBadges, PageId } from '../types/navigation';
 
 // Dashboard and Settings stay pinned; everything else lives in a collapsible
 // group, so the sidebar is six rows at rest instead of fourteen.
-const NAV = [
+/** A destination in the sidebar. */
+interface NavItem {
+  id: PageId;
+  label: string;
+  icon: LucideIcon;
+}
+
+/** A collapsible group of destinations, or a pinned one when `items` is absent. */
+interface NavEntry {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  items?: NavItem[];
+}
+
+const NAV: NavEntry[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   {
     id: 'everyday',
@@ -54,11 +71,15 @@ const NAV = [
 ];
 
 // Flat list, for looking up the current page's title.
-const NAV_ITEMS = NAV.flatMap(entry => (entry.items ? entry.items : [entry]));
+// A group contributes its items; a pinned entry is itself a destination.
+const NAV_ITEMS: NavItem[] = NAV.flatMap(entry => (
+  entry.items ? entry.items : [{ id: entry.id as PageId, label: entry.label, icon: entry.icon }]
+));
 
-const groupIdFor = pageId => NAV.find(g => g.items?.some(i => i.id === pageId))?.id;
+const groupIdFor = (pageId: PageId): string | undefined =>
+  NAV.find(g => g.items?.some(i => i.id === pageId))?.id;
 
-function NavBadge({ badge }) {
+function NavBadge({ badge }: { badge: Badge }) {
   return (
     <span
       title={badge.title}
@@ -74,16 +95,24 @@ const OPEN_GROUPS_KEY = 'financeflow_nav_groups';
 // Which groups start expanded: whatever the user left open last time, else just
 // the one holding the current page. Storage can throw (private mode, blocked
 // site data), so every access is guarded and falls back to a sane default.
-function loadOpenGroups(currentPage) {
+function loadOpenGroups(currentPage: PageId): string[] {
   try {
-    const saved = JSON.parse(localStorage.getItem(OPEN_GROUPS_KEY));
+    const saved: unknown = JSON.parse(localStorage.getItem(OPEN_GROUPS_KEY) ?? 'null');
     if (Array.isArray(saved)) return saved;
   } catch { /* ignore — fall through to the default */ }
   const active = groupIdFor(currentPage);
   return active ? [active] : [];
 }
 
-export default function Layout({ currentPage, setCurrentPage, onQuickAdd, children, badges = {} }) {
+export default function Layout({
+  currentPage, setCurrentPage, onQuickAdd, children, badges = {},
+}: {
+  currentPage: PageId;
+  setCurrentPage: (page: PageId) => void;
+  onQuickAdd: () => void;
+  children?: React.ReactNode;
+  badges?: NavBadges;
+}) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [openGroups, setOpenGroups] = useState(() => loadOpenGroups(currentPage));
 
@@ -98,15 +127,15 @@ export default function Layout({ currentPage, setCurrentPage, onQuickAdd, childr
     if (group) setOpenGroups(prev => (prev.includes(group) ? prev : [...prev, group]));
   }, [currentPage]);
 
-  const toggleGroup = (id) =>
+  const toggleGroup = (id: string): void =>
     setOpenGroups(prev => (prev.includes(id) ? prev.filter(g => g !== id) : [...prev, id]));
 
-  const handleNav = (id) => {
+  const handleNav = (id: PageId): void => {
     setCurrentPage(id);
     setSidebarOpen(false);
   };
 
-  const itemClasses = (id, nested) => `
+  const itemClasses = (id: PageId, nested = false): string => `
     w-full flex items-center gap-2.5 ${nested ? 'pl-8 pr-2.5' : 'px-2.5'} h-8 rounded-control mb-px
     text-sm transition-colors text-left
     ${currentPage === id
@@ -162,10 +191,10 @@ export default function Layout({ currentPage, setCurrentPage, onQuickAdd, childr
             // A pinned, top-level destination.
             if (!entry.items) {
               return (
-                <button key={entry.id} onClick={() => handleNav(entry.id)} className={itemClasses(entry.id)}>
+                <button key={entry.id} onClick={() => handleNav(entry.id as PageId)} className={itemClasses(entry.id as PageId)}>
                   <Icon className="shrink-0" style={{ width: 18, height: 18 }} />
                   <span className="flex-1 text-left">{entry.label}</span>
-                  {badges[entry.id] && <NavBadge badge={badges[entry.id]} />}
+                  {badges[entry.id as PageId] && <NavBadge badge={badges[entry.id as PageId] as Badge} />}
                 </button>
               );
             }

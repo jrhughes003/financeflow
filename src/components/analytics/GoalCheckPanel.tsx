@@ -14,21 +14,30 @@ const STATUS = {
   reached:   { label: 'Reached',    icon: CheckCircle2,  cls: 'text-positive bg-positive-tint' },
 };
 const ORDER = ['stalled', 'past_due', 'behind', 'no_target', 'on_track', 'reached'];
-const fmtMonth = d => format(parseISO(d), 'MMM yyyy');
+const fmtMonth = (d: string): string => format(parseISO(d), 'MMM yyyy');
 
-function summary(s) {
+type GoalStatus = ReturnType<typeof getGoalStatuses>[number];
+
+// The status already implies which of these are set — 'on_track' cannot happen
+// without a target date — but getGoalStatuses returns one object rather than a
+// union, so the checker cannot see that. Rendering a dash beats asserting
+// non-null and being wrong on some path nobody thought about.
+const money = (n: number | null | undefined): string => (n === null || n === undefined ? '—' : formatCurrency(n));
+const month = (d: string | null | undefined): string => (d === null || d === undefined ? '—' : fmtMonth(d));
+
+function summary(s: GoalStatus): string {
   const paceText = s.paceSource === 'actual'
-    ? `You're putting in about ${formatCurrency(s.pace)}/mo (from your savings transactions)`
-    : `Planned ${formatCurrency(s.planned)}/mo (no savings transactions logged for this goal yet)`;
+    ? `You're putting in about ${money(s.pace)}/mo (from your savings transactions)`
+    : `Planned ${money(s.planned)}/mo (no savings transactions logged for this goal yet)`;
   switch (s.status) {
     case 'reached': return 'Target reached. 🎉';
-    case 'on_track': return `${paceText}; ${formatCurrency(s.required)}/mo is enough to reach it by ${fmtMonth(s.targetDate)}. At this pace: ${fmtMonth(s.projectedDate)}.`;
-    case 'behind': return `${paceText}, but ${formatCurrency(s.required)}/mo is needed to reach it by ${fmtMonth(s.targetDate)} — ${formatCurrency(s.shortfall)}/mo short. At this pace you'd finish ${fmtMonth(s.projectedDate)}, ${s.monthsLate} month${s.monthsLate === 1 ? '' : 's'} late.`;
+    case 'on_track': return `${paceText}; ${money(s.required)}/mo is enough to reach it by ${month(s.targetDate)}. At this pace: ${month(s.projectedDate)}.`;
+    case 'behind': return `${paceText}, but ${money(s.required)}/mo is needed to reach it by ${month(s.targetDate)} — ${money(s.shortfall)}/mo short. At this pace you'd finish ${month(s.projectedDate)}, ${s.monthsLate} month${s.monthsLate === 1 ? '' : 's'} late.`;
     case 'stalled': return s.targetDate
-      ? `No contributions are going in. ${formatCurrency(s.required)}/mo would still reach it by ${fmtMonth(s.targetDate)}.`
+      ? `No contributions are going in. ${money(s.required)}/mo would still reach it by ${month(s.targetDate)}.`
       : 'No contributions are going in and there is no target date.';
-    case 'past_due': return `The target date (${fmtMonth(s.targetDate)}) has passed with ${formatCurrency(s.remaining)} still to go.${s.projectedDate ? ` At the current pace it finishes ${fmtMonth(s.projectedDate)}.` : ''}`;
-    case 'no_target': return `${paceText}. At this pace you'll reach it around ${fmtMonth(s.projectedDate)}.`;
+    case 'past_due': return `The target date (${month(s.targetDate)}) has passed with ${money(s.remaining)} still to go.${s.projectedDate ? ` At the current pace it finishes ${month(s.projectedDate)}.` : ''}`;
+    case 'no_target': return `${paceText}. At this pace you'll reach it around ${month(s.projectedDate)}.`;
     default: return '';
   }
 }
@@ -40,7 +49,9 @@ export default function GoalCheckPanel() {
     () => getGoalStatuses(savings_goals, transactions).sort((a, b) => ORDER.indexOf(a.status) - ORDER.indexOf(b.status)),
     [savings_goals, transactions],
   );
-  const shortfall = statuses.filter(s => s.status === 'behind').reduce((t, s) => t + s.shortfall, 0);
+  const shortfall = statuses
+    .filter(s => s.status === 'behind')
+    .reduce((t, s) => t + (s.shortfall ?? 0), 0);
 
   return (
     <div className="bg-surface rounded-container border border-line p-5">

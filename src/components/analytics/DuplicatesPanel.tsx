@@ -5,15 +5,18 @@ import { useFinancial, useGetCategory } from '../../context/FinancialContext';
 import { formatCurrency } from '../../utils/calculations';
 import { detectDuplicateCharges } from '../../utils/insights';
 
-const NONE = [];
-const fmtDate = d => format(parseISO(d.slice(0, 10)), 'MMM d');
+// Stable empty array — see BudgetTuneUpPanel.
+const NONE: string[] = [];
+const fmtDate = (d: string): string => format(parseISO(d.slice(0, 10)), 'MMM d');
+
+type Duplicate = ReturnType<typeof detectDuplicateCharges>[number];
 
 // Possible double charges, with "keep both" (remembered) and a two-step delete.
 export default function DuplicatesPanel() {
   const { state, dispatch } = useFinancial();
   const getCategory = useGetCategory();
   const dismissed = state.settings?.dismissedDuplicates || NONE;
-  const [confirming, setConfirming] = useState(null);
+  const [confirming, setConfirming] = useState<string | null>(null);
 
   const duplicates = useMemo(
     () => detectDuplicateCharges(state.transactions, { dismissed }),
@@ -22,10 +25,10 @@ export default function DuplicatesPanel() {
 
   if (!duplicates.length) return null;
 
-  const keepBoth = key => {
+  const keepBoth = (key: string): void => {
     dispatch({ type: 'UPDATE_SETTINGS', payload: { dismissedDuplicates: [...dismissed, key] } });
   };
-  const removeSecond = d => {
+  const removeSecond = (d: Duplicate): void => {
     dispatch({ type: 'DELETE_TRANSACTION', payload: d.second.id });
     setConfirming(null);
   };

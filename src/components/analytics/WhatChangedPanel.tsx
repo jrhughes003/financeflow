@@ -1,3 +1,4 @@
+import type { PeriodPanelProps } from '../../types/navigation';
 import React, { useState } from 'react';
 import { format } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ReferenceLine } from 'recharts';
@@ -11,10 +12,10 @@ import { useGetCategory } from '../../context/FinancialContext';
 const UP_COLOR = 'var(--c-data-2)';
 const DOWN_COLOR = 'var(--c-data-3)';
 
-const signed = v => `${v > 0 ? '+' : v < 0 ? '−' : ''}${formatCurrency(Math.abs(v))}`;
-const signedPct = p => (p === null ? 'new' : `${p > 0 ? '+' : ''}${Math.round(p)}%`);
+const signed = (v: number): string => `${v > 0 ? '+' : v < 0 ? '−' : ''}${formatCurrency(Math.abs(v))}`;
+const signedPct = (p: number | null): string => (p === null ? 'new' : `${p > 0 ? '+' : ''}${Math.round(p)}%`);
 
-export default function WhatChangedPanel({ transactions, month, year }) {
+export default function WhatChangedPanel({ transactions, month, year }: PeriodPanelProps) {
   const getCategory = useGetCategory();
   const [basis, setBasis] = useState('average'); // 'average' | 'previous'
   const { rows, totals, cutoffDay, historyMonths } = getCategoryDeltas(transactions, month, year);
@@ -104,7 +105,7 @@ export default function WhatChangedPanel({ transactions, month, year }) {
                   <ReferenceLine x={0} stroke="var(--c-ink-muted)" />
                   <Tooltip
                     cursor={{ fill: 'var(--c-surface-hover)' }}
-                    formatter={(v, _n, { payload }) => [`${signed(v)} (${signedPct(payload.row[pctKey])})`, `vs ${basis === 'average' ? 'usual' : 'last month'}`]}
+                    formatter={(v, _n, { payload }) => [`${signed(chart.asNumber(v))} (${signedPct(payload.row[pctKey])})`, `vs ${basis === 'average' ? 'usual' : 'last month'}`]}
                   />
                   <Bar dataKey="change" radius={4} barSize={18} isAnimationActive={false}>
                     {chartData.map(d => <Cell key={d.name} fill={d.change > 0 ? UP_COLOR : DOWN_COLOR} />)}

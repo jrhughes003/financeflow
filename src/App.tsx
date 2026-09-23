@@ -20,6 +20,7 @@ import Settings from './components/Settings';
 import OwedManager from './components/OwedManager';
 import ErrorBoundary from './components/ErrorBoundary';
 import { exportToJSON } from './utils/exportUtils';
+import type { PageId } from './types/navigation';
 
 // Chart-heavy pages are split out: Recharts and the life-plan engine are most
 // of the bundle, and none of these is the first screen anyone sees.
@@ -35,7 +36,7 @@ function PageFallback() {
 }
 
 function AppContent() {
-  const [currentPage, setCurrentPage] = useState('dashboard');
+  const [currentPage, setCurrentPage] = useState<PageId>('dashboard');
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [showPalette, setShowPalette] = useState(false);
   const { toast } = useToast();
@@ -58,7 +59,7 @@ function AppContent() {
 
   // Global shortcuts: Ctrl+K opens the command palette, Ctrl+N quick-adds.
   useEffect(() => {
-    const handler = (e) => {
+    const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         setShowPalette(open => !open);
@@ -73,7 +74,7 @@ function AppContent() {
     return () => window.removeEventListener('keydown', handler);
   }, []);
 
-  const pages = {
+  const pages: Record<PageId, React.ReactNode> = {
     dashboard:    <Dashboard onQuickAdd={() => setShowQuickAdd(true)} onNavigate={setCurrentPage} />,
     transactions: <TransactionHistory />,
     owed:         <OwedManager />,

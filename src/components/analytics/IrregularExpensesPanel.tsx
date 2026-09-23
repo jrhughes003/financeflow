@@ -1,3 +1,5 @@
+import * as chart from '../ui/chartTheme';
+import type { TooltipProps } from 'recharts';
 import React, { useMemo } from 'react';
 import { format, parseISO } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
@@ -8,18 +10,25 @@ import { detectIrregularExpenses } from '../../utils/insights';
 
 const BILL_COLOR = 'var(--c-data-1)';
 const SEASON_COLOR = 'var(--c-caution)';
-const FREQ = { quarterly: 'Every 3 months', semiannual: 'Every 6 months', annual: 'Yearly' };
-const fmt = d => format(parseISO(d), 'MMM d, yyyy');
+const FREQ: Record<string, string> = { quarterly: 'Every 3 months', semiannual: 'Every 6 months', annual: 'Yearly' };
+const fmt = (d: string): string => format(parseISO(d), 'MMM d, yyyy');
 
-function CalendarTooltip({ active, payload }) {
+/** One month of the calendar series, as built below. */
+type CalendarMonth = {
+  label: string;
+  bills: { id: string; date: string; merchant: string; amount: number }[];
+  seasonal: { id: string; categoryName: string; expectedExtra: number }[];
+};
+
+function CalendarTooltip({ active, payload }: TooltipProps<number, string>) {
   if (!active || !payload?.length) return null;
-  const m = payload[0].payload;
+  const m = payload[0].payload as CalendarMonth;
   if (!m.bills.length && !m.seasonal.length) return null;
   return (
     <div className="bg-surface border border-line-strong rounded-control p-3 text-caption space-y-0.5 max-w-64">
       <p className="font-semibold text-ink mb-1">{m.label}</p>
-      {m.bills.map(b => <p key={b.id + b.date} className="text-ink-secondary">{b.merchant}: {formatCurrency(b.amount)}</p>)}
-      {m.seasonal.map(s => <p key={s.id} className="text-ink-secondary">{s.categoryName} (seasonal): +{formatCurrency(s.expectedExtra)}</p>)}
+      {m.bills.map((b: CalendarMonth['bills'][number]) => <p key={b.id + b.date} className="text-ink-secondary">{b.merchant}: {formatCurrency(b.amount)}</p>)}
+      {m.seasonal.map((s: CalendarMonth['seasonal'][number]) => <p key={s.id} className="text-ink-secondary">{s.categoryName} (seasonal): +{formatCurrency(s.expectedExtra)}</p>)}
     </div>
   );
 }
@@ -33,7 +42,7 @@ export default function IrregularExpensesPanel() {
   const irr = useMemo(() => detectIrregularExpenses(transactions, { recurringTemplates }), [transactions, recurringTemplates]);
 
   const hasAny = irr.bills.length > 0 || irr.seasonal.length > 0;
-  const chart = irr.calendar.map(m => ({
+  const series = irr.calendar.map(m => ({
     ...m,
     seasonal: m.seasonal.map(s => ({ ...s, categoryName: getCategory(s.category).name })),
   }));
@@ -69,7 +78,7 @@ export default function IrregularExpensesPanel() {
             {irr.bills.length > 0 && ' These bills are already included in the cash-flow outlook below.'}
           </p>
           <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={chart} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+            <BarChart data={series} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
               <CartesianGrid {...chart.grid} />
               <XAxis dataKey="label" tick={{ fontSize: 11 }} tickFormatter={l => l.split(' ')[0]} />
               <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `$${v}`} />

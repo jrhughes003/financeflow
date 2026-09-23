@@ -33,6 +33,35 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
 
+  # One end-to-end test, in its own job because it is the only thing here that
+  # needs a browser download. Linux only: it exercises the web build's
+  # localStorage path, which is not OS-specific, and paying for Chromium twice
+  # to learn the same thing would be waste.
+  e2e:
+    name: End-to-end
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      # Just the one browser. --with-deps pulls the system libraries the
+      # GitHub runner does not ship.
+      - run: npx playwright install --with-deps chromium
+      # playwright.config.ts builds the bundle and serves it itself, so there
+      # is no separate build step here — and deliberately without
+      # VITE_DEMO_MODE, so the ledger starts empty and the figures the test
+      # asserts can only come from the transaction it entered.
+      - run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
   test:
     name: Tests and build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}

@@ -19,3 +19,8 @@ CLAUDE.md
 
 # Personal working notes
 TODO.md
+
+# Playwright output
+/playwright-report/
+/test-results/
+/blob-report/

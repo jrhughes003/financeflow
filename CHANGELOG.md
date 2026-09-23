@@ -29,6 +29,17 @@ Versions follow [SemVer](https://semver.org/).
 
 ### Fixed — things that did not work
 
+- **The CSV importer turned a US-format date into a 25th month.** `12/25/2026`
+  imported as `2026-25-12`. Both branches of the date parser returned the same
+  DD/MM expression, so the `MM/DD/YYYY` support the file advertised had never
+  worked, and the impossible date went into the record unchecked — where every
+  comparison is a string compare, so it sorted after December and rendered as
+  Invalid Date. Whichever number cannot be a month now decides the format.
+- **The transaction form announced five unlabelled fields.** Amount, Merchant,
+  Date, Category and Tags had visible labels with no `for`, so a screen reader
+  read them as unlabelled and clicking a label focused nothing. 7 of 7 controls
+  in that dialog now have an accessible name, up from 2.
+
 - **The Recurring page threw on every render.** It used four UI components and a
   helper it never imported.
 - **Deleting a tracked investment account did nothing** — and said it had
@@ -76,6 +87,14 @@ Versions follow [SemVer](https://semver.org/).
   what the code actually writes. Four projects, because the renderer, the
   worker, the Electron main process and the eval harness need different libs and
   module resolution.
+- **An end-to-end test.** It builds the shipping bundle, enters a transaction,
+  reloads, and checks it survived. Every other test stubs the storage layer, so
+  this is the only one that would notice the app saving nothing at all.
+- **Tests for the parts the README markets**: the storage-backend switch, the
+  OS-keychain API-key store (including that what reaches disk is ciphertext and
+  that an unavailable keychain fails loudly rather than storing plaintext), the
+  CSV/JSON import path, the error boundary, and the transaction form's
+  three-tier categorisation fallback. 512 tests, up from 379.
 - **Quality gates in CI**: ESLint, typecheck, working coverage with per-directory
   thresholds, a Windows matrix leg, Dependabot, and a check that the README's
   quoted figures still match the repository.
@@ -106,9 +125,9 @@ Versions follow [SemVer](https://semver.org/).
 
 ### Known limitations
 
-- 37 of 39 components still have no test. Branch and function coverage sit near
-  80% because the logic they render is covered thoroughly; statement coverage is
-  lower, and that gap is the honest reading of the number.
+- 34 of 40 components still have no test. Branch coverage is 83% and function
+  coverage 81% because the logic they render is covered thoroughly; statement
+  coverage is 52%, and that gap is the honest reading of the number.
 - The whole state is rewritten on every change — `DELETE FROM` across eight
   tables, then re-insert. Measured rather than assumed: at 270 transactions the
   UI thread pays 0.5ms per keystroke and the database write 1.8ms; at 10,000 it

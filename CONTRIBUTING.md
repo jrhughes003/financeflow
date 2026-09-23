@@ -36,11 +36,22 @@ features against a local mock with no API key and no spend.
 npm run typecheck   # tsc -b across four projects
 npm run lint        # eslint, flat config
 npm test            # vitest
-npm run build       # the bundle CI also checks the worker chunk in
+npm run build       # the bundle CI also checks both worker chunks in
 npm run stats       # rewrites the README's figures; CI fails if they drift
 ```
 
 CI runs all of that on Ubuntu and Windows.
+
+There is also one end-to-end test, kept separate because it needs a browser:
+
+```bash
+npx playwright install chromium   # once
+npm run test:e2e
+```
+
+It builds the real bundle, adds a transaction, reloads, and checks it is still
+there. Everything else in the suite stubs the storage layer, so this is the
+only test that would notice the app saving nothing at all.
 
 ## What the code expects of you
 

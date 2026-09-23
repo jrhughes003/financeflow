@@ -16,7 +16,8 @@
     "ai:mock": "node electron/ai/mockServer.cjs",
     "electron:dev:mock": "concurrently -k \"npm run ai:mock\" \"vite\" \"wait-on tcp:5173 tcp:8787 && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 FINANCEFLOW_AI_BASE_URL=http://127.0.0.1:8787 electron .\"",
     "dist": "vite build && electron-builder && node scripts/verifyPackage.cjs",
-    "lint": "eslint .",
+    "test:e2e": "playwright test",
+  "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "stats": "node scripts/stats.cjs",
     "typecheck": "tsc -b"
@@ -34,6 +35,7 @@
   },
   "devDependencies": {
     "@electron/asar": "^4.3.0",
+    "@playwright/test": "^1.63.0",
     "@testing-library/jest-dom": "^6.4.8",
     "@testing-library/react": "^16.3.3",
     "@types/better-sqlite3": "^9.6.0",

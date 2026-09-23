@@ -24,6 +24,9 @@
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["electron", "scripts", "vite.config.*", "vitest.config.*", "eslint.config.*"],
+  "include": [
+    "electron", "scripts", "e2e",
+    "vite.config.*", "vitest.config.*", "eslint.config.*", "playwright.config.*"
+  ],
   "exclude": ["node_modules", "dist", "release", "coverage"]
 }

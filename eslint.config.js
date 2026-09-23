@@ -95,6 +95,17 @@ export default [
     languageOptions: { sourceType: 'commonjs' },
   },
 
+  // --- End-to-end specs run in Playwright, not vitest: no vitest globals, and
+  //     `page`/`expect` come from the import rather than the environment.
+  {
+    files: ['e2e/**/*.ts', 'playwright.config.ts'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'module',
+      globals: { ...globals.node },
+    },
+  },
+
   // --- Tests: vitest globals, and room to build deliberately wrong inputs.
   {
     files: ['**/*.{test,spec}.{js,jsx,ts,tsx,cjs}'],
@@ -109,7 +120,7 @@ export default [
   // --- TypeScript, for the migration ahead. Not type-aware yet: that needs a
   //     project service and turns a 3-second lint into a 40-second one, and it
   //     fires no-unsafe-* on every remaining .js boundary.
-  ...tseslint.configs.recommended.map(c => ({ ...c, files: ['src/**/*.{ts,tsx}', 'electron/**/*.ts'] })),
+  ...tseslint.configs.recommended.map(c => ({ ...c, files: ['src/**/*.{ts,tsx}', 'electron/**/*.ts', 'e2e/**/*.ts', 'playwright.config.ts'] })),
 
   // The TS rule replaces the core one, so it needs the same allowances: the
   // codebase drops fields with rest destructuring, and JSX counts as a use.

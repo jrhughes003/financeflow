@@ -17,14 +17,14 @@ export default defineConfig({
       include: ['src/**', 'electron/**'],
       exclude: [
         'src/test/**',
-        'src/main.jsx',
+        'src/main.tsx',
         '**/*.{test,spec}.*',
         '**/*.config.*',
         'electron/ai/mockServer.cjs', // a dev-only stand-in for the real API
       ],
       // Two gates, because the global one is a poor guard on its own.
       //
-      // Statements sit far below branches and functions because 37 of 39
+      // Statements sit far below branches and functions because 34 of 40
       // components have no test while the pure logic they render is covered
       // thoroughly. That gap is the honest reading of the global number.
       //
@@ -38,17 +38,23 @@ export default defineConfig({
       // So the floor tracks reality, and the directory that carries the money
       // logic is held to a bar that means something.
       thresholds: {
-        statements: 45,
-        branches: 78,
-        functions: 78,
-        lines: 45,
+        statements: 50,
+        branches: 81,
+        functions: 80,
+        lines: 50,
         'src/utils/**': { statements: 90, branches: 82, functions: 95, lines: 90 },
+        // The runtime-backend switch the README leads with. It is 72 lines and
+        // every one of them runs, so there is no excuse for it to slip.
+        'src/storage/**': { statements: 95, branches: 95, functions: 95, lines: 95 },
         // main.cjs and preload.cjs are the only untested files here and always
         // will be — they need a running Electron, so nothing in vitest can
         // execute them. ipc-contract.test.js reads them as text instead. The
         // modules that *can* run under Node are gated properly.
         'electron/ai/**': { statements: 85, branches: 70, functions: 90, lines: 85 },
-        'electron/db/**': { statements: 85, branches: 75, functions: 85, lines: 85 },
+        // index.cjs holds this down: it opens the database at Electron's
+        // userData path, so it cannot run under vitest for the same reason
+        // main.cjs cannot. Everything else in here is at 100%.
+        'electron/db/**': { statements: 88, branches: 80, functions: 85, lines: 88 },
       },
     },
   },

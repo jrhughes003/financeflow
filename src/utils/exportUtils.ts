@@ -89,8 +89,8 @@ export function importFromJSON(file: File): Promise<AppState> {
 //   Quoted fields that contain commas: "Uber Eats, etc."
 //   Windows line-endings (\r\n)
 //   BOM character at start of file
-//   Amount formats: -$8.00 / ($8.00) / -8.00 / 8.00  (negatives treated as expenses)
-//   Date formats:  DD/MM/YYYY  MM/DD/YYYY  YYYY-MM-DD
+//   Amount formats: -$8.00 / ($8.00) / -8.00 / 8.00  (all import as positive expenses)
+//   Date formats:  DD/MM/YYYY  MM/DD/YYYY  YYYY-MM-DD  (ambiguous ones read as DD/MM)
 //   Category column: maps your spreadsheet names → app category ids
 // ---------------------------------------------------------------------------
 
@@ -148,30 +148,46 @@ function parseDate(raw: string | undefined): IsoDate {
   // Already YYYY-MM-DD
   if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
 
-  // DD/MM/YYYY or MM/DD/YYYY
+  // DD/MM/YYYY or MM/DD/YYYY.
+  //
+  // Ambiguous by nature, so whichever number cannot be a month decides, and a
+  // date that is valid either way falls back to DD/MM — the format the
+  // spreadsheet this importer was written for produces.
+  //
+  // Both branches used to return the same expression, so MM/DD never worked
+  // despite being advertised above. 12/25/2026 came out as "2026-25-12" — a
+  // 25th month — and went into Transaction.date unchecked, where every
+  // downstream date comparison is a string compare that would silently sort it
+  // after December and render it as Invalid Date.
   const slash = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
   if (slash) {
     const [, a, b, year] = slash;
-    // If first number > 12 it must be a day (DD/MM/YYYY)
-    if (parseInt(a) > 12) return `${year}-${b.padStart(2,'0')}-${a.padStart(2,'0')}`;
-    // Otherwise assume DD/MM/YYYY (your spreadsheet format)
-    return `${year}-${b.padStart(2,'0')}-${a.padStart(2,'0')}`;
+    const iso = (month: string, day: string): IsoDate =>
+      `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    if (parseInt(a, 10) > 12) return iso(b, a); // a cannot be a month → DD/MM
+    if (parseInt(b, 10) > 12) return iso(a, b); // b cannot be a month → MM/DD
+    return iso(b, a);                           // ambiguous → DD/MM
   }
 
   // Fallback
   return format(new Date(), 'yyyy-MM-dd');
 }
 
-// Parse amount strings like -$8.00 / ($8.00) / -8.00 / 8.00
-// Returns a positive number (all imports treated as expenses unless explicitly positive)
+// Parse amount strings like -$8.00 / ($8.00) / -8.00 / 8.00.
+//
+// Always returns a positive number, on purpose: this app stores expenses as
+// positive, so a bank export's -8.00 and a spreadsheet's accounting-style
+// (8.00) both mean the same 8.00 expense. The sign is read off and discarded
+// rather than applied.
+//
+// It used to be captured in a `negative` flag that `return negative ? val : val`
+// then ignored — identical branches, which reads as a typo for `-val` and left
+// the parenthesis handling above it doing nothing. The behaviour was always
+// the documented one; only the dead code suggested otherwise.
 function parseAmount(raw: string | undefined): Money {
   if (!raw) return 0;
-  const s = raw.toString().trim();
-  // Parentheses = negative: (8.00)
-  const negative = s.startsWith('-') || (s.startsWith('(') && s.endsWith(')'));
-  const cleaned = s.replace(/[^0-9.]/g, '');
-  const val = parseFloat(cleaned) || 0;
-  return negative ? val : val; // we always want the absolute value for expenses
+  const cleaned = raw.toString().trim().replace(/[^0-9.]/g, '');
+  return parseFloat(cleaned) || 0;
 }
 
 export function importFromCSV(file: File): Promise<Transaction[]> {
@@ -214,7 +230,10 @@ export function importFromCSV(file: File): Promise<Transaction[]> {
 
           const rawAmount = cols[amtIdx] ?? '';
           const amount = parseAmount(rawAmount);
-          if (amount <= 0) continue; // skip zero-amount rows and credits/refunds
+          // Blank, zero or unparseable. Not credits: parseAmount never returns
+          // a negative, so a refund line imports as an expense of that size.
+          // Distinguishing the two needs a column this format does not carry.
+          if (amount <= 0) continue;
 
           const merchant = (cols[descIdx] || 'Unknown').replace(/\s+/g, ' ').trim();
           const rawDate  = dateIdx !== -1 ? cols[dateIdx] : '';

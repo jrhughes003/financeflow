@@ -1,5 +1,5 @@
 import Modal from './ui/Modal';
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useId, useRef, useMemo } from 'react';
 import { X, Zap, Plus, Sparkles, HandCoins } from 'lucide-react';
 import { format } from 'date-fns';
 import { useFinancial } from '../context/FinancialContext';
@@ -74,6 +74,13 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
   const [suggestion, setSuggestion] = useState('');
   const [showNotes, setShowNotes] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
+
+  // Ties each label to its control. The labels were sitting next to their
+  // inputs with no `for`, so a screen reader announced the most-used form in
+  // the app as five unlabelled fields, and clicking a label focused nothing.
+  // useId rather than a literal, because the edit modal and the quick-add can
+  // both be mounted and duplicate ids would cross-wire them.
+  const uid = useId();
 
   // "They owe me" — fronted purchases. Kept out of `form` so these UI fields
   // never leak onto the saved transaction; the saved shape is `owed` only.
@@ -307,11 +314,12 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
 
       {/* Amount */}
       <div>
-        <label className="label-micro block mb-1.5">Amount</label>
+        <label className="label-micro block mb-1.5" htmlFor={`${uid}-amount`}>Amount</label>
         <div className="relative">
           <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl font-bold text-ink-muted">$</span>
           <input
             ref={amountRef}
+              id={`${uid}-amount`}
             type="number"
             step="0.01"
             min="0"
@@ -380,8 +388,9 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
       {/* Savings goal selector (savings mode only) */}
       {isSavings && (
         <div>
-          <label className="label-micro block mb-1.5">Contribute to Goal</label>
+          <label className="label-micro block mb-1.5" htmlFor={`${uid}-goal`}>Contribute to Goal</label>
           <select
+            id={`${uid}-goal`}
             value={form.goalId}
             onChange={e => setForm(f => ({ ...f, goalId: e.target.value }))}
             className={`w-full px-3 py-3 border-2 rounded-container focus:outline-none focus:border-accent transition-colors bg-surface ${errors.goalId ? 'border-negative' : 'border-line-strong'}`}
@@ -397,8 +406,9 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
       {/* Merchant */}
       {!isSavings && (
       <div>
-        <label className="label-micro block mb-1.5">Merchant / Description</label>
+        <label className="label-micro block mb-1.5" htmlFor={`${uid}-merchant`}>Merchant / Description</label>
         <input
+          id={`${uid}-merchant`}
           type="text"
           placeholder="e.g. Uber Eats, Metro, Esso..."
           value={form.merchant}
@@ -418,8 +428,9 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
 
       {/* Date */}
       <div>
-        <label className="label-micro block mb-1.5">Date</label>
+        <label className="label-micro block mb-1.5" htmlFor={`${uid}-date`}>Date</label>
         <input
+          id={`${uid}-date`}
           type="date"
           value={form.date}
           onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
@@ -430,9 +441,10 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
       {/* Category */}
       {!isSavings && (
       <div>
-        <label className="label-micro block mb-1.5">Category</label>
+        <label className="label-micro block mb-1.5" htmlFor={`${uid}-category`}>Category</label>
         <div className="flex gap-2">
           <select
+            id={`${uid}-category`}
             value={form.category}
             onChange={e => setForm(f => ({ ...f, category: e.target.value, subcategory: '' }))}
             className={`flex-1 px-3 py-3 border-2 rounded-container focus:outline-none focus:border-accent transition-colors bg-surface ${errors.category ? 'border-negative' : 'border-line-strong'}`}
@@ -485,8 +497,9 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
       {/* Subcategory */}
       {!isSavings && selectedCat && selectedCat.subcategories?.length > 0 && (
         <div>
-          <label className="label-micro block mb-1.5">Subcategory</label>
+          <label className="label-micro block mb-1.5" htmlFor={`${uid}-subcategory`}>Subcategory</label>
           <select
+            id={`${uid}-subcategory`}
             value={form.subcategory}
             onChange={e => setForm(f => ({ ...f, subcategory: e.target.value }))}
             className="w-full h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent"
@@ -499,8 +512,9 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
 
       {/* Tags */}
       <div>
-        <label className="label-micro block mb-1.5">Tags (comma-separated)</label>
+        <label className="label-micro block mb-1.5" htmlFor={`${uid}-tags`}>Tags (comma-separated)</label>
         <input
+          id={`${uid}-tags`}
           type="text"
           placeholder="rbc, td, one-time..."
           value={form.tags}

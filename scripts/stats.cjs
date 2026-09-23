@@ -18,6 +18,11 @@ const ROOT = path.join(__dirname, '..');
 const README = path.join(ROOT, 'README.md');
 const CODE = /\.(js|jsx|cjs|mjs|ts|tsx|cts|mts)$/;
 const IS_TEST = /\.(test|spec)\./;
+// The end-to-end spec is a test file, but it is not one of the unit tests the
+// README counts — `vitest list` never sees it, so counting its file here would
+// report N tests across N+1 files and invite someone to go looking for the
+// missing one. Its lines still count as test lines, because they are.
+const IS_E2E = /^e2e\//;
 
 /** Tracked files only: generated output and node_modules are not the project. */
 function trackedFiles() {
@@ -62,7 +67,7 @@ function collect() {
   for (const file of trackedFiles()) {
     if (!CODE.test(file)) continue;
     if (IS_TEST.test(file)) {
-      testFiles += 1;
+      if (!IS_E2E.test(file)) testFiles += 1;
       testLines += countLines(file);
     } else {
       sourceLines += countLines(file);

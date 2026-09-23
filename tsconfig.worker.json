@@ -19,5 +19,8 @@
     "skipLibCheck": true,
     "types": []
   },
-  "include": ["src/workers"]
+  // src/types too: the worker imports the life-plan engine, which imports the
+  // shared domain types, and every file in a project's graph has to be listed.
+  // These are type-only declarations, so they need no lib of their own.
+  "include": ["src/workers", "src/types"]
 }

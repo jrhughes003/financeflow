@@ -8,7 +8,7 @@
 //      transaction + advanced date, so the user can post recurring items.
 
 import { parseISO, differenceInCalendarDays, addMonths, addWeeks, addYears, format } from 'date-fns';
-import { autoCategorize } from './categorization.js';
+import { autoCategorize } from './categorization';
 
 const FREQUENCY_DAYS = {
   weekly: 7,

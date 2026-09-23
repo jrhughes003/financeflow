@@ -7,12 +7,23 @@
 
 const STORAGE_KEY = 'financeflow_data';
 
-const electronApi = typeof window !== 'undefined' && window.api && window.api.isElectron
+const electronBridge = typeof window !== 'undefined' && window.api && window.api.isElectron
   ? window.api
   : null;
 
-export const isElectron = Boolean(electronApi);
+export const isElectron = Boolean(electronBridge);
 export const storageMode = isElectron ? 'sqlite' : 'localStorage';
+
+/**
+ * The Electron bridge, or null in the browser.
+ *
+ * Every caller goes through here rather than reaching for `window.api`, so the
+ * global stays optional — which it genuinely is, since `npm run dev` has no
+ * preload — and exactly one place has to prove it is present.
+ */
+export function electronApi() {
+  return electronBridge;
+}
 
 /** Read the legacy localStorage blob, if any. Used for one-time migration + web mode. */
 export function readLegacyLocalStorage() {
@@ -25,13 +36,13 @@ export function readLegacyLocalStorage() {
 
 /** Has this storage backend been seeded yet? */
 export async function isInitialized() {
-  if (isElectron) return electronApi.db.isInitialized();
+  if (isElectron) return electronBridge.db.isInitialized();
   return readLegacyLocalStorage() !== null;
 }
 
 /** Load the full app state, or null if nothing has been persisted yet. */
 export async function loadState() {
-  if (isElectron) return electronApi.db.loadAll();
+  if (isElectron) return electronBridge.db.loadAll();
   return readLegacyLocalStorage();
 }
 
@@ -45,7 +56,7 @@ export async function loadState() {
  */
 export async function saveState(state) {
   if (isElectron) {
-    await electronApi.db.saveAll(state);
+    await electronBridge.db.saveAll(state);
     return;
   }
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -53,6 +64,6 @@ export async function saveState(state) {
 
 /** Mark the backend seeded so first-run bootstrap doesn't re-seed. */
 export async function markInitialized() {
-  if (isElectron) await electronApi.db.markInitialized();
+  if (isElectron) await electronBridge.db.markInitialized();
   // localStorage mode is implicitly "initialized" once saveState has written the blob.
 }

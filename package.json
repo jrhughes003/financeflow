@@ -18,7 +18,8 @@
     "dist": "vite build && electron-builder && node scripts/verifyPackage.cjs",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "stats": "node scripts/stats.cjs"
+    "stats": "node scripts/stats.cjs",
+    "typecheck": "tsc -b"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",
@@ -35,6 +36,10 @@
     "@electron/asar": "^4.3.0",
     "@testing-library/jest-dom": "^6.4.8",
     "@testing-library/react": "^16.0.0",
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^26.6.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^4.3.1",
     "@vitest/coverage-v8": "^2.1.9",
     "autoprefixer": "^10.4.19",

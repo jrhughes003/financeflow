@@ -1,5 +1,5 @@
 import { format } from 'date-fns';
-import { autoCategorize } from './categorization.js';
+import { autoCategorize } from './categorization';
 
 // Download any string as a file
 function downloadFile(content, filename, mimeType) {

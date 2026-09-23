@@ -19,7 +19,7 @@ jobs:
   # Lint and types need no native module and no browser, so they run on their
   # own and fail in seconds rather than behind a source build of better-sqlite3.
   static:
-    name: Lint
+    name: Types and lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,6 +28,9 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
+      # vite build strips types with esbuild and never checks them, so a green
+      # build proves nothing here. Typecheck has to be its own step.
+      - run: npm run typecheck
       - run: npm run lint
 
   test:

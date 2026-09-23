@@ -1,0 +1,49 @@
+{
+  // The renderer and its tests. strict from the start: with allowJs and
+  // checkJs off, a file is unchecked until it is renamed, so strictness costs
+  // nothing up front and avoids a second pass turning on strictNullChecks
+  // across a codebase that has already been converted. The ratchet is the
+  // rename order, not the flags.
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "moduleDetection": "force",
+    "jsx": "react-jsx",
+    "useDefineForClassFields": true,
+
+    "allowJs": true,
+    "checkJs": false,
+    "noEmit": true,
+    "composite": true,
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
+
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+
+    "strict": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+
+    // Deliberately off. This codebase reads maps by bare index everywhere
+    // (`spending[b.category] || 0`), and every one of those reads is already
+    // guarded with `|| 0`. Turning it on means hundreds of edits for almost no
+    // bugs found. Worth revisiting once the migration is finished.
+    "noUncheckedIndexedAccess": false,
+    // Also off: `delete owed.forgivenDate` and returning undefined to mean
+    // "clear this" are idioms here, and this flag fights both.
+    "exactOptionalPropertyTypes": false,
+
+    // ESLint already reports these, with autofix.
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+
+    "types": ["vite/client", "@testing-library/jest-dom"]
+  },
+  "include": ["src"],
+  "exclude": ["src/workers", "node_modules", "dist", "release", "coverage"]
+}

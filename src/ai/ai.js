@@ -1,8 +1,8 @@
-// Renderer-side AI helper. Thin wrapper over window.api.ai with graceful
+// Renderer-side AI helper. Thin wrapper over the Electron AI bridge with graceful
 // fallback: when not running in Electron (or no key / AI disabled), calls return
 // a structured failure so callers can fall back to deterministic behavior.
 
-import { isElectron } from '../storage/storage';
+import { isElectron, electronApi } from '../storage/storage';
 import { getAllCategories } from '../utils/categorization';
 import {
   getSpendingByCategory, getBudgetStatus, getTotalExpenses, getTotalIncome,
@@ -19,24 +19,24 @@ export const aiSupported = isElectron;
 
 export async function getAiStatus() {
   if (!isElectron) return { encryptionAvailable: false, hasKey: false };
-  try { return await window.api.ai.status(); }
+  try { return await electronApi().ai.status(); }
   catch { return { encryptionAvailable: false, hasKey: false }; }
 }
 
 export async function setAiKey(key) {
   if (!isElectron) return { ok: false, error: 'unavailable' };
-  return window.api.ai.setKey(key);
+  return electronApi().ai.setKey(key);
 }
 
 export async function clearAiKey() {
   if (!isElectron) return { ok: false, error: 'unavailable' };
-  return window.api.ai.clearKey();
+  return electronApi().ai.clearKey();
 }
 
 // Run a feature. Returns { ok, data } or { ok:false, error }. Never throws.
 export async function runAi(feature, input) {
   if (!isElectron) return { ok: false, error: 'unavailable' };
-  try { return await window.api.ai.run(feature, input); }
+  try { return await electronApi().ai.run(feature, input); }
   catch (err) { return { ok: false, error: err?.message || 'AI request failed' }; }
 }
 

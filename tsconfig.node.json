@@ -1,0 +1,29 @@
+{
+  // Everything that runs under Node: the Electron main process, the eval
+  // harness, build scripts and the config files.
+  //
+  // module: NodeNext precisely because of the .cjs/.mjs split this project
+  // already has — it is the only mode that understands per-file module format,
+  // which is the constraint Electron 31 forced by not loading an ESM main.
+  //
+  // DOM is in lib because eval/run.mjs imports src/ai/ai.js, which transitively
+  // reaches a module that touches window. ESLint bans window in electron/**
+  // instead, which is where it would actually matter.
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "allowJs": true,
+    "checkJs": false,
+    "noEmit": true,
+    "composite": true,
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
+    "esModuleInterop": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "types": ["node"]
+  },
+  "include": ["electron", "eval", "scripts", "vite.config.*", "vitest.config.*", "eslint.config.*"],
+  "exclude": ["node_modules", "dist", "release", "coverage"]
+}

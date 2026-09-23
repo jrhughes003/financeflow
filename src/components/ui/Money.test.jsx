@@ -7,7 +7,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { render } from '@testing-library/react';
 import React from 'react';
-import { Money } from './index.jsx';
+import { Money } from './index';
 import { formatCurrency, setDisplayCurrency, getDisplayCurrency, localeFor } from '../../utils/calculations';
 
 // The display currency is module state by design; put it back so ordering

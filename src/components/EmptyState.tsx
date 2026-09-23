@@ -6,6 +6,7 @@
 
 import React from 'react';
 import { Plus } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 export default function EmptyState({
   icon: Icon,
@@ -15,6 +16,17 @@ export default function EmptyState({
   onAction,
   secondary,
   compact = false,
+}: {
+  icon?: LucideIcon;
+  title: React.ReactNode;
+  /** Why the page is worth filling in, not just that it is empty. */
+  description?: React.ReactNode;
+  /** Both of these together, or neither: a button with nothing to do is worse
+   *  than no button. */
+  actionLabel?: string;
+  onAction?: () => void;
+  secondary?: React.ReactNode;
+  compact?: boolean;
 }) {
   return (
     <div className={`text-center ${compact ? 'py-8' : 'py-14'} px-4`}>

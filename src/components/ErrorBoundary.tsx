@@ -9,23 +9,35 @@
 import React from 'react';
 import { AlertTriangle, RotateCcw, Download } from 'lucide-react';
 
-export default class ErrorBoundary extends React.Component {
-  constructor(props) {
+interface ErrorBoundaryProps {
+  children?: React.ReactNode;
+  /** Changing this clears the failure — the app passes the current page. */
+  resetKey?: unknown;
+  /** Offered because the in-memory state is still intact at this point. */
+  onExport?: () => void;
+}
+
+interface ErrorBoundaryState {
+  error: Error | null;
+}
+
+export default class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { error: null };
   }
 
-  static getDerivedStateFromError(error) {
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { error };
   }
 
-  componentDidCatch(error, info) {
+  override componentDidCatch(error: Error, info: React.ErrorInfo) {
     // Desktop users have no devtools open by default; this at least lands in
     // the terminal for `npm run electron:dev`.
     console.error('Render error:', error, info?.componentStack);
   }
 
-  componentDidUpdate(prevProps) {
+  override componentDidUpdate(prevProps: ErrorBoundaryProps) {
     // Moving to another page clears the failure, so one broken page doesn't
     // trap the session.
     if (this.state.error && prevProps.resetKey !== this.props.resetKey) {
@@ -33,7 +45,7 @@ export default class ErrorBoundary extends React.Component {
     }
   }
 
-  render() {
+  override render() {
     const { error } = this.state;
     if (!error) return this.props.children;
 

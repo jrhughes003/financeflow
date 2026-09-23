@@ -9,9 +9,15 @@
 import React from 'react';
 import { AlertTriangle, RotateCcw } from 'lucide-react';
 
+/** Whatever was thrown, rendered as something a person can paste into a report. */
+function describeError(error: unknown): string {
+  if (error instanceof Error) return error.stack || error.message;
+  return String(error);
+}
+
 const DB_PATH = String.raw`C:\Users\<you>\AppData\Roaming\FinanceFlow\financeflow.db`;
 
-export default function LoadFailure({ error }) {
+export default function LoadFailure({ error }: { error: unknown }) {
   return (
     <div className="min-h-screen bg-canvas flex items-start justify-center p-6">
       <div className="max-w-lg w-full mt-16 bg-surface border border-line rounded-container p-5">
@@ -45,7 +51,7 @@ export default function LoadFailure({ error }) {
                 Technical detail
               </summary>
               <pre className="mt-2 p-3 bg-surface-sunk border border-line rounded-control text-caption text-ink-secondary overflow-x-auto whitespace-pre-wrap">
-                {String(error?.stack || error?.message || error)}
+                {describeError(error)}
               </pre>
             </details>
           </div>

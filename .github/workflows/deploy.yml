@@ -43,7 +43,7 @@ jobs:
           VITE_DEMO_MODE: 'true'
       # base: './' in vite.config.js keeps asset URLs relative, so the bundle
       # works under a project subpath without knowing the repository name.
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: dist
 

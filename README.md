@@ -309,5 +309,16 @@ testable.
 
 ## Tech stack
 
-React 18 · Vite · Tailwind CSS · Recharts · date-fns · Electron · better-sqlite3 ·
-@anthropic-ai/sdk · Vitest + Testing Library
+TypeScript · React 19 · Vite · Tailwind CSS · Recharts · date-fns · Electron ·
+better-sqlite3 · @anthropic-ai/sdk · Vitest + Testing Library + fast-check
+
+## Also in here
+
+- [DEVELOPMENT.md](DEVELOPMENT.md) — running it, the native-module ABI trap, and
+  exercising every AI failure path against a local mock with no API key.
+- [CONTRIBUTING.md](CONTRIBUTING.md) — the gates, and what the code expects of a
+  change.
+- [SECURITY.md](SECURITY.md) — the threat model, and the limitations stated
+  rather than implied.
+- [CHANGELOG.md](CHANGELOG.md) — what changed, including what each bug actually
+  did.

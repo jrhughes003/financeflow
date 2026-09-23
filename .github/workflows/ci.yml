@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Tests and build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # better-sqlite3 is a compiled native module and Node and Electron embed
+      # different ABIs, so one installed binary matches only one of them. The
+      # test suite runs under Node, so the binary has to be built for Node —
+      # without this the database tests fail with NODE_MODULE_VERSION errors.
+      - name: Build better-sqlite3 for Node
+        run: npm rebuild better-sqlite3 --build-from-source
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build web bundle
+        run: npm run build
+
+      # A regression here is invisible until someone opens the app on a slow
+      # connection, so the number is surfaced on every run.
+      - name: Report bundle size
+        run: |
+          echo "### Bundle" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          ls -la dist/assets/*.js | awk '{printf "%8.1f KB  %s\n", $5/1024, $9}' | sort -rn >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"

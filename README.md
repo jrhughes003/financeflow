@@ -1,5 +1,8 @@
 # FinanceFlow
 
+[![CI](https://github.com/jrhughes003/financeflow/actions/workflows/ci.yml/badge.svg)](https://github.com/jrhughes003/financeflow/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 A local-first personal finance app that runs as a **desktop app** (Electron + SQLite) or
 **in the browser** (localStorage) from one React codebase — with optional AI features that
 are restricted, in code, to the minimum data each feature needs.
@@ -43,7 +46,7 @@ plaintext only in memory at call time.
 **The financial logic is real, and tested.** Budget rollover, recurring-charge detection,
 duplicate detection, reimbursement-aware spending, goal pacing, debt avalanche/snowball, a
 long-range life plan with Canadian tax treatment (RRSP/TFSA/FHSA, CPP/OAS, first-time-buyer
-rules) and a Monte Carlo simulation. Roughly 9k lines of source and **275 unit tests**.
+rules) and a Monte Carlo simulation. Roughly 9k lines of source and **305 unit tests**.
 Functions that depend on "now" take an explicit date, so they're deterministic under test.
 
 ## Features
@@ -199,7 +202,7 @@ without ever being sent, and each answer lists the lookups it used so you can ch
 | `npm run dev` | Browser app at `http://localhost:5173` (localStorage) |
 | `npm run electron:dev` | Desktop app in development (SQLite) |
 | `npm run electron:dev:mock` | Desktop app with AI wired to the local mock (no key, no spend) |
-| `npm test` | Unit tests (275) |
+| `npm test` | Unit tests (305) |
 | `npm run build` | Production web bundle |
 | `npm run dist` | Windows installer into `release/` |
 

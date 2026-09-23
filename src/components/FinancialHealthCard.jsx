@@ -1,9 +1,33 @@
 import React, { useMemo, useState } from 'react';
-import { LineChart, Line, ResponsiveContainer, Tooltip, YAxis } from 'recharts';
-import * as chart from './ui/chartTheme';
 import { HeartPulse, ChevronDown } from 'lucide-react';
 import { useFinancial } from '../context/FinancialContext';
 import { getFinancialHealth, getHealthTrend, healthLabel } from '../utils/healthScore';
+
+// Six months of score, drawn on a fixed 0-100 scale so the slope means
+// something. Each month carries a title, which is the hover detail a chart
+// tooltip would have given.
+function Sparkline({ points }) {
+  const w = 152;
+  const h = 44;
+  const pad = 4;
+  const step = points.length > 1 ? (w - pad * 2) / (points.length - 1) : 0;
+  const y = score => h - pad - (Math.max(0, Math.min(100, score)) / 100) * (h - pad * 2);
+  const coords = points.map((p, i) => [pad + i * step, y(p.score)]);
+  const path = coords.map(([x, yy], i) => `${i ? 'L' : 'M'}${x.toFixed(1)} ${yy.toFixed(1)}`).join(' ');
+
+  return (
+    <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none"
+      role="img" aria-label={`Health score over the last ${points.length} months`}>
+      <path d={path} fill="none" stroke="var(--c-data-1)" strokeWidth="1.75"
+        strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+      {coords.map(([x, yy], i) => (
+        <circle key={points[i].label} cx={x} cy={yy} r="2" fill="var(--c-data-1)">
+          <title>{`${points[i].label}: ${points[i].score} · ${healthLabel(points[i].score).label}`}</title>
+        </circle>
+      ))}
+    </svg>
+  );
+}
 
 // Score ring: stroke length encodes the 0–100 score; the number sits inside.
 function Ring({ score, color }) {
@@ -61,13 +85,7 @@ export default function FinancialHealthCard() {
                 <span className={change > 0 ? 'text-positive font-medium' : 'text-negative font-medium'}> {change > 0 ? '+' : ''}{change}</span>
               )}
             </p>
-            <ResponsiveContainer width="100%" height={44}>
-              <LineChart data={trend} margin={{ top: 4, right: 4, left: 4, bottom: 4 }}>
-                <YAxis {...chart.yAxis} hide domain={[0, 100]} />
-                <Tooltip formatter={v => [v === null ? '—' : `${v} · ${healthLabel(v).label}`, 'Score']} labelFormatter={(_, p) => p?.[0]?.payload?.label} />
-                <Line dataKey="score" stroke={chart.SERIES.primary} strokeWidth={2} dot={{ r: 2.5 }} isAnimationActive={false} connectNulls />
-              </LineChart>
-            </ResponsiveContainer>
+            <Sparkline points={scoredTrend} />
           </div>
         )}
 

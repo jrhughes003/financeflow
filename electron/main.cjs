@@ -3,7 +3,7 @@
 // filesystem or the database directly — it calls window.api.db.* (see preload.cjs).
 
 const path = require('node:path');
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, session, shell } = require('electron');
 const { getDb, closeDb } = require('./db/index.cjs');
 const { loadAll, saveAll, getMeta, setMeta } = require('./db/repository.cjs');
 const { buildPayload } = require('./ai/payload.cjs');
@@ -24,12 +24,64 @@ function createWindow() {
     },
   });
 
+  // The renderer is a local app, not a browser: it has no reason to navigate
+  // anywhere or open a window. Anything that tries is a bug or an injection, so
+  // both are refused and genuine external links go to the real browser instead,
+  // where they are sandboxed and visible.
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https?:$/.test(new URL(url).protocol)) shell.openExternal(url);
+    return { action: 'deny' };
+  });
+
+  win.webContents.on('will-navigate', (event, url) => {
+    const target = new URL(url);
+    const devServer = process.env.VITE_DEV_SERVER_URL;
+    const allowed = isDev && devServer && url.startsWith(devServer);
+    if (!allowed && target.protocol !== 'file:') {
+      event.preventDefault();
+      if (/^https?:$/.test(target.protocol)) shell.openExternal(url);
+    }
+  });
+
   if (isDev) {
     // Vite dev server. VITE_DEV_SERVER_URL is set by the dev script.
     win.loadURL(process.env.VITE_DEV_SERVER_URL || 'http://localhost:5173');
   } else {
     win.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));
   }
+}
+
+// A Content-Security-Policy for the packaged app. Scripts and styles come from
+// the bundle only, so a string that reached the DOM from a CSV, a pasted
+// receipt or an AI response cannot execute. `connect-src 'none'` is the honest
+// setting here: the renderer never talks to the network itself — the main
+// process makes the Anthropic call, which this policy does not govern.
+//
+// Dev is exempt because Vite's HMR needs inline scripts and a websocket; the
+// policy that matters is the one that ships.
+const CSP = [
+  "default-src 'self'",
+  "script-src 'self'",
+  "style-src 'self' 'unsafe-inline'", // styled-in-JS values, e.g. category colours
+  "img-src 'self' data:",
+  "font-src 'self'",
+  "connect-src 'none'",
+  "object-src 'none'",
+  "frame-src 'none'",
+  "base-uri 'none'",
+  "form-action 'none'",
+].join('; ');
+
+function applyContentSecurityPolicy() {
+  if (isDev) return;
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'Content-Security-Policy': [CSP],
+      },
+    });
+  });
 }
 
 // --- IPC: database access ---------------------------------------------------
@@ -91,6 +143,7 @@ ipcMain.handle('ai:run', async (_evt, feature, input) => {
 });
 
 app.whenReady().then(() => {
+  applyContentSecurityPolicy(); // before any window loads
   getDb(); // open + migrate up front so the first IPC call is fast
   createWindow();
 

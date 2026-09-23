@@ -45,7 +45,9 @@ describe('runFeature', () => {
     const out = await runFeature(client, 'query', {
       question: 'How much on dining in March?', today: '2026-03-31', categories: [],
     });
-    expect(out).toEqual({ answer: '$240 on dining in March.', consulted: [] });
+    // usage and model ride along for cost accounting; the answer is the contract.
+    expect(out).toMatchObject({ answer: '$240 on dining in March.', consulted: [] });
+    expect(out.usage).toEqual({ input_tokens: 0, output_tokens: 0 }); // fake client reports none
     // The tools are offered, and the question travels without any figures.
     expect(client.calls[0].tools.map(t => t.name)).toContain('get_spending');
     expect(JSON.stringify(client.calls[0].messages)).not.toContain('summary');

@@ -1,0 +1,58 @@
+# Publishes the web build to GitHub Pages.
+#
+# The app already runs entirely in a browser — the storage layer picks
+# localStorage when there is no Electron preload — so the same bundle CI
+# already builds is the demo. Without this, seeing the app means cloning it,
+# installing, and compiling a native module against the right Node ABI, which
+# almost nobody is going to do.
+#
+# VITE_DEMO_MODE makes this build seed a generated ledger and show a banner
+# saying what it is. Nothing else in the app behaves differently.
+
+name: Deploy demo
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never two deploys at once, and let a queued one finish rather than cancelling
+# it — a half-published site is worse than a slightly stale one.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Build the demo bundle
+        run: npm run build
+        env:
+          VITE_DEMO_MODE: 'true'
+      # base: './' in vite.config.js keeps asset URLs relative, so the bundle
+      # works under a project subpath without knowing the repository name.
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

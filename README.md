@@ -1,5 +1,8 @@
 # FinanceFlow
 
+**[Try it in your browser →](https://jrhughes003.github.io/financeflow/)** — the full app,
+loaded with generated data, nothing to install.
+
 [![CI](https://github.com/jrhughes003/financeflow/actions/workflows/ci.yml/badge.svg)](https://github.com/jrhughes003/financeflow/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
@@ -16,6 +19,10 @@ to learn any figure at all. See [Privacy](#privacy).
 npm install
 npm run dev          # browser at http://localhost:5173
 ```
+
+The demo above is that same bundle, built with `VITE_DEMO_MODE=true` so it opens populated and
+says what it is. Everything stays in your browser; the AI features need an API key and run in
+the desktop build's main process, so they're off there.
 
 Then open **Settings → Load demo data** for ~8 months of generated history, so every chart and
 insight has something to show.
@@ -46,7 +53,7 @@ plaintext only in memory at call time.
 **The financial logic is real, and tested.** Budget rollover, recurring-charge detection,
 duplicate detection, reimbursement-aware spending, goal pacing, debt avalanche/snowball, a
 long-range life plan with Canadian tax treatment (RRSP/TFSA/FHSA, CPP/OAS, first-time-buyer
-rules) and a Monte Carlo simulation. Roughly 16k lines of source and **401 unit tests**.
+rules) and a Monte Carlo simulation. Roughly 17k lines of source and **404 unit tests**.
 Functions that depend on "now" take an explicit date, so they're deterministic under test.
 
 ## Features
@@ -229,7 +236,7 @@ without ever being sent, and each answer lists the lookups it used so you can ch
 | `npm run dev` | Browser app at `http://localhost:5173` (localStorage) |
 | `npm run electron:dev` | Desktop app in development (SQLite) |
 | `npm run electron:dev:mock` | Desktop app with AI wired to the local mock (no key, no spend) |
-| `npm test` | Unit tests (401) |
+| `npm test` | Unit tests (404) |
 | `npm run build` | Production web bundle |
 | `npm run dist` | Windows installer into `release/` |
 

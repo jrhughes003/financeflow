@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useReducer, useEffect, useRef, useState } from 'react';
 import { sampleData } from '../utils/sampleData';
+import generateDemoData from '../utils/demoData';
+import { isDemoBuild } from '../demoMode';
 import { getCategoryById } from '../utils/categorization';
 import { setDisplayCurrency } from '../utils/calculations';
 import { useToast } from './ToastContext';
@@ -25,6 +27,9 @@ function loadInitialState() {
   // an immediate placeholder that the async SQLite load (below) replaces.
   const legacy = readLegacyLocalStorage();
   if (legacy) return withDefaults(legacy);
+  // The public demo opens populated. Anything the visitor then changes is
+  // theirs and persists in their own browser like any other web-mode session.
+  if (isDemoBuild && !isElectron) return generateDemoData(new Date());
   return { ...sampleData };
 }
 

@@ -4,6 +4,7 @@ import {
   BarChart3, FileText, Menu, X, Plus, DollarSign, Landmark, RefreshCw,
   Settings as SettingsIcon, HandCoins, Milestone, ChevronDown, Receipt, LineChart, PiggyBank
 } from 'lucide-react';
+import DemoBanner from './DemoBanner';
 
 // Dashboard and Settings stay pinned; everything else lives in a collapsible
 // group, so the sidebar is six rows at rest instead of fourteen.
@@ -250,6 +251,9 @@ export default function Layout({ currentPage, setCurrentPage, onQuickAdd, childr
             </button>
           </div>
         </header>
+
+        {/* Renders only in the deployed demo build; null everywhere else. */}
+        <DemoBanner />
 
         {/* Page content */}
         <main className="flex-1 overflow-y-auto p-4 lg:p-5 bg-canvas">

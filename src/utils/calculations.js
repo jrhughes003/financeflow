@@ -295,8 +295,27 @@ export function projectInvestmentValue(currentValue, annualReturn, years) {
 export function calculateDebtPayoff(balance, interestRate, monthlyPayment) {
   if (monthlyPayment <= 0) return null;
   const monthlyRate = interestRate / 100 / 12;
-  if (monthlyRate === 0) return { months: Math.ceil(balance / monthlyPayment), totalInterest: 0 };
-  const months = Math.ceil(-Math.log(1 - (monthlyRate * balance) / monthlyPayment) / Math.log(1 + monthlyRate));
+
+  // A rate small enough that log(1 + r) underflows to zero would divide by it
+  // and return NaN. The UI can't produce a number that small, but an imported
+  // file could, and a NaN reaching the payoff schedule is worse than treating
+  // a negligible rate as the zero it effectively is.
+  if (!(monthlyRate > 0) || Math.log(1 + monthlyRate) === 0) {
+    return { months: Math.ceil(balance / monthlyPayment), totalInterest: 0 };
+  }
+
+  // The payment has to beat the interest, or the balance never falls.
+  if (monthlyPayment <= monthlyRate * balance) return { months: null, totalInterest: null };
+
+  const closedForm = Math.ceil(-Math.log(1 - (monthlyRate * balance) / monthlyPayment) / Math.log(1 + monthlyRate));
+  if (!Number.isFinite(closedForm) || closedForm <= 0) return { months: null, totalInterest: null };
+
+  // At very small rates the logarithms lose their significant digits and the
+  // formula can round *below* the interest-free term — which would report two
+  // $50 payments clearing a $101 balance, and negative interest with it. The
+  // interest-free case is a hard floor: no rate makes a debt cheaper than its
+  // principal. (Found by the property test in invariants.test.js.)
+  const months = Math.max(closedForm, Math.ceil(balance / monthlyPayment));
   const totalPaid = monthlyPayment * months;
-  return { months, totalInterest: totalPaid - balance };
+  return { months, totalInterest: Math.max(0, roundCents(totalPaid - balance)) };
 }

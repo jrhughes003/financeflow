@@ -192,9 +192,18 @@ export default function DebtTracker() {
 
                     {!isInRepayment(d) ? (
                       <div className="bg-surface-sunk rounded-control p-3 text-caption text-ink-secondary">
-                        {d.minimumPayment > 0 && payoff
+                        {d.minimumPayment > 0 && payoff?.months
                           ? <>Nothing due until {fmtMonth(d.repaymentStart)}. Then at {formatCurrency(d.minimumPayment)}/mo it's paid off in <strong>{payoff.months} months</strong> — around {format(addMonths(parseISO(d.repaymentStart), payoff.months - 1), 'MMM yyyy')}{Number(d.interestRate) === 0 ? ', with no interest.' : '.'}</>
-                          : <>Nothing due until {fmtMonth(d.repaymentStart)}. Add the expected monthly payment to see when it'll be paid off.</>}
+                          : d.minimumPayment > 0
+                            ? <>Nothing due until {fmtMonth(d.repaymentStart)}. At {formatCurrency(d.minimumPayment)}/mo the interest outpaces the payment, so the balance would never fall.</>
+                            : <>Nothing due until {fmtMonth(d.repaymentStart)}. Add the expected monthly payment to see when it'll be paid off.</>}
+                      </div>
+                    ) : payoff && !payoff.months ? (
+                      // The payment doesn't cover the interest, so there is no
+                      // payoff date to show — saying so beats printing NaN.
+                      <div className="bg-negative-tint rounded-control p-3 text-caption text-negative">
+                        At {formatCurrency(d.minimumPayment)}/mo the interest outpaces the payment — this balance would never fall.
+                        Raising the payment above {formatCurrency((d.balance * (Number(d.interestRate) || 0)) / 100 / 12)} a month starts paying it down.
                       </div>
                     ) : payoff && (
                       <div className="bg-surface-sunk rounded-control p-3 text-caption space-y-1">
@@ -209,7 +218,7 @@ export default function DebtTracker() {
                               placeholder="$50"
                               className="w-20 h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent"
                             />
-                            {payoffExtra && (
+                            {payoffExtra?.months && (
                               <span className="text-positive font-medium">
                                 → {payoffExtra.months} months ({payoff.months - payoffExtra.months} faster, save {formatCurrency(payoff.totalInterest - payoffExtra.totalInterest)})
                               </span>

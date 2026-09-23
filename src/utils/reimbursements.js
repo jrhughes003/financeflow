@@ -25,7 +25,10 @@ export function owedFromSplit(amount, people) {
   const n = Math.floor(Number(people) || 0);
   const a = Number(amount) || 0;
   if (n < 2 || a <= 0) return 0;
-  return roundCents((a * (n - 1)) / n);
+  // Rounding to cents can hand over the whole amount on a tiny bill — a penny
+  // split two ways rounds 0.005 up to 0.01 — which would say the payer owes
+  // nothing for their own share. Property test found it; keep at least a cent.
+  return Math.min(roundCents((a * (n - 1)) / n), roundCents(a - 0.01));
 }
 
 /**

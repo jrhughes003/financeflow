@@ -1,0 +1,27 @@
+{
+  // The eval harness, which runs under `vite-node` rather than plain node —
+  // see the invocation at the top of eval/run.mjs. That matters here: it
+  // resolves imports the way Vite does, mapping a written `.js` specifier onto
+  // the `.ts` file beside it, and it imports src/ modules that use
+  // extensionless relative paths. NodeNext resolution would reject both, so
+  // this project models how the code is actually executed.
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowJs": true,
+    "checkJs": false,
+    "noEmit": true,
+    "composite": true,
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.eval.tsbuildinfo",
+    "esModuleInterop": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "types": ["node"]
+  },
+  // src/ too: the harness drives the real shipped modules rather than copies
+  // of them, which is the point of it — so its graph reaches into the app.
+  "include": ["eval", "src"],
+  "exclude": ["src/workers", "node_modules", "dist", "release", "coverage"]
+}

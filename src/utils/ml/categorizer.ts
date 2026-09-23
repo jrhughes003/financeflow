@@ -18,6 +18,40 @@ import { buildVocabulary, vectorise, normaliseMerchant } from './features';
 import { fit, predict } from './logreg';
 
 // Below this, the model's answer isn't worth acting on alone.
+import type { Transaction } from '../../types/domain';
+import type { FitOptions, Model, Sample } from './logreg';
+import type { Vocabulary, VocabularyOptions } from './features';
+
+/** One labelled example: a merchant descriptor and the category it belongs to. */
+export interface TrainingRow {
+  merchant: string;
+  category: string;
+}
+
+export interface TrainOptions extends VocabularyOptions, Partial<Omit<FitOptions, 'dimensions' | 'classes'>> {
+  /** Confidence below which classify() reports `confident: false`. */
+  threshold?: number;
+}
+
+/** A fitted classifier, plus everything needed to vectorise a new merchant. */
+export interface TrainedClassifier {
+  model: Model;
+  vocabulary: Vocabulary;
+  /** Category ids, in label order. */
+  classes: string[];
+  trainedOn: number;
+  options: TrainOptions;
+}
+
+export interface Classification {
+  category: string;
+  confidence: number;
+  /** Whether the app should act on this without asking the model. */
+  confident: boolean;
+  /** Category id → probability, for showing the runner-up. */
+  probabilities: Record<string, number>;
+}
+
 export const CONFIDENCE_THRESHOLD = 0.6;
 
 // Fewer examples than this, or fewer than two categories, and there is nothing
@@ -31,16 +65,16 @@ export const MIN_PER_CLASS = 2;
  * merchant, so they are excluded — including them would teach the model that
  * "savings →" predicts the savings pseudo-category, which is circular.
  */
-export function trainingData(transactions = []) {
+export function trainingData(transactions: Transaction[] = []): TrainingRow[] {
   return transactions
     .filter(t => t.merchant && t.category && t.kind !== 'savings' && t.category !== 'savings')
-    .map(t => ({ merchant: t.merchant, category: t.category }))
+    .map((t): TrainingRow => ({ merchant: t.merchant, category: t.category }))
     .filter(row => normaliseMerchant(row.merchant).length > 1);
 }
 
 /** Categories with enough examples to be learnable. */
-function usableClasses(rows) {
-  const counts = new Map();
+function usableClasses(rows: TrainingRow[]): string[] {
+  const counts = new Map<string, number>();
   rows.forEach(r => counts.set(r.category, (counts.get(r.category) || 0) + 1));
   return [...counts.entries()]
     .filter(([, count]) => count >= MIN_PER_CLASS)
@@ -52,7 +86,7 @@ function usableClasses(rows) {
  * Train on a ledger. Returns null when there isn't enough to learn from, which
  * callers treat as "fall back to keywords" rather than as an error.
  */
-export function train(transactions, options = {}) {
+export function train(transactions: Transaction[], options: TrainOptions = {}): TrainedClassifier | null {
   const rows = trainingData(transactions);
   const classes = usableClasses(rows);
   if (rows.length < MIN_EXAMPLES || classes.length < 2) return null;
@@ -62,9 +96,11 @@ export function train(transactions, options = {}) {
   if (!vocabulary.size) return null;
 
   const labelOf = new Map(classes.map((c, i) => [c, i]));
-  const samples = usable.map(r => ({
+  // Every row was filtered to a usable class above, so the lookup always hits;
+  // ?? 0 is there because the Map's type cannot say that.
+  const samples: Sample[] = usable.map(r => ({
     vector: vectorise(r.merchant, vocabulary, options),
-    label: labelOf.get(r.category),
+    label: labelOf.get(r.category) ?? 0,
   }));
 
   const model = fit(samples, { dimensions: vocabulary.size, classes: classes.length, ...options });
@@ -81,7 +117,7 @@ export function train(transactions, options = {}) {
  * Predict a category. Returns null when the classifier has no real opinion, so
  * a caller can tell "unsure" from "confidently products".
  */
-export function classify(trained, merchant) {
+export function classify(trained: TrainedClassifier | null, merchant: string): Classification | null {
   if (!trained || !merchant) return null;
   const vector = vectorise(merchant, trained.vocabulary, trained.options);
   if (!vector.size) return null; // nothing recognisable in this descriptor

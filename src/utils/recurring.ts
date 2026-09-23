@@ -9,8 +9,23 @@
 
 import { parseISO, differenceInCalendarDays, addMonths, addWeeks, addYears, format } from 'date-fns';
 import { autoCategorize } from './categorization';
+import type {
+  IsoDate, Money, RecurringFrequency, RecurringTemplate, Transaction,
+} from '../types/domain';
 
-const FREQUENCY_DAYS = {
+/** A charge the history suggests is recurring, before the user confirms it. */
+export interface RecurringCandidate {
+  merchant: string;
+  /** The mean of the observed amounts, not the latest one. */
+  amount: Money;
+  category: string;
+  frequency: RecurringFrequency;
+  occurrences: number;
+  lastDate: IsoDate;
+  nextDate: IsoDate;
+}
+
+const FREQUENCY_DAYS: Record<RecurringFrequency, number> = {
   weekly: 7,
   biweekly: 14,
   monthly: 30,
@@ -20,14 +35,14 @@ const FREQUENCY_DAYS = {
 // Normalize a merchant for grouping by its first alphabetic token, so variants
 // like "Netflix #123", "NETFLIX", and "netflix.com" all collapse to "netflix".
 // (Coarse on purpose — the user confirms detected candidates before they stick.)
-function normalizeMerchant(m) {
+function normalizeMerchant(m: string | undefined): string {
   const match = (m || '').toLowerCase().match(/[a-z]+/);
   return match ? match[0] : '';
 }
 
 // Classify an average gap (in days) into a known frequency, or null if irregular.
-function classifyFrequency(avgGapDays) {
-  const candidates = Object.entries(FREQUENCY_DAYS);
+function classifyFrequency(avgGapDays: number): RecurringFrequency | null {
+  const candidates = Object.entries(FREQUENCY_DAYS) as [RecurringFrequency, number][];
   for (const [freq, days] of candidates) {
     // Allow ~25% tolerance around the nominal cadence.
     if (Math.abs(avgGapDays - days) <= days * 0.25) return freq;
@@ -35,21 +50,22 @@ function classifyFrequency(avgGapDays) {
   return null;
 }
 
-/**
- * Find likely recurring charges in transaction history.
- * @returns array of { merchant, amount, category, frequency, occurrences, lastDate, nextDate }
- */
-export function detectRecurringCandidates(transactions, { minOccurrences = 3 } = {}) {
-  const groups = new Map();
+/** Find likely recurring charges in transaction history. */
+export function detectRecurringCandidates(
+  transactions: Transaction[],
+  { minOccurrences = 3 }: { minOccurrences?: number } = {},
+): RecurringCandidate[] {
+  const groups = new Map<string, Transaction[]>();
   for (const t of transactions || []) {
     if (t.isException) continue;
     const key = normalizeMerchant(t.merchant);
     if (!key) continue;
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(t);
+    const group = groups.get(key);
+    if (group) group.push(t);
+    else groups.set(key, [t]);
   }
 
-  const candidates = [];
+  const candidates: RecurringCandidate[] = [];
   for (const items of groups.values()) {
     if (items.length < minOccurrences) continue;
     const sorted = [...items].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
@@ -91,9 +107,9 @@ export function detectRecurringCandidates(transactions, { minOccurrences = 3 } =
 }
 
 // Advance a YYYY-MM-DD date by one period of the given frequency.
-export function advanceDate(dateStr, frequency) {
+export function advanceDate(dateStr: IsoDate, frequency: RecurringFrequency): IsoDate {
   const d = parseISO(dateStr);
-  let next;
+  let next: Date;
   switch (frequency) {
     case 'weekly': next = addWeeks(d, 1); break;
     case 'biweekly': next = addWeeks(d, 2); break;
@@ -105,7 +121,7 @@ export function advanceDate(dateStr, frequency) {
 }
 
 // Is a template due to be posted as of `today` (YYYY-MM-DD)?
-export function isTemplateDue(template, today) {
+export function isTemplateDue(template: RecurringTemplate | null | undefined, today: IsoDate): boolean {
   if (!template || template.active === false || !template.nextDate) return false;
   return template.nextDate <= today;
 }
@@ -114,8 +130,11 @@ export function isTemplateDue(template, today) {
  * Produce the transaction a due template should post, plus the template with its
  * nextDate advanced. Does not mutate inputs.
  */
-export function postTemplate(template, today) {
-  const tx = {
+export function postTemplate(
+  template: RecurringTemplate,
+  today: IsoDate,
+): { transaction: Transaction; template: RecurringTemplate } {
+  const tx: Transaction = {
     id: `rec_${template.id}_${template.nextDate}`,
     date: template.nextDate || today,
     merchant: template.merchant,

@@ -17,20 +17,53 @@
 
 import { computeTax, cppFor, oasFor, indexFor, REGISTERED } from './taxCanada';
 import { housePurchase, mortgageMonthlyRate, loanPayment } from './housing';
+import type { Money } from '../../types/domain';
+import type {
+  LifePlan, PlanEvent, PlanPerson, RecurringEvent, YearMonth,
+} from '../../types/lifeplan';
+import type {
+  EventOccurrence, PersonYear, PersonYearSummary, PlanOutcome, PlanRow, PlanSnapshot,
+  RegisteredAccounts, Shortfall, SimulatedDebt, SimulatedHome, YearEvent,
+} from '../../types/projection';
+import { needsSetup } from '../../types/projection';
 
-const round2 = n => Math.round(n * 100) / 100;
-const sum = arr => arr.reduce((s, v) => s + v, 0);
-const ym = (y, m) => `${y}-${String(m + 1).padStart(2, '0')}`;
-const parseYm = s => ({ y: Number(s.slice(0, 4)), m: Number(s.slice(5, 7)) - 1 });
-const monthsBetween = (a, b) => (b.y - a.y) * 12 + (b.m - a.m);
+/** One of a person's income streams, and what it pays in a given month. */
+interface IncomeStream {
+  inc: LifePlan['incomes'][number];
+  pay: Money;
+}
+
+/** A year and a zero-based month, which is how the loop counts time. */
+interface Ym { y: number; m: number }
+
+/** Per-year accumulators, reset each January. */
+interface YearAccumulator {
+  year: number;
+  months: number;
+  byPerson: Record<string, PersonYear>;
+  living: Money;
+  housing: Money;
+  debtPay: Money;
+  eventsSpend: Money;
+  recurringSpend: Money;
+  contributions: Money;
+  invested: Money;
+  withdrawals: Money;
+  shortfall: Money;
+  events: YearEvent[];
+  employerMatch: Money;
+}
+
+const round2 = (n: number): Money => Math.round(n * 100) / 100;
+const sum = (arr: number[]): number => arr.reduce((s, v) => s + v, 0);
+const ym = (y: number, m: number): YearMonth => `${y}-${String(m + 1).padStart(2, '0')}`;
+const parseYm = (s: string): Ym => ({ y: Number(s.slice(0, 4)), m: Number(s.slice(5, 7)) - 1 });
+const monthsBetween = (a: Ym, b: Ym): number => (b.y - a.y) * 12 + (b.m - a.m);
 
 
-/**
- * Expand events into dated occurrences (cars repeat every N years).
- * @returns [{ event, date: 'YYYY-MM', occurrence }]
- */
-function eventOccurrences(events, endYm) {
-  const out = [];
+/** Expand events into dated occurrences — cars repeat every N years. */
+function eventOccurrences(events: PlanEvent[], endYm: YearMonth): EventOccurrence[] {
+  const out: EventOccurrence[] = [];
   (events || []).forEach(ev => {
     if (!ev.date || ev.enabled === false) return;
     if (ev.type === 'car' && Number(ev.replaceEveryYears) > 0) {
@@ -49,11 +82,20 @@ function eventOccurrences(events, endYm) {
 }
 
 /**
- * @param plan      the life plan (see defaults.js)
- * @param snapshot  starting point built from app data (see snapshot.js)
- * @returns { needsSetup } or { rows, eventResults, firstShortfall, retirementRow, finalRow }
+ * Run the projection month by month to the end age, summarised per year.
+ *
+ * `monthlyReturn` is how the Monte Carlo drives this: it supplies a sampler of
+ * random market months, and without it every month earns the steady expected
+ * return.
  */
-export function runPlan(plan, snapshot, { today = new Date(), monthlyReturn = null } = {}) {
+export function runPlan(
+  plan: LifePlan,
+  snapshot: PlanSnapshot,
+  { today = new Date(), monthlyReturn = null }: {
+    today?: Date;
+    monthlyReturn?: ((k: number) => number) | null;
+  } = {},
+): PlanOutcome {
   const people = (plan.people || []).filter(p => p.id === 'me' || p.enabled);
   const me = people.find(p => p.id === 'me');
   if (!me || !Number(me.birthYear)) return { needsSetup: true };
@@ -74,13 +116,13 @@ export function runPlan(plan, snapshot, { today = new Date(), monthlyReturn = nu
   const endYear = Number(me.birthYear) + endAge;
   const endYm = ym(endYear, 11);
   const totalMonths = monthsBetween(start, { y: endYear, m: 11 }) + 1;
-  const infIdx = k => Math.pow(1 + infl / 100, k / 12);
+  const infIdx = (k: number): number => Math.pow(1 + infl / 100, k / 12);
 
   // ---- starting balances ----
   const S = snapshot || {};
   let cash = Number(S.cash) || 0;
   const nonreg = { value: 0, acb: 0 };
-  const reg = {};
+  const reg: Record<string, RegisteredAccounts> = {};
   people.forEach(p => {
     reg[p.id] = {
       rrsp: 0, tfsa: 0, fhsa: 0,
@@ -97,15 +139,15 @@ export function runPlan(plan, snapshot, { today = new Date(), monthlyReturn = nu
     else if (a.bucket === 'nonreg') { nonreg.value += v; nonreg.acb += Number(a.acb ?? v); }
     else reg[owner][a.bucket] += v;
   });
-  const debts = (S.debts || []).map(d => ({
+  const debts: SimulatedDebt[] = (S.debts || []).map((d): SimulatedDebt => ({
     name: d.name,
     balance: Number(d.balance) || 0,
     r: (Number(d.interestRate) || 0) / 100 / 12,
     payment: Number(d.minimumPayment) || 0,
     startK: d.repaymentStart ? Math.max(0, monthsBetween(start, parseYm(d.repaymentStart))) : 0,
   }));
-  const carLoans = [];
-  let home = null;
+  const carLoans: SimulatedDebt[] = [];
+  let home: SimulatedHome | null = null;
   // Everyday spending in today's dollars: your real average, or a custom figure.
   // If your transaction history already includes rent, take it out so rent
   // isn't counted twice (it's modelled separately and stops when you buy).
@@ -114,13 +156,14 @@ export function runPlan(plan, snapshot, { today = new Date(), monthlyReturn = nu
     : (Number(S.historyMonthly) || 0) - (L.historyIncludesRent ? Number(L.rentMonthly) || 0 : 0));
 
   const occurrences = eventOccurrences(plan.events, endYm);
-  const eventResults = {};
-  const recurring = (plan.events || []).filter(e => e.type === 'recurring' && e.enabled !== false && e.start);
+  const eventResults: Record<string, unknown> = {};
+  const recurring = (plan.events || [])
+    .filter((e): e is RecurringEvent => e.type === 'recurring' && e.enabled !== false && !!e.start);
 
   // ---- helpers ----
-  let yr; // per-year accumulators
-  const newYear = y => {
-    const acc = { year: y, months: 0, byPerson: {}, living: 0, housing: 0, debtPay: 0, eventsSpend: 0, recurringSpend: 0,
+  let yr: YearAccumulator; // per-year accumulators
+  const newYear = (y: number): YearAccumulator => {
+    const acc: YearAccumulator = { year: y, months: 0, byPerson: {}, living: 0, housing: 0, debtPay: 0, eventsSpend: 0, recurringSpend: 0,
       contributions: 0, invested: 0, withdrawals: 0, shortfall: 0, events: [], employerMatch: 0 };
     people.forEach(p => {
       acc.byPerson[p.id] = { employment: 0, cpp: 0, oas: 0, rrspWithdrawals: 0, capGains: 0, deductions: 0, withheld: 0, rrspContrib: 0, fhsaContrib: 0, tfsaWithdrawn: 0 };
@@ -128,15 +171,15 @@ export function runPlan(plan, snapshot, { today = new Date(), monthlyReturn = nu
     return acc;
   };
 
-  const ageOf = (p, y) => y - Number(p.birthYear);
-  const isRetired = (p, y) => ageOf(p, y) >= Number(p.retireAge ?? 65);
+  const ageOf = (p: PlanPerson, y: number): number => y - Number(p.birthYear);
+  const isRetired = (p: PlanPerson, y: number): boolean => ageOf(p, y) >= Number(p.retireAge ?? 65);
 
   // Each of a person's income streams paying in this month, with its own pay
   // and its own RRSP / employer-match settings. The end month is inclusive.
-  const streamsFor = (p, y, m) => (plan.incomes || [])
+  const streamsFor = (p: PlanPerson, y: number, m: number): IncomeStream[] => (plan.incomes || [])
     .filter(inc => inc.personId === p.id && inc.start)
-    .map(inc => {
-      const s = parseYm(inc.start);
+    .map((inc): IncomeStream | null => {
+      const s = parseYm(inc.start as YearMonth);
       const cur = { y, m };
       if (monthsBetween(s, cur) < 0) return null;
       if (inc.end) { if (monthsBetween(parseYm(inc.end), cur) > 0) return null; }
@@ -144,12 +187,12 @@ export function runPlan(plan, snapshot, { today = new Date(), monthlyReturn = nu
       const pay = (Number(inc.annual) || 0) / 12 * Math.pow(1 + (Number(inc.growthPct) || 0) / 100, y - s.y);
       return pay > 0 ? { inc, pay } : null;
     })
-    .filter(Boolean);
-  const employmentFor = (p, y, m) => sum(streamsFor(p, y, m).map(s => s.pay));
+    .filter((s): s is IncomeStream => s !== null);
+  const employmentFor = (p: PlanPerson, y: number, m: number): Money => sum(streamsFor(p, y, m).map(s => s.pay));
 
   // Projected tax rate for the year (withholding), from the year's scheduled income.
-  const withholdingRate = {};
-  const planYearRates = (y, fromM) => {
+  const withholdingRate: Record<string, number> = {};
+  const planYearRates = (y: number, fromM: number): void => {
     people.forEach(p => {
       let emp = 0, other = 0, oas = 0, ded = 0;
       for (let m = fromM; m < 12; m++) {
@@ -167,12 +210,12 @@ export function runPlan(plan, snapshot, { today = new Date(), monthlyReturn = nu
     });
   };
 
-  const emergencyTarget = monthlyOut => Math.max(0, Number(L.emergencyMonths ?? 3)) * monthlyOut;
+  const emergencyTarget = (monthlyOut: Money): Money => Math.max(0, Number(L.emergencyMonths ?? 3)) * monthlyOut;
 
   // Pull `amount` from liquid money in a tax-sensible order. Returns the uncovered part.
-  const withdraw = amount => {
+  const withdraw = (amount: Money): Money => {
     let need = amount;
-    const take = (avail, fn) => {
+    const take = (avail: Money, fn: (taken: Money) => void): void => {
       if (need <= 0.005 || avail <= 0.005) return;
       const t = Math.min(need, avail);
       fn(t);
@@ -196,13 +239,13 @@ export function runPlan(plan, snapshot, { today = new Date(), monthlyReturn = nu
 
   // Record money the plan couldn't cover. Savings stay at zero rather than
   // going negative — a shortfall means the plan doesn't work from here on.
-  const recordShortfall = (amount, y, m, d) => {
+  const recordShortfall = (amount: Money, y: number, m: number, d: string): void => {
     if (amount <= 0.5) return;
     yr.shortfall += amount;
     if (!firstShortfall) firstShortfall = { year: y, month: m, date: d, amount: round2(amount) };
   };
 
-  const invest = amount => {
+  const invest = (amount: Money): void => {
     let left = amount;
     people.forEach(p => {
       const t = Math.min(left, Math.max(0, reg[p.id].tfsaRoom));
@@ -212,8 +255,8 @@ export function runPlan(plan, snapshot, { today = new Date(), monthlyReturn = nu
     yr.invested += amount;
   };
 
-  const rows = [];
-  let firstShortfall = null;
+  const rows: PlanRow[] = [];
+  let firstShortfall: Shortfall | null = null;
   yr = newYear(start.y);
   planYearRates(start.y, start.m);
 
@@ -305,8 +348,9 @@ export function runPlan(plan, snapshot, { today = new Date(), monthlyReturn = nu
     });
     let recurringSpend = 0;
     recurring.forEach(ev => {
-      if (d < ev.start.slice(0, 7) || (ev.end && d > ev.end.slice(0, 7))) return;
-      const since = monthsBetween(parseYm(ev.start), { y, m });
+      const start = ev.start as YearMonth;
+      if (d < start.slice(0, 7) || (ev.end && d > ev.end.slice(0, 7))) return;
+      const since = monthsBetween(parseYm(start), { y, m });
       recurringSpend += (Number(ev.monthly) || 0) * (ev.inflate === false ? 1 : Math.pow(1 + infl / 100, since / 12));
     });
     // Home Buyers' Plan repayments: move cash back into the RRSP.
@@ -321,8 +365,8 @@ export function runPlan(plan, snapshot, { today = new Date(), monthlyReturn = nu
     yr.living += living; yr.housing += housing; yr.debtPay += debtPay; yr.recurringSpend += recurringSpend;
 
     // 4. One-time events this month
-    occurrences.filter(o => o.date === d).forEach(({ event: ev, occurrence }) => {
-      const res = { date: d, name: ev.name, type: ev.type, occurrence };
+    for (const { event: ev, occurrence } of occurrences.filter(o => o.date === d)) {
+      const res: YearEvent = { label: ev.name || ev.type, date: d, name: ev.name, type: ev.type, occurrence };
       if (ev.type === 'house') {
         // Moving: sell the current home first (agent/legal costs ~5%).
         if (home) {
@@ -365,12 +409,18 @@ export function runPlan(plan, snapshot, { today = new Date(), monthlyReturn = nu
         if (loan) {
           const principal = price - down;
           const months = Number(ev.loanMonths ?? 60);
-          carLoans.push({ balance: principal, r: (Number(ev.loanRate ?? 6.5) / 100) / 12, payment: loanPayment(principal, Number(ev.loanRate ?? 6.5), months) });
+          carLoans.push({
+            name: ev.name || 'Car loan',
+            balance: principal,
+            r: (Number(ev.loanRate ?? 6.5) / 100) / 12,
+            payment: loanPayment(principal, Number(ev.loanRate ?? 6.5), months),
+            startK: 0,
+          });
           Object.assign(res, { price: round2(price), down: round2(down), loan: round2(principal), monthlyPayment: round2(loanPayment(principal, Number(ev.loanRate ?? 6.5), months)) });
         } else Object.assign(res, { price: round2(price), down: round2(down) });
         res.shortfall = round2(short);
         yr.eventsSpend += down;
-      } else {
+      } else if (ev.type === 'oneTime') {
         const amount = Number(ev.amount) || 0;
         const short = withdraw(amount);
         recordShortfall(short, y, m, d);
@@ -378,8 +428,9 @@ export function runPlan(plan, snapshot, { today = new Date(), monthlyReturn = nu
         yr.eventsSpend += amount - short;
       }
       yr.events.push(res);
-      (eventResults[ev.id] = eventResults[ev.id] || []).push(res);
-    });
+      const forEvent = (eventResults[ev.id] ||= []) as YearEvent[];
+      forEvent.push(res);
+    }
 
     // 5. Rebalance cash: invest surplus above the buffer, cover any deficit.
     const monthlyOut = living + housing + debtPay + recurringSpend;
@@ -401,7 +452,7 @@ export function runPlan(plan, snapshot, { today = new Date(), monthlyReturn = nu
     // 7. Year end: settle income tax, grow RRSP room, record the row.
     if (m === 11 || k === totalMonths - 1) {
       let taxTotal = 0, incomeTaxTotal = 0, payrollTotal = 0, trueUp = 0, marginal = 0, grossTotal = 0;
-      const byPersonOut = {};
+      const byPersonOut: Record<string, PersonYearSummary> = {};
       people.forEach(p => {
         const bp = yr.byPerson[p.id];
         const t = computeTax({
@@ -434,7 +485,7 @@ export function runPlan(plan, snapshot, { today = new Date(), monthlyReturn = nu
         recordShortfall(short, y, m, d);
       }
 
-      const regTotals = key => sum(people.map(p => reg[p.id][key]));
+      const regTotals = (key: 'tfsa' | 'rrsp' | 'fhsa'): Money => sum(people.map(p => reg[p.id][key]));
       const liquid = cash + nonreg.value + regTotals('tfsa') + regTotals('rrsp') + regTotals('fhsa');
       const otherDebt = sum(debts.map(dt => dt.balance)) + sum(carLoans.map(c => c.balance));
       const mortgage = home ? home.mortgage : 0;
@@ -493,14 +544,21 @@ export function runPlan(plan, snapshot, { today = new Date(), monthlyReturn = nu
  * retirement (or at all, if it already fails, before the original failure).
  * Tries each month from now up to `maxYears` ahead.
  */
-export function earliestAffordableDate(plan, snapshot, eventId, { today = new Date(), maxYears = 30 } = {}) {
+export function earliestAffordableDate(
+  plan: LifePlan,
+  snapshot: PlanSnapshot,
+  eventId: string,
+  { today = new Date(), maxYears = 30 }: { today?: Date; maxYears?: number } = {},
+): YearMonth | null {
   const ev = (plan.events || []).find(e => e.id === eventId);
   if (!ev) return null;
   const me = plan.people.find(p => p.id === 'me');
+  if (!me) return null;
   const retireYear = Number(me.birthYear) + Number(me.retireAge ?? 65);
-  const ok = res => {
-    if (res.needsSetup) return false;
-    const funded = (res.eventResults[eventId] || []).every(r => !(r.shortfall > 0.5));
+  const ok = (res: PlanOutcome): boolean => {
+    if (needsSetup(res)) return false;
+    const forEvent = (res.eventResults[eventId] || []) as YearEvent[];
+    const funded = forEvent.every(r => !(Number(r.shortfall) > 0.5));
     const earlyFail = res.firstShortfall && res.firstShortfall.year < retireYear;
     return funded && !earlyFail;
   };

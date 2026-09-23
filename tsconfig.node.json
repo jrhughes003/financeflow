@@ -6,9 +6,9 @@
   // already has — it is the only mode that understands per-file module format,
   // which is the constraint Electron 31 forced by not loading an ESM main.
   //
-  // DOM is in lib because eval/run.mjs imports src/ai/ai.js, which transitively
-  // reaches a module that touches window. ESLint bans window in electron/**
-  // instead, which is where it would actually matter.
+  // DOM is in lib because the config files and scripts here are checked
+  // alongside code that touches browser globals. ESLint bans window in
+  // electron/** instead, which is where it would actually matter.
   "compilerOptions": {
     "target": "ES2022",
     "lib": ["ES2022", "DOM"],
@@ -24,6 +24,6 @@
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["electron", "eval", "scripts", "vite.config.*", "vitest.config.*", "eslint.config.*"],
+  "include": ["electron", "scripts", "vite.config.*", "vitest.config.*", "eslint.config.*"],
   "exclude": ["node_modules", "dist", "release", "coverage"]
 }

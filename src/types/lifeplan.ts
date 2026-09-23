@@ -30,6 +30,8 @@ export interface PlanPerson {
   tfsaRoom: Money;
   rrspRoom: Money;
   fhsaAnnual: Money;
+  /** Counts against the FHSA lifetime cap, which the annual room does not. */
+  fhsaContributedSoFar?: Money;
 }
 
 export interface PlanIncome {
@@ -71,8 +73,13 @@ export interface PlanAssumptions {
 interface PlanEventBase {
   id: string;
   name?: string;
-  /** `YYYY-MM-DD`; only the month is used. */
-  date: IsoDate;
+  /**
+   * When it happens. Written as `YYYY-MM` by the forms, but the engine slices
+   * to seven characters, so a full `YYYY-MM-DD` works too. Empty on a
+   * just-created event the user has not dated yet, and a recurring event has
+   * `start`/`end` instead.
+   */
+  date?: YearMonth | IsoDate;
   /** Absent counts as enabled. */
   enabled?: boolean;
 }
@@ -81,9 +88,9 @@ interface PlanEventBase {
 export interface HouseEvent extends PlanEventBase {
   type: 'house';
   price: Money;
-  downPct: number;
-  mortgageRate: number;
-  amortizationYears: number;
+  downPct?: number;
+  mortgageRate?: number;
+  amortizationYears?: number;
   /** Changes both the land-transfer rebate and the insured amortisation cap. */
   firstTime?: boolean;
   /** Toronto charges a municipal land transfer tax on top of Ontario's. */
@@ -98,10 +105,13 @@ export interface HouseEvent extends PlanEventBase {
   useHBP?: boolean;
 }
 
+/** 'loan' is the only financed option; anything else is paid in cash. */
+export type CarFinancing = 'loan' | 'cash';
+
 export interface CarEvent extends PlanEventBase {
   type: 'car';
   price: Money;
-  financing?: boolean;
+  financing?: CarFinancing;
   downPct?: number;
   loanRate?: number;
   loanMonths?: number;

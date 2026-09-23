@@ -19,8 +19,9 @@
     "skipLibCheck": true,
     "types": []
   },
-  // src/types too: the worker imports the life-plan engine, which imports the
-  // shared domain types, and every file in a project's graph has to be listed.
-  // These are type-only declarations, so they need no lib of their own.
-  "include": ["src/workers", "src/types"]
+  // The worker imports the life-plan engine, which pulls in the rest of
+  // src/utils and the shared types, and every file in a project's graph has to
+  // be inside its include. None of it touches the DOM, which is the property
+  // that makes it safe to compile under the WebWorker lib.
+  "include": ["src/workers", "src/types", "src/utils"]
 }

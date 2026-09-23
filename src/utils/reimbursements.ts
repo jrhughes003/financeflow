@@ -16,12 +16,51 @@
 // amount (what the bank statement shows).
 
 import { format } from 'date-fns';
+import type {
+  EffectiveTransaction, IsoDate, Money, OwedPayment, OwedRecord, Transaction,
+} from '../types/domain';
 
-const roundCents = n => Math.round(n * 100) / 100;
-const sum = arr => arr.reduce((s, v) => s + v, 0);
+/** Where a fronted purchase stands. */
+export type OwedStatusName = 'open' | 'partial' | 'settled' | 'forgiven';
+
+export interface OwedStatus {
+  /** What was owed in the first place. */
+  owed: Money;
+  /** Never more than `owed`: you cannot recover more than you lent. */
+  repaid: Money;
+  /** Still expected back. Zero once forgiven. */
+  remaining: Money;
+  /** What was written off, which is not the same as never having been owed. */
+  forgivenAmount: Money;
+  status: OwedStatusName;
+  isOpen: boolean;
+  people: number | null;
+  payments: OwedPayment[];
+  lastPaymentDate: IsoDate | null;
+}
+
+/** One fronted purchase, with how long it has been outstanding. */
+export type OwedItem = OwedStatus & {
+  t: Transaction;
+  ageDays: number;
+};
+
+export interface OwedSummary {
+  /** Total still expected back across every open item. */
+  outstanding: Money;
+  openCount: number;
+  open: OwedItem[];
+  closed: OwedItem[];
+  repaidThisMonth: Money;
+  totalRepaid: Money;
+  oldestOpenDate: IsoDate | null;
+}
+
+const roundCents = (n: number): Money => Math.round(n * 100) / 100;
+const sum = (arr: number[]): number => arr.reduce((s, v) => s + v, 0);
 
 /** Owed amount for an even split: everyone except the user owes their share. */
-export function owedFromSplit(amount, people) {
+export function owedFromSplit(amount: Money, people: number): Money {
   const n = Math.floor(Number(people) || 0);
   const a = Number(amount) || 0;
   if (n < 2 || a <= 0) return 0;
@@ -35,7 +74,7 @@ export function owedFromSplit(amount, people) {
  * Status of a transaction's owed record, or null when nothing is owed.
  * status: open (nothing back yet) | partial | settled | forgiven
  */
-export function getOwedStatus(t) {
+export function getOwedStatus(t: Transaction | null | undefined): OwedStatus | null {
   const o = t && t.owed;
   const owed = roundCents(Number(o && o.amount) || 0);
   if (!o || owed <= 0) return null;
@@ -45,7 +84,7 @@ export function getOwedStatus(t) {
   const unpaid = roundCents(owed - repaid);
   const forgiven = !!o.forgiven && unpaid > 0;
   const remaining = forgiven ? 0 : unpaid;
-  let status = 'open';
+  let status: OwedStatusName = 'open';
   if (unpaid <= 0) status = 'settled';
   else if (forgiven) status = 'forgiven';
   else if (repaid > 0) status = 'partial';
@@ -63,7 +102,7 @@ export function getOwedStatus(t) {
 }
 
 /** What the purchase costs the user right now: charged amount minus repayments. */
-export function effectiveAmount(t) {
+export function effectiveAmount(t: Transaction): Money {
   const s = getOwedStatus(t);
   const amount = Number(t.amount) || 0;
   if (!s || s.repaid <= 0) return amount;
@@ -74,46 +113,52 @@ export function effectiveAmount(t) {
  * The transaction as spending math should see it. Returns the same object when
  * nothing has been repaid (cheap, and keeps identity for memoization).
  */
-export function withEffectiveAmount(t) {
+export function withEffectiveAmount(t: Transaction): EffectiveTransaction {
   const eff = effectiveAmount(t);
   return eff === t.amount ? t : { ...t, amount: eff, chargedAmount: t.amount };
 }
 
 let seq = 0;
-const newId = () => `pay_${Date.now().toString(36)}_${(seq++).toString(36)}`;
+const newId = (): string => `pay_${Date.now().toString(36)}_${(seq++).toString(36)}`;
 
 /**
  * Record a repayment. The amount is capped at what's still unpaid; a repayment
  * on a forgiven remainder re-opens it. Returns the updated transaction, or the
  * original unchanged if there's nothing to record.
  */
-export function addRepayment(t, { amount, date = format(new Date(), 'yyyy-MM-dd'), id = newId() } = {}) {
+export function addRepayment(
+  t: Transaction,
+  { amount, date = format(new Date(), 'yyyy-MM-dd'), id = newId() }: { amount: Money; date?: IsoDate; id?: string },
+): Transaction {
   const s = getOwedStatus(t);
-  if (!s) return t;
+  // A non-null status means t.owed is there; naming it says so to the reader
+  // as well as the compiler.
+  const record = t.owed;
+  if (!s || !record) return t;
   const unpaid = roundCents(s.owed - s.repaid);
   const value = roundCents(Math.min(Number(amount) || 0, unpaid));
   if (value <= 0) return t;
-  const payments = [...(t.owed.payments || []), { id, date, amount: value }];
+  const payments = [...(record.payments || []), { id, date, amount: value }];
   const stillUnpaid = roundCents(unpaid - value);
   return {
     ...t,
     owed: {
-      ...t.owed,
+      ...record,
       payments,
       // Money arriving means it wasn't really written off.
-      forgiven: stillUnpaid > 0 ? false : t.owed.forgiven,
+      forgiven: stillUnpaid > 0 ? false : record.forgiven,
     },
   };
 }
 
 /** Remove a repayment (undo a mistake). */
-export function removeRepayment(t, paymentId) {
+export function removeRepayment(t: Transaction, paymentId: string): Transaction {
   if (!t.owed) return t;
   return { ...t, owed: { ...t.owed, payments: (t.owed.payments || []).filter(p => p.id !== paymentId) } };
 }
 
 /** Write off (or un-write-off) whatever is still unpaid. */
-export function setForgiven(t, forgiven, date = format(new Date(), 'yyyy-MM-dd')) {
+export function setForgiven(t: Transaction, forgiven: boolean, date: IsoDate = format(new Date(), 'yyyy-MM-dd')): Transaction {
   if (!t.owed) return t;
   const owed = { ...t.owed, forgiven: !!forgiven };
   if (forgiven) owed.forgivenDate = date;
@@ -125,7 +170,10 @@ export function setForgiven(t, forgiven, date = format(new Date(), 'yyyy-MM-dd')
  * Build/replace the owed record from the entry form, keeping any repayments
  * already recorded. Returns undefined to clear it.
  */
-export function buildOwed(existing, { enabled, amount, people }) {
+export function buildOwed(
+  existing: OwedRecord | undefined,
+  { enabled, amount, people }: { enabled: boolean; amount: Money; people?: number | null },
+): OwedRecord | undefined {
   const value = roundCents(Number(amount) || 0);
   if (!enabled || value <= 0) return undefined;
   return {
@@ -137,19 +185,17 @@ export function buildOwed(existing, { enabled, amount, people }) {
   };
 }
 
-/**
- * Everything the "Owed to me" page needs.
- * @returns { outstanding, openCount, open: [...], closed: [...],
- *            repaidThisMonth, totalRepaid, oldestOpenDate }
- * Items: { t, ...getOwedStatus(t), ageDays }
- */
-export function getOwedSummary(transactions, { today = new Date() } = {}) {
+/** Everything the "Owed to me" page needs. */
+export function getOwedSummary(
+  transactions: Transaction[],
+  { today = new Date() }: { today?: Date } = {},
+): OwedSummary {
   const monthPrefix = format(today, 'yyyy-MM');
   const todayMs = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
   const items = (transactions || [])
     .map(t => ({ t, s: getOwedStatus(t) }))
-    .filter(x => x.s)
-    .map(({ t, s }) => {
+    .filter((x): x is { t: Transaction; s: OwedStatus } => x.s !== null)
+    .map(({ t, s }): OwedItem => {
       const [y, m, d] = (t.date || '').slice(0, 10).split('-').map(Number);
       const ageDays = y ? Math.max(0, Math.round((todayMs - new Date(y, m - 1, d).getTime()) / 86400000)) : 0;
       return { t, ...s, ageDays };

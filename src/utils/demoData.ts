@@ -17,10 +17,17 @@ import { DEFAULT_FLEX, SUBSCRIPTION_FLEX } from './constants';
 // Months of history to generate (full months before the current, partial month).
 const HISTORY_MONTHS = 8;
 
+import type {
+  Budget, Category, Debt, Income, Investment, IsoDate, Money,
+  RecurringTemplate, Transaction,
+} from '../types/domain';
+import type { AppState } from '../types/state';
+import type { LifePlan, YearMonth } from '../types/lifeplan';
+
 const SEED = 0x5f3a91c7;
 
 // Small deterministic PRNG (mulberry32) — no dependency, repeatable output.
-function mulberry32(seed) {
+function mulberry32(seed: number): () => number {
   let a = seed >>> 0;
   return () => {
     a = (a + 0x6d2b79f5) >>> 0;
@@ -30,30 +37,30 @@ function mulberry32(seed) {
   };
 }
 
-const ymd = d => format(d, 'yyyy-MM-dd');
-const round2 = n => Math.round(n * 100) / 100;
+const ymd = (d: Date): IsoDate => format(d, 'yyyy-MM-dd');
+const round2 = (n: number): Money => Math.round(n * 100) / 100;
 
-export default function generateDemoData(today = new Date()) {
+export default function generateDemoData(today: Date = new Date()): AppState {
   const rand = mulberry32(SEED);
   const todayStr = ymd(today);
 
   // --- helpers ---------------------------------------------------------------
   let seq = 0;
-  const nextId = prefix => `${prefix}_demo_${(seq += 1).toString(36).padStart(4, '0')}`;
+  const nextId = (prefix: string): string => `${prefix}_demo_${(seq += 1).toString(36).padStart(4, '0')}`;
 
-  const between = (lo, hi) => round2(lo + rand() * (hi - lo));
-  const pick = arr => arr[Math.floor(rand() * arr.length)];
+  const between = (lo: number, hi: number): number => round2(lo + rand() * (hi - lo));
+  const pick = <T,>(arr: readonly T[]): T => arr[Math.floor(rand() * arr.length)];
 
   // A date inside `monthStart`, clamped to the real length of that month.
-  const dayIn = (monthStart, day) =>
+  const dayIn = (monthStart: Date, day: number): IsoDate =>
     ymd(new Date(monthStart.getFullYear(), monthStart.getMonth(), Math.min(day, getDaysInMonth(monthStart))));
 
-  const txns = [];
+  const txns: Transaction[] = [];
   // Pushes a transaction, skipping anything in the future (the current month is
   // only partially elapsed, so demo data must stop at today).
-  const add = t => {
+  const add = (t: Partial<Transaction> & Pick<Transaction, 'date' | 'amount' | 'merchant' | 'category'>): Transaction | null => {
     if (t.date > todayStr) return null;
-    const full = {
+    const full: Transaction = {
       id: nextId('tx'),
       subcategory: '',
       notes: '',
@@ -74,7 +81,7 @@ export default function generateDemoData(today = new Date()) {
 
   // --- custom categories -----------------------------------------------------
   // Shows off user-created categories alongside the five built-ins.
-  const customCategories = [
+  const customCategories: Category[] = [
     {
       id: 'housing', name: 'Housing', color: '#0ea5e9', icon: 'Tag',
       subcategories: ['Rent', 'Utilities', 'Internet'],
@@ -116,7 +123,7 @@ export default function generateDemoData(today = new Date()) {
     });
   });
 
-  const recurringTemplates = bills.map(bill => {
+  const recurringTemplates: RecurringTemplate[] = bills.map((bill): RecurringTemplate => {
     // First occurrence strictly after today.
     let next = dayIn(startOfMonth(today), bill.day);
     if (next <= todayStr) next = dayIn(startOfMonth(addMonths(today, 1)), bill.day);
@@ -323,7 +330,7 @@ export default function generateDemoData(today = new Date()) {
   });
 
   // --- budgets ---------------------------------------------------------------
-  const budgets = [
+  const budgets: Budget[] = [
     { id: nextId('b'), category: 'groceries', amount: 550, flex: DEFAULT_FLEX, rollover: true },
     { id: nextId('b'), category: 'dining_out', amount: 400, flex: DEFAULT_FLEX, rollover: false },
     { id: nextId('b'), category: 'transportation', amount: 350, flex: DEFAULT_FLEX, rollover: false },
@@ -334,7 +341,7 @@ export default function generateDemoData(today = new Date()) {
   ];
 
   // --- income ----------------------------------------------------------------
-  const incomes = [
+  const incomes: Income[] = [
     { id: nextId('i'), name: 'Software developer salary', amount: 2650, frequency: 'biweekly', source: 'employer', color: '#3b82f6' },
     { id: nextId('i'), name: 'Freelance web work', amount: 600, frequency: 'monthly', source: 'self-employed', color: '#8b5cf6' },
   ];
@@ -346,7 +353,7 @@ export default function generateDemoData(today = new Date()) {
   const anchor = ymd(startOfMonth(subMonths(today, 1)));
   const syncedAt = startOfMonth(subMonths(today, 1)).getTime();
 
-  const investments = [
+  const investments: Investment[] = [
     {
       id: tfsaId, name: 'TFSA — index funds', type: 'stocks',
       currentValue: 38400, asOfDate: anchor, syncedAt,
@@ -371,7 +378,7 @@ export default function generateDemoData(today = new Date()) {
   ];
 
   // --- debts (incl. an interest-free deferred student loan) ------------------
-  const debts = [
+  const debts: Debt[] = [
     {
       id: nextId('d'), name: 'OSAP student loan', type: 'student_loan',
       balance: 17400, interestRate: 0, minimumPayment: 290,
@@ -389,10 +396,10 @@ export default function generateDemoData(today = new Date()) {
   ];
 
   // --- Plan Ahead (life plan) ------------------------------------------------
-  const planMonth = d => format(d, 'yyyy-MM');
+  const planMonth = (d: Date): YearMonth => format(d, 'yyyy-MM');
   const birthYear = today.getFullYear() - 27;
 
-  const lifePlan = {
+  const lifePlan: LifePlan = {
     version: 1,
     people: [
       {

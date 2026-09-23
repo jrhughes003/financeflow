@@ -5,21 +5,74 @@
 // userData path, registering IPC handlers) lives in ./index.cjs and ../main.cjs.
 
 const { SCHEMA_SQL, CURRENT_VERSION, COLLECTION_TABLES } = require('./schema.cjs');
+const { MIGRATIONS } = require('./migrations.cjs');
 
 // The default settings used when a fresh database has none yet.
 const DEFAULT_SETTINGS = { currency: 'CAD', showSampleData: false };
 
 /**
- * Create the schema (idempotent) and record the schema version. Safe to call on
- * every startup; future versions add migration steps keyed on the stored version.
+ * Bring a database up to `target`, applying each pending migration in order.
+ *
+ * A database with no recorded version was created by the `db.exec(SCHEMA_SQL)`
+ * that just ran, so it is already at the current shape: it gets stamped, not
+ * migrated. Running migration 2's `ALTER TABLE ... ADD COLUMN` against a table
+ * SCHEMA_SQL just created with that column would fail.
+ *
+ * Each migration commits together with its version bump, so one that throws
+ * leaves the database exactly as it was rather than half-migrated with a
+ * version claiming otherwise.
+ *
+ * `migrations` and `target` are injectable so the runner can be tested without
+ * inventing a schema change to test it with.
+ *
+ * @returns {{ from: number, to: number, applied: number[] }}
  */
-function initSchema(db) {
-  db.exec(SCHEMA_SQL);
+function runMigrations(db, { migrations = MIGRATIONS, target = CURRENT_VERSION } = {}) {
   const row = db.prepare('SELECT version FROM schema_version LIMIT 1').get();
+
   if (!row) {
-    db.prepare('INSERT INTO schema_version (version) VALUES (?)').run(CURRENT_VERSION);
+    db.prepare('INSERT INTO schema_version (version) VALUES (?)').run(target);
+    return { from: target, to: target, applied: [] };
   }
-  // (When CURRENT_VERSION climbs, run ordered ALTER/data migrations here based on row.version.)
+
+  const from = Number(row.version) || 0;
+
+  // Written by a newer build. There is no way to know what it changed, and
+  // guessing means writing this version's assumptions over data that does not
+  // match them — the same failure mode as the empty-ledger overwrite.
+  if (from > target) {
+    throw new Error(
+      `This database is at schema version ${from}, but this build only understands ${target}. `
+      + 'It was written by a newer version of FinanceFlow. Update the app rather than opening it with this one.',
+    );
+  }
+
+  const pending = migrations
+    .filter(m => m.to > from && m.to <= target)
+    .sort((a, b) => a.to - b.to);
+
+  for (const migration of pending) {
+    db.transaction(() => {
+      migration.up(db);
+      db.prepare('UPDATE schema_version SET version = ?').run(migration.to);
+    })();
+  }
+
+  // A version can climb with no migration behind it — adding a table or an
+  // index needs none, because SCHEMA_SQL is CREATE ... IF NOT EXISTS and has
+  // already run. Record where we ended up either way.
+  if (from !== target) db.prepare('UPDATE schema_version SET version = ?').run(target);
+
+  return { from, to: target, applied: pending.map(m => m.to) };
+}
+
+/**
+ * Create the schema (idempotent) and bring it up to the current version.
+ * Safe to call on every startup.
+ */
+function initSchema(db, options) {
+  db.exec(SCHEMA_SQL);
+  return runMigrations(db, options);
 }
 
 /** True if the database has no user data yet (used to decide whether to migrate). */
@@ -158,4 +211,6 @@ function setMeta(db, key, value) {
     .run(key, value);
 }
 
-module.exports = { initSchema, isEmpty, loadAll, saveAll, getMeta, setMeta, DEFAULT_SETTINGS };
+module.exports = {
+  initSchema, runMigrations, isEmpty, loadAll, saveAll, getMeta, setMeta, DEFAULT_SETTINGS,
+};

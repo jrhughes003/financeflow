@@ -84,6 +84,13 @@ Versions follow [SemVer](https://semver.org/).
   the preload, the main process and the typed bridge.
 - **Documentation for the Q&A eval**, which scores trust and correctness
   separately and refuses to average them.
+- **A schema migration runner.** The database had a version field that nothing
+  read, which looks like a plan and isn't one. Migrations now run in order, each
+  committing together with its version bump so one that fails leaves the
+  database exactly as it was, and a database written by a newer build is
+  refused rather than guessed at. The migration list is empty — nothing has
+  needed changing yet — so the runner is tested against migrations the tests
+  define themselves.
 - `SECURITY.md`, `CONTRIBUTING.md`, issue and PR templates, and a release
   workflow that builds and verifies the Windows installer from a clean checkout.
 
@@ -109,7 +116,6 @@ Versions follow [SemVer](https://semver.org/).
   simple, because debouncing it would trade a fraction of a frame for a window
   in which a saved edit exists only in memory. It is the first thing to change
   if it grew.
-- Schema migrations have a version field and no runner.
 - Vite is held at 5. Moving to 8 needs `@vitejs/plugin-react` and vitest to move
   with it, and vitest 5 recomputes coverage on a different basis — a toolchain
   migration, not a dependency bump.

@@ -15,7 +15,12 @@ function getWorker() {
   if (worker) return worker;
   if (typeof Worker === 'undefined') return null;
   try {
-    worker = new Worker(new URL('../../workers/montecarlo.worker.js', import.meta.url), { type: 'module' });
+    // Vite reads this literal at build time, so it has to name the real file.
+    // Get it wrong and the catch below swallows the failure, the simulation
+    // silently falls back to running in-process, and every test still passes —
+    // the jsdom tests exercise that fallback by design. Only the bundle shows
+    // it, which is why CI asserts the worker chunk exists.
+    worker = new Worker(new URL('../../workers/montecarlo.worker.ts', import.meta.url), { type: 'module' });
   } catch {
     worker = null; // blocked or unsupported; the caller gets the fallback
   }

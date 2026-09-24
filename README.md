@@ -15,6 +15,25 @@ exactly what may be sent to the Anthropic API: insights send **aggregate totals 
 sends **nothing but your question** — the model has to call tools that compute aggregates locally
 to learn any figure at all. See [Privacy](#privacy).
 
+## Get it
+
+**Windows desktop** — [download the installer from the latest release](https://github.com/jrhughes003/financeflow/releases/latest)
+(`FinanceFlow Setup x.y.z.exe`). It installs for the current user, so it needs no administrator
+rights, and keeps your database at `%APPDATA%\FinanceFlow\financeflow.db`. Uninstall through
+Windows Settings → Apps like anything else.
+
+The installer is **not code-signed**, so the first time you run it Windows SmartScreen will say
+*"Windows protected your PC"*. That warning is accurate — it means nobody has paid a certificate
+authority to vouch for this binary, not that the file has been checked and found safe. If you
+want it anyway, choose **More info → Run anyway**. If you would rather not extend that trust to a
+stranger's executable, which is a reasonable position: the browser demo above installs nothing,
+and `npm run dist` builds the identical installer from source on your own machine.
+
+Windows is the only desktop target today. Everywhere else, the browser version is the whole app
+minus the AI features, which need the desktop build's main process.
+
+**From source** — the browser build, which needs no native module:
+
 ```bash
 npm install
 npm run dev          # browser at http://localhost:5173

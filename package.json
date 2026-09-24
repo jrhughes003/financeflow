@@ -18,7 +18,7 @@
     "electron:dev": "concurrently -k \"vite\" \"wait-on tcp:5173 && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron .\"",
     "ai:mock": "node electron/ai/mockServer.cjs",
     "electron:dev:mock": "concurrently -k \"npm run ai:mock\" \"vite\" \"wait-on tcp:5173 tcp:8787 && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 FINANCEFLOW_AI_BASE_URL=http://127.0.0.1:8787 electron .\"",
-    "dist": "vite build && electron-builder && node scripts/verifyPackage.cjs",
+    "dist": "vite build && electron-builder --publish never && node scripts/verifyPackage.cjs",
     "test:e2e": "playwright test",
   "lint": "eslint .",
     "lint:fix": "eslint . --fix",

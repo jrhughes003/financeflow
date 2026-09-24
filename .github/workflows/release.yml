@@ -48,6 +48,13 @@ jobs:
       # `dist` builds the bundle, packages it, and then runs verifyPackage,
       # which extracts every packaged .cjs and parses it. A listing alone would
       # not have caught the torn archive that made it necessary.
+      #
+      # It passes --publish never. On a tag push electron-builder otherwise
+      # decides to upload to GitHub Releases itself — "artifacts will be
+      # published, reason=tag is defined" — and fails for want of a GH_TOKEN
+      # after the installer has already been built successfully. Publishing is
+      # the next step's job, as a draft; two things releasing the same
+      # artifacts is not something to fix by handing it a token.
       - run: npm run dist
 
       # GITHUB_REF_NAME is the *branch* on a manual dispatch, not the tag the

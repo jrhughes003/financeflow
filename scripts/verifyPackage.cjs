@@ -31,7 +31,12 @@ const listed = asar.listPackage(archive).map((raw) => {
 });
 
 const modules = listed.filter(f => f.name.startsWith('electron/') && f.name.endsWith('.cjs'));
-const tests = listed.filter(f => f.name.includes('.test.'));
+// Our own test files leaking into the shipped app is the thing worth catching,
+// and package.json's "!electron/**/*.test.*" is what prevents it. A dependency
+// shipping its own tests is normal and not this project's business — matching
+// those failed a perfectly good archive, because @stablelib/base64 carries
+// three and this check had never been run against a real build until now.
+const tests = listed.filter(f => !f.name.startsWith('node_modules/') && f.name.includes('.test.'));
 
 if (modules.length === 0) {
   console.error(`no electron/*.cjs modules found in ${archive} — is this the right archive?`);
@@ -56,5 +61,6 @@ for (const { lookup, name } of modules) {
 }
 
 console.log(`\ntest files packaged: ${tests.length}${tests.length ? ' (expected 0)' : ' ✓'}`);
+for (const t of tests) console.error(`  leaked: ${t.name}`);
 console.log(broken ? `FAILED — ${broken} module(s) unreadable` : 'archive OK — every module extracts and parses');
 process.exit(broken || tests.length ? 1 : 0);

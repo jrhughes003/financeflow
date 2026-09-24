@@ -1,7 +1,10 @@
 {
   "name": "financeflow",
   "private": true,
-  "version": "1.8.0",
+  "version": "1.9.0",
+  "description": "Local-first personal finance: budgets, reimbursements, debt payoff and a long-range plan with Canadian tax treatment. Nothing leaves your machine.",
+  "author": "jrhughes003",
+  "license": "MIT",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {

@@ -50,10 +50,16 @@ jobs:
       # not have caught the torn archive that made it necessary.
       - run: npm run dist
 
+      # GITHUB_REF_NAME is the *branch* on a manual dispatch, not the tag the
+      # checkout above used, so reading it directly would compare "main"
+      # against the version and fail every dispatched release. Use the same
+      # expression the checkout does.
       - name: Confirm the version matches the tag
         shell: bash
+        env:
+          RELEASE_REF: ${{ github.event.inputs.tag || github.ref_name }}
         run: |
-          tag="${GITHUB_REF_NAME#v}"
+          tag="${RELEASE_REF#v}"
           pkg=$(node -p "require('./package.json').version")
           if [ "$tag" != "$pkg" ]; then
             echo "tag v$tag does not match package.json $pkg"

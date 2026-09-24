@@ -8,6 +8,13 @@ Versions follow [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [1.9.0] — 2026-09-24
+
+The first release with a changelog, and the first built by CI from a clean
+checkout rather than from a laptop.
+
 ### Fixed — data loss
 
 - **A failed startup load could delete the database.** The load wrapped its work

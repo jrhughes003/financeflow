@@ -21,6 +21,19 @@ export const SUBSCRIPTION_FLEX = 5;
 export const DEFAULT_TREND_MONTHS = 6;
 export const ANOMALY_LOOKBACK_MONTHS = 3;
 
+// The statistical path needs a baseline with some spread in it. Three months is
+// enough for a mean and nowhere near enough for a median and a MAD, so the
+// robust test reaches further back and falls through to the old ratio rule when
+// the history is not there yet — which, for a new ledger, is most of the time.
+export const ANOMALY_BASELINE_MONTHS = 12;
+export const ANOMALY_MIN_BASELINE = 4;
+
+// False discovery rate for the per-category screen. Every category is a
+// separate test, so at a fixed per-test threshold the chance of at least one
+// false alarm climbs with the number of categories; this controls the expected
+// proportion of wrong flags instead.
+export const ANOMALY_FDR_Q = 0.05;
+
 // --- Analytics insights (insights.js) ---
 // Trailing full months used as the "usual" baseline for comparisons, forecasts,
 // and savings opportunities.
@@ -28,6 +41,13 @@ export const INSIGHT_LOOKBACK_MONTHS = 3;
 // Months of history used to estimate the discretionary-spend range in the
 // cash-flow outlook, and how many months ahead it projects.
 export const FORECAST_HISTORY_MONTHS = 6;
+
+// The forecasting model reaches back further than the headline average does.
+// Seasonality cannot be estimated from less than two full cycles, and a yearly
+// shape is the one worth having — December is not like February. Six months
+// still drives the typical-spend figure, because that is a question about now.
+export const FORECAST_MODEL_MONTHS = 24;
+export const FORECAST_SEASON_PERIOD = 12;
 export const FORECAST_MONTHS = 6;
 // A category "is trending up" when its recent average beats the prior window by
 // at least this fraction AND this many dollars per month.

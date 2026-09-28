@@ -50,6 +50,9 @@
     "src/utils/accounts.ts",
     "src/utils/insights.ts",
     "src/utils/recurring.ts",
-    "src/utils/categorization.ts"
+    "src/utils/categorization.ts",
+    "src/utils/stats/robust.ts",
+    "src/utils/forecast/holtWinters.ts",
+    "src/utils/periodicity.ts"
   ]
 }

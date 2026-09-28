@@ -8,7 +8,51 @@ Versions follow [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
-Nothing yet.
+### Changed — the statistics behind the numbers
+
+- **Anomaly detection is a statistical test rather than a threshold.** The old
+  rule was "more than twice the mean of the last three months", which has two
+  problems on real data: a mean is dragged upward by the very outlier it is
+  meant to find, and screening every category at a fixed threshold makes a
+  false alarm somewhere near-certain. The baseline is now a median with a MAD
+  for scale, and the per-category scores go through a Benjamini-Hochberg screen
+  that bounds the expected proportion of wrong flags. A flagged category must
+  still clear the existing size gates, because statistical significance without
+  a material jump is just noise with a p-value. The old ratio rule remains for
+  a baseline too short, or too flat, to measure a spread from — twelve
+  identical charges make the thirteenth statistically unsayable and obviously
+  wrong, and the fallback is what catches it.
+- **Cash-flow forecasting uses Holt-Winters instead of a flat average.** Every
+  future month used to get the same number and the same band. It now has a
+  level, a trend, a seasonal index, and an interval that widens with the
+  horizon. Below a full year of history the seasonal band is *withheld*, not
+  merely widened: measured on synthetic seasonal data, a nominal 95% interval
+  covered 8-20% of actuals at 6-9 months of history against 92-96% from 14
+  months, because residuals cannot contain a swing the model has never seen.
+  The forecast reports which method it used and why.
+- **Recurring detection uses autocorrelation instead of averaging gaps.**
+  Averaging is fragile in the ways statements are actually messy: one skipped
+  month turns 30/30/30 into a mean of 37.5 days and a monthly subscription
+  stops being detected at all. Asking instead how much of the whole series a
+  cadence explains costs a little confidence for a missing charge rather than
+  losing the answer. It also stopped inventing cadences — five scattered
+  hardware-store trips average 37.5 days apart, which the old 25% tolerance
+  reported as a monthly subscription.
+
+### Added
+
+- **A measured answer on sentence embeddings, and a decision not to ship
+  them.** The categoriser's weakness is stated in its own comments: character
+  n-grams cannot know that Loblaws and Sobeys are both groceries. Scored on
+  merchant-grouped folds, where every merchant is one the model has never seen:
+  keywords 0.632 macro-F1, character n-grams 0.257, embeddings 0.254. The
+  embeddings did not win, and they would have cost 288 MB of onnxruntime in the
+  installer and a 72.9 MB renderer chunk. The harness is committed and runnable
+  (`RUN_EMBEDDING_EVAL=1`), the library is a devDependency, and a test asserts
+  nothing in the app can import it. Caveat worth stating: the demo ledger's
+  merchants are drawn from a list the keyword matcher was written against, so
+  keywords have home advantage here — the honest reading is that embeddings did
+  not beat n-grams, not that keywords are unbeatable.
 
 ## [1.9.0] — 2026-09-24
 

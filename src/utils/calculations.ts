@@ -3,8 +3,12 @@ import {
   ANOMALY_MIN_AVERAGE,
   ANOMALY_MULTIPLIER,
   ANOMALY_LOOKBACK_MONTHS,
+  ANOMALY_BASELINE_MONTHS,
+  ANOMALY_MIN_BASELINE,
+  ANOMALY_FDR_Q,
   DEFAULT_TREND_MONTHS,
 } from './constants';
+import { median, mad, robustZ, normalTwoSidedP, benjaminiHochberg } from './stats/robust';
 import { withEffectiveAmount } from './reimbursements';
 import { getInvestmentsValue } from './accounts';
 
@@ -283,6 +287,36 @@ export function getGoalProgress(goal: Goal, transactions: Transaction[]): GoalPr
 
 // Detect anomalies: categories spending well above their rolling average.
 // Thresholds come from constants but may be overridden via settings.
+/**
+ * Categories where this month's spending looks unusual.
+ *
+ * The old rule was "more than twice the mean of the last three months". Two
+ * things were wrong with it, and both matter on real data.
+ *
+ * A mean is pulled by the very outlier it is meant to detect: one $900 month in
+ * a run of $200 ones lifts the average enough to hide itself. The baseline is
+ * now a median, with a MAD for scale — neither moves when a single month is
+ * extreme.
+ *
+ * And every category is a separate test. Screen eight categories at a fixed
+ * threshold and the chance that at least one fires by luck is far higher than
+ * the threshold suggests; screen thirty and you are guaranteed noise. The
+ * z-scores become one-sided p-values and go through a Benjamini-Hochberg
+ * screen, so what is controlled is the expected *proportion* of wrong flags
+ * across the batch rather than the rate of any single one.
+ *
+ * Statistical surprise alone is not enough to bother someone, so a flagged
+ * category must also clear the existing size gates — `multiplier` and
+ * `minAverage`, which remain the user's settings and keep their meaning. A
+ * category that is 20% over a very steady baseline may be significant and is
+ * not worth a banner.
+ *
+ * The ratio rule is still here as a fallback, and it is not vestigial: it
+ * covers a baseline too short to estimate a spread from, and a baseline with no
+ * spread at all. Twelve identical $10.99 charges give a MAD of zero, and a
+ * thirteenth of $900 is obviously wrong while being statistically unsayable.
+ * `method` records which test fired.
+ */
 export function detectAnomalies(
   transactions: Transaction[],
   month: number,
@@ -291,30 +325,84 @@ export function detectAnomalies(
 ): Anomaly[] {
   const minAverage = options.minAverage ?? ANOMALY_MIN_AVERAGE;
   const multiplier = options.multiplier ?? ANOMALY_MULTIPLIER;
+  const q = options.q ?? ANOMALY_FDR_Q;
+  const baselineMonths = options.baselineMonths ?? ANOMALY_BASELINE_MONTHS;
+
   const now = new Date(year, month, 1);
   const currentSpending = getSpendingByCategory(transactions, month, year);
-  const alerts: Anomaly[] = [];
 
-  // Build rolling average over the lookback window
-  const months = Array.from({ length: ANOMALY_LOOKBACK_MONTHS }, (_, i) => {
+  // One column per prior month, longest first, so a category's series can be
+  // sliced to whichever window the test in use needs.
+  const history = Array.from({ length: baselineMonths }, (_, i) => {
     const d = subMonths(now, i + 1);
     return getSpendingByCategory(transactions, d.getMonth(), d.getFullYear());
   });
 
+  interface Candidate {
+    category: string;
+    current: Money;
+    baseline: Money;
+    ratio: number;
+    z: number;
+    p: number;
+    usable: boolean;
+  }
+
   const categories = [...new Set(transactions.map(t => t.category))];
-  categories.forEach(cat => {
-    const monthlyAverages = months.map(m => m[cat] || 0);
-    const avg = monthlyAverages.reduce((s, v) => s + v, 0) / ANOMALY_LOOKBACK_MONTHS;
-    const current = currentSpending[cat] || 0;
-    if (avg > minAverage && current > avg * multiplier) {
-      alerts.push({
-        category: cat,
-        current,
-        average: avg,
-        ratio: current / avg,
-        message: `You spent ${formatCurrency(current)} on this category this month — ${Math.round(current / avg)}x your usual ${formatCurrency(avg)}.`
-      });
-    }
+  const candidates: Candidate[] = categories.map((category) => {
+    const current = currentSpending[category] || 0;
+    const series = history.map(m => m[category] || 0);
+
+    // A month with no spending at all in a category is a real zero, not a gap:
+    // not buying groceries in March is information about March.
+    const recent = series.slice(0, ANOMALY_LOOKBACK_MONTHS);
+    const legacyAverage = recent.reduce((sum, v) => sum + v, 0) / ANOMALY_LOOKBACK_MONTHS;
+
+    const spread = mad(series);
+    const usable = series.length >= ANOMALY_MIN_BASELINE && spread > 0;
+    const centre = usable ? median(series) : legacyAverage;
+    const z = usable ? robustZ(current, series) : 0;
+
+    // One-sided: only overspending is an anomaly worth surfacing. Spending
+    // unusually little is not a problem the user wants a banner about, and a
+    // two-sided p would halve the evidence needed to say so.
+    const p = usable && z > 0 ? normalTwoSidedP(z) / 2 : 1;
+
+    return {
+      category,
+      current,
+      baseline: roundCents(centre),
+      ratio: centre > 0 ? current / centre : 0,
+      z,
+      p,
+      usable,
+    };
+  });
+
+  // The screen runs over every category at once, which is what makes the false
+  // discovery rate mean anything: run it per category and then merge and the
+  // guarantee is gone.
+  const testable = candidates.filter(c => c.usable);
+  const significant = new Set(
+    benjaminiHochberg(testable.map(c => c.p), q).discoveries.map(i => testable[i].category),
+  );
+
+  const alerts: Anomaly[] = [];
+  candidates.forEach((c) => {
+    const material = c.baseline > minAverage && c.current > c.baseline * multiplier;
+    if (!material) return;
+    if (c.usable && !significant.has(c.category)) return;
+
+    const method: 'fdr' | 'ratio' = c.usable ? 'fdr' : 'ratio';
+    alerts.push({
+      category: c.category,
+      current: c.current,
+      average: c.baseline,
+      ratio: c.ratio,
+      message: `You spent ${formatCurrency(c.current)} on this category this month — ${Math.round(c.ratio)}x your usual ${formatCurrency(c.baseline)}.`,
+      method,
+      ...(method === 'fdr' ? { robustZ: c.z, pValue: c.p } : {}),
+    });
   });
   return alerts;
 }

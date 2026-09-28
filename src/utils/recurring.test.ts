@@ -15,6 +15,76 @@ const tx = (
   category: 'subscriptions', tags: [], isException: false, ...over,
 });
 
+describe('detectRecurringCandidates — cadences the average-gap rule missed', () => {
+  it('still finds a monthly subscription that skipped a month', () => {
+    // 30/30/60/30: the mean gap is 37.5 days, outside the 25% band around 30,
+    // so the old rule dropped this entirely. One missed payment should cost a
+    // little confidence, not the whole detection.
+    const txns = [
+      tx('2026-01-05', 'Netflix', 15.99),
+      tx('2026-02-05', 'Netflix', 15.99),
+      tx('2026-03-05', 'Netflix', 15.99),
+      // April missed
+      tx('2026-05-05', 'Netflix', 15.99),
+      tx('2026-06-05', 'Netflix', 15.99),
+    ];
+    const [found] = detectRecurringCandidates(txns);
+    if (!found) throw new Error('unreachable: nothing detected');
+    expect(found.frequency).toBe('monthly');
+    expect(found.confidence).toBeGreaterThan(0.6);
+  });
+
+  it('survives an unrelated one-off charge at the same merchant', () => {
+    // The extra charge inserts a short gap that drags the average down to
+    // 22.5 days. Six real monthly charges still outvote it.
+    //
+    // Six and not four on purpose: with only four, `Jan 5, Jan 19, Feb 5,
+    // Mar 5` is honestly ambiguous — a semi-monthly charge that missed a few
+    // beats fits those dates about as well as a monthly one with an extra, and
+    // the detector says so by scoring it 0.56 and declining. That is the
+    // behaviour we want from thin evidence, so the fixture gives it enough
+    // evidence to be sure instead of lowering the bar until it agrees.
+    const txns = [
+      tx('2026-01-05', 'Spotify', 11.99),
+      tx('2026-01-19', 'Spotify', 11.99), // a one-off, not part of the cadence
+      tx('2026-02-05', 'Spotify', 11.99),
+      tx('2026-03-05', 'Spotify', 11.99),
+      tx('2026-04-05', 'Spotify', 11.99),
+      tx('2026-05-05', 'Spotify', 11.99),
+      tx('2026-06-05', 'Spotify', 11.99),
+    ];
+    const [found] = detectRecurringCandidates(txns);
+    if (!found) throw new Error('unreachable: nothing detected');
+    expect(found.frequency).toBe('monthly');
+  });
+
+  it('predicts the next date from the whole series, not just the last charge', () => {
+    // The final charge landed three days early. advanceDate would carry that
+    // drift forward; the detector knows the phase of every prior occurrence.
+    const txns = [
+      tx('2026-01-10', 'Rent', 1200),
+      tx('2026-02-10', 'Rent', 1200),
+      tx('2026-03-10', 'Rent', 1200),
+      tx('2026-04-07', 'Rent', 1200),
+    ];
+    const [found] = detectRecurringCandidates(txns);
+    if (!found) throw new Error('unreachable: nothing detected');
+    expect(found.frequency).toBe('monthly');
+    expect(found.nextDate).not.toBe('2026-05-07');
+  });
+
+  it('does not invent a cadence for scattered one-off purchases', () => {
+    const txns = [
+      tx('2026-01-03', 'Canadian Tire', 40),
+      tx('2026-01-27', 'Canadian Tire', 40),
+      tx('2026-03-14', 'Canadian Tire', 40),
+      tx('2026-03-19', 'Canadian Tire', 40),
+      tx('2026-06-02', 'Canadian Tire', 40),
+    ];
+    expect(detectRecurringCandidates(txns)).toEqual([]);
+  });
+});
+
 describe('detectRecurringCandidates', () => {
   it('detects a stable monthly subscription', () => {
     const txns = [

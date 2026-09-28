@@ -17,8 +17,10 @@ import {
 } from './calculations';
 import { advanceDate, detectRecurringCandidates } from './recurring';
 import { effectiveAmount } from './reimbursements';
+import { optimiseHoltWinters, forecastHoltWinters } from './forecast/holtWinters';
 import {
   INSIGHT_LOOKBACK_MONTHS, FORECAST_HISTORY_MONTHS, FORECAST_MONTHS,
+  FORECAST_MODEL_MONTHS, FORECAST_SEASON_PERIOD,
   TREND_UP_THRESHOLD, TREND_UP_MIN_DELTA, SMALL_PURCHASE_MAX,
   SMALL_PURCHASE_MIN_PER_MONTH, PRICE_INCREASE_MIN_PCT, PRICE_INCREASE_MIN_AMOUNT,
   IRREGULAR_MIN_AMOUNT, SEASONAL_SPIKE_RATIO, SEASONAL_SPIKE_MIN_EXTRA,
@@ -628,16 +630,56 @@ export function projectMonthEnd({
  * once, in the month they're due. The discretionary range (±1 standard deviation
  * of recent months) produces a best/worst band around the cumulative line.
  */
+/**
+ * Discretionary spend per month, oldest first, ready for a time-series model.
+ *
+ * Three things the averaging path does not have to care about and a model does:
+ *
+ * `priorMonths` returns most-recent-first, so this reverses it. Feeding a
+ * reversed series to an exponential smoother does not fail — it fits the trend
+ * backwards and forecasts confidently in the wrong direction.
+ *
+ * Interior months with no transactions become zero rather than disappearing.
+ * Dropping them silently closes the gap and tells the model that February
+ * followed December, which corrupts both the trend and the seasonal index.
+ *
+ * Leading months are dropped until the first month with actual discretionary
+ * spending, because they are almost always "before this ledger existed" rather
+ * than "spent nothing that month". Note the test is spending, not transactions:
+ * a single annual insurance bill sitting in a month makes that month look
+ * populated while its discretionary total is zero, and starting the series
+ * there prepends a run of zeros that reads as explosive growth. That is not
+ * hypothetical — it moved a flat $500/month fixture's forecast to $681.
+ */
+function discretionarySeries(
+  transactions: Transaction[],
+  templates: RecurringTemplate[],
+  months: { month: number; year: number }[],
+  fixedIds?: Set<string>,
+): number[] {
+  const chronological = [...months].reverse().map(({ month, year }) => {
+    const all = getTransactionsForPeriod(transactions, month, year);
+    const disc = all.filter(t => !isFixedTransaction(t, templates, fixedIds));
+    return roundCents(sum(disc.map(t => t.amount)));
+  });
+  const firstReal = chronological.findIndex(total => total > 0);
+  return firstReal === -1 ? [] : chronological.slice(firstReal);
+}
+
 export function forecastCashFlow({
   transactions, incomes = [], recurringTemplates = [], today = new Date(),
   months = FORECAST_MONTHS, historyMonths = FORECAST_HISTORY_MONTHS,
+  modelMonths = FORECAST_MODEL_MONTHS,
 }: {
   transactions: Transaction[];
   incomes?: Income[];
   recurringTemplates?: RecurringTemplate[];
   today?: Date;
   months?: number;
+  /** Window for the headline "typical spend" figure. */
   historyMonths?: number;
+  /** Window for the forecasting model, which needs two cycles for a season. */
+  modelMonths?: number;
 }) {
   const income = roundCents(getTotalIncome(incomes));
   const { bills, billTransactionIds } = detectIrregularExpenses(transactions, { recurringTemplates, today });
@@ -647,6 +689,34 @@ export function forecastCashFlow({
   const low = Math.max(0, mean - std);
   const high = mean + std;
 
+  // The flat mean above answers "what do I usually spend". It is a poor
+  // forecast, because it has no opinion about drift and no opinion about
+  // December: every future month gets the same number and the same band.
+  // Holt-Winters gives a level, a trend and a seasonal index, and a band that
+  // widens as it reaches further out — which is the honest shape for a
+  // forecast, since next month is genuinely more knowable than next year.
+  const series = discretionarySeries(
+    transactions, recurringTemplates,
+    priorMonths(today.getMonth(), today.getFullYear(), modelMonths), billTransactionIds,
+  );
+  const model = optimiseHoltWinters(series, { period: FORECAST_SEASON_PERIOD });
+  // The series ends at *last* month, because priorMonths excludes the month in
+  // progress — so step 1 forecasts this month, and the rows below start at the
+  // next one. Forecast one extra step and drop it, or every figure lands a
+  // month early: a December spike shows up in January, which looks plausible
+  // enough on a chart to go unnoticed.
+  const steps = forecastHoltWinters(model, months + 1).slice(1);
+
+  // Under one full cycle the band is not merely wide, it is wrong: the
+  // residuals cannot contain a seasonal swing the model has never observed, so
+  // the estimated error is confidently tiny. Measured on synthetic seasonal
+  // data, a nominal 95% band covered 8-20% of actuals at 6-9 months of
+  // history, against 92-96% from 14 months. So below a full year the flat
+  // mean +/- sd band is used instead — it is cruder, and it does not claim to
+  // know about a season it has never seen.
+  const seasonalIntervalIsHonest = model.cyclesObserved >= 1
+    && steps.every(step => step.lower !== null && step.upper !== null);
+
   const startOfThisMonth = new Date(today.getFullYear(), today.getMonth(), 1);
   let cum = 0, cumBest = 0, cumWorst = 0;
   const rows = Array.from({ length: months }, (_, i) => {
@@ -655,10 +725,16 @@ export function forecastCashFlow({
     const fixed = roundCents(sum(activeTemplates(recurringTemplates).map(tpl =>
       templateOccurrences(tpl, start, end).length * (Number(tpl.amount) || 0))));
     const irregular = billsInRange(bills, start, end);
-    const net = income - fixed - irregular - mean;
+    // Spending cannot go negative, however far down the fitted trend points.
+    const step = steps[i];
+    const discretionary = Math.max(0, step ? step.point : mean);
+    const discLow = seasonalIntervalIsHonest && step?.lower != null ? Math.max(0, step.lower) : low;
+    const discHigh = seasonalIntervalIsHonest && step?.upper != null ? step.upper : high;
+
+    const net = income - fixed - irregular - discretionary;
     cum += net;
-    cumBest += income - fixed - irregular - low;
-    cumWorst += income - fixed - irregular - high;
+    cumBest += income - fixed - irregular - discLow;
+    cumWorst += income - fixed - irregular - discHigh;
     return {
       label: format(d, 'MMM yyyy'),
       month: d.getMonth(),
@@ -666,7 +742,7 @@ export function forecastCashFlow({
       income,
       fixed,
       irregular,
-      discretionary: roundCents(mean),
+      discretionary: roundCents(discretionary),
       net: roundCents(net),
       cumulative: roundCents(cum),
       cumulativeRange: [roundCents(cumWorst), roundCents(cumBest)],
@@ -679,6 +755,18 @@ export function forecastCashFlow({
     discretionaryAverage: roundCents(mean),
     discretionaryRange: [roundCents(low), roundCents(high)],
     historyMonths: hist.months,
+    /**
+     * What the forecast is actually standing on, so the UI can say it rather
+     * than drawing a confident line and hoping.
+     */
+    forecast: {
+      method: model.method,
+      degradedReason: model.degradedReason,
+      observations: model.observations,
+      cyclesObserved: model.cyclesObserved,
+      /** False when the band came from the flat fallback instead of the model. */
+      seasonalInterval: seasonalIntervalIsHonest,
+    },
   };
 }
 

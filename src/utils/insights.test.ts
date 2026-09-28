@@ -380,6 +380,54 @@ describe('forecasts with periodic bills', () => {
     expect(f.rows[0].net).toBe(900);
   });
 
+  it('says it is not modelling a season when there is under a year of history', () => {
+    const f = forecastCashFlow({ transactions: everyday, incomes: [makeIncome({ amount: 2000, frequency: 'monthly' })], today, months: 3 });
+    // Six flat months cannot support a yearly shape, and the module says so
+    // rather than drawing a confident seasonal line through half a cycle.
+    expect(f.forecast.method).not.toBe('holt-winters');
+    expect(f.forecast.seasonalInterval).toBe(false);
+    expect(f.forecast.degradedReason).toBeTruthy();
+    // A flat history still forecasts flat.
+    expect(f.rows.every(r => Math.abs(r.discretionary - 500) < 1)).toBe(true);
+  });
+
+  it('models the season once two full cycles exist, and widens the band with horizon', () => {
+    // Two years, same shape each year: a December that costs double, plus a
+    // little month-to-month wobble. The wobble is the point — a perfectly
+    // noiseless series has residuals of zero, so the model correctly reports a
+    // band of zero width, and a forecast interval is only meaningful when
+    // there is some irreducible variation for it to describe.
+    // Length 7, deliberately coprime with the 12-month season: a wobble that
+    // repeated every 12 months would BE part of the season, Holt-Winters would
+    // absorb it into the seasonal index, and the residuals — and so the
+    // prediction interval — would collapse to zero.
+    const wobble = [14, -9, 22, -17, 6, -3, 19];
+    const seasonal = Array.from({ length: 24 }, (_, i) => {
+      const d = new Date(2024, 6 + i, 10);
+      const december = d.getMonth() === 11;
+      return tx({
+        date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-10`,
+        amount: (december ? 1000 : 500) + wobble[i % wobble.length],
+      });
+    });
+    const f = forecastCashFlow({
+      transactions: seasonal,
+      incomes: [makeIncome({ amount: 4000, frequency: 'monthly' })],
+      today: day(2026, 6, 10),
+      months: 6,
+    });
+    expect(f.forecast.method).toBe('holt-winters');
+    expect(f.forecast.cyclesObserved).toBeGreaterThanOrEqual(2);
+    expect(f.forecast.seasonalInterval).toBe(true);
+
+    // The band must get wider further out — a forecast that is equally sure
+    // about next month and next December is not a forecast.
+    const widths = f.rows.map(r => r.cumulativeRange[1] - r.cumulativeRange[0]);
+    for (let i = 1; i < widths.length; i += 1) {
+      expect(widths[i]).toBeGreaterThan(widths[i - 1]);
+    }
+  });
+
   it('month-end projection schedules a bill due later this month', () => {
     const due = [
       tx({ date: '2025-07-25', merchant: 'State Farm', amount: 600, category: 'insurance' }),

@@ -70,9 +70,25 @@ export interface GoalCompletion {
 export interface Anomaly {
   category: string;
   current: Money;
+  /** The robust baseline (a median) on the statistical path, a mean on the fallback. */
   average: Money;
   ratio: number;
   message: string;
+  /**
+   * Which test flagged it.
+   *
+   * `fdr` means the category survived a Benjamini-Hochberg screen across every
+   * category tested this month, so the expected proportion of wrong flags in
+   * the batch is bounded. `ratio` is the older rule, used when there is not
+   * enough history to estimate a spread, or when the baseline has no spread at
+   * all — twelve identical charges give a MAD of zero, and no amount of
+   * statistics can call the thirteenth surprising.
+   */
+  method: 'fdr' | 'ratio';
+  /** Robust z-score against the baseline. Absent on the ratio path. */
+  robustZ?: number;
+  /** One-sided p-value for overspending. Absent on the ratio path. */
+  pValue?: number;
 }
 
 export interface MerchantTotal {
@@ -108,6 +124,10 @@ export interface NetWorthOptions {
 export interface AnomalyOptions {
   minAverage?: number;
   multiplier?: number;
+  /** False discovery rate for the across-category screen. */
+  q?: number;
+  /** How far back the robust baseline reaches. */
+  baselineMonths?: number;
 }
 
 /** A period expressed the way the ledger stores dates. */

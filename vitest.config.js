@@ -38,10 +38,10 @@ export default defineConfig({
       // So the floor tracks reality, and the directory that carries the money
       // logic is held to a bar that means something.
       thresholds: {
-        statements: 50,
-        branches: 81,
-        functions: 80,
-        lines: 50,
+        statements: 53,
+        branches: 84,
+        functions: 82,
+        lines: 53,
         'src/utils/**': { statements: 90, branches: 82, functions: 95, lines: 90 },
         // The runtime-backend switch the README leads with. It is 72 lines and
         // every one of them runs, so there is no excuse for it to slip.

@@ -311,6 +311,89 @@ describe('detectAnomalies', () => {
   });
 });
 
+describe('detectAnomalies — the robust path', () => {
+  /** One dining_out charge per month, walking back from Feb 2026. */
+  const monthly = (amounts: number[]): Transaction[] => amounts.map((amount, i) => {
+    const d = new Date(2026, 1 - i, 10);
+    return tx({ date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-10`, amount });
+  });
+
+  it('uses the statistical test once there is enough history, and says so', () => {
+    const txns = [
+      ...monthly([50, 55, 48, 52, 49, 51, 53, 47]), // a steady baseline
+      tx({ date: '2026-03-10', amount: 400 }),      // and a month that is not
+    ];
+    const alerts = detectAnomalies(txns, MARCH.month, MARCH.year);
+    expect(alerts).toHaveLength(1);
+    const [alert] = alerts;
+    if (!alert) throw new Error('unreachable');
+    expect(alert.method).toBe('fdr');
+    // The baseline is a median, so it sits on the steady months rather than
+    // being dragged upward by the spike the test is meant to find.
+    expect(alert.average).toBeGreaterThan(45);
+    expect(alert.average).toBeLessThan(56);
+    expect(alert.robustZ).toBeGreaterThan(3);
+    expect(alert.pValue).toBeLessThan(0.01);
+  });
+
+  it('is not fooled by one extreme month in the baseline, where a mean would be', () => {
+    // A single $900 month inside the history lifts a 3-month mean enough to
+    // hide the next spike. A median does not move at all.
+    const txns = [
+      ...monthly([50, 900, 48, 52, 49, 51, 53, 47]),
+      tx({ date: '2026-03-10', amount: 300 }),
+    ];
+    const alerts = detectAnomalies(txns, MARCH.month, MARCH.year);
+    expect(alerts).toHaveLength(1);
+    const [alert] = alerts;
+    if (!alert) throw new Error('unreachable');
+    expect(alert.average).toBeLessThan(60); // the median ignored the $900
+  });
+
+  it('never flags spending unusually little — the test is one-sided', () => {
+    const txns = [
+      ...monthly([200, 210, 195, 205, 198, 202, 207, 199]),
+      tx({ date: '2026-03-10', amount: 12 }),
+    ];
+    expect(detectAnomalies(txns, MARCH.month, MARCH.year)).toEqual([]);
+  });
+
+  it('falls back to the ratio rule when the baseline has no spread at all', () => {
+    // Twelve identical charges give a MAD of zero. There is no scale to
+    // measure against, so the robust z is 0 and the statistical test can say
+    // nothing — but a jump from $40 to $900 obviously still matters.
+    const txns = [
+      ...monthly([40, 40, 40, 40, 40, 40, 40, 40]),
+      tx({ date: '2026-03-10', amount: 900 }),
+    ];
+    const alerts = detectAnomalies(txns, MARCH.month, MARCH.year);
+    expect(alerts).toHaveLength(1);
+    const [alert] = alerts;
+    if (!alert) throw new Error('unreachable');
+    expect(alert.method).toBe('ratio');
+    expect(alert.robustZ).toBeUndefined();
+  });
+
+  it('falls back to the ratio rule when the history is too short to model', () => {
+    const txns = [...monthly([50, 50]), tx({ date: '2026-03-10', amount: 200 })];
+    const alerts = detectAnomalies(txns, MARCH.month, MARCH.year);
+    expect(alerts).toHaveLength(1);
+    const [alert] = alerts;
+    if (!alert) throw new Error('unreachable');
+    expect(alert.method).toBe('ratio');
+  });
+
+  it('still requires the jump to be material, not merely significant', () => {
+    // A very steady baseline makes a 30% rise statistically obvious. It is
+    // still not worth a banner, and the multiplier gate is what says so.
+    const txns = [
+      ...monthly([100, 100.5, 99.5, 100, 100.2, 99.8, 100.1, 99.9]),
+      tx({ date: '2026-03-10', amount: 130 }),
+    ];
+    expect(detectAnomalies(txns, MARCH.month, MARCH.year)).toEqual([]);
+  });
+});
+
 describe('projectGoalCompletion', () => {
   it('returns months remaining for a positive contribution', () => {
     const goal = makeGoal({ targetAmount: 1000, currentAmount: 400 });

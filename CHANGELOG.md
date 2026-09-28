@@ -8,6 +8,34 @@ Versions follow [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [1.10.0] — 2026-09-28
+
+### Added — categories and merchants
+
+- **18 categories instead of 5.** There was no Housing, Utilities, Health,
+  Travel, Insurance, Entertainment, Education or Pets; the demo ledger worked
+  around it by adding two of them as custom categories. Measured on
+  merchant-grouped folds, where every scored merchant is one the classifier has
+  never seen, the keyword matcher went from 0.632 macro-F1 to 0.830 — a larger
+  gain than any model in this repository has produced.
+- **A 195-merchant table, with autofill.** Built offline by a local Llama and
+  verified by a larger one, then matched on the whole merchant name rather than
+  as a substring, because a generated table holding "Gap", "Roots" and "Metro"
+  would otherwise file "Bloor Roots Cafe" under clothing. Typing a merchant now
+  offers completions and fills in the category. Categorisation reaches 0.857
+  macro-F1 and 0.944 accuracy.
+- The merchant field is a proper ARIA combobox: arrow keys, `aria-activedescendant`,
+  and an Escape that closes the suggestion list without closing the dialog.
+
+### Fixed
+
+- **Stale category labels in the demo ledger.** Best Buy, Canadian Tire, Indigo
+  and Winners were all filed as "products", which was right when there were
+  five categories and a catch-all and wrong afterwards. This was found because
+  it made the merchant table look like a regression when it was an improvement.
+
 ### Changed — the statistics behind the numbers
 
 - **Anomaly detection is a statistical test rather than a threshold.** The old

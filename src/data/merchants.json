@@ -1,0 +1,983 @@
+{
+  "merchants": [
+    {
+      "name": "Abercrombie & Fitch",
+      "category": "clothing",
+      "subcategory": "Everyday"
+    },
+    {
+      "name": "Adidas",
+      "category": "clothing",
+      "subcategory": "Footwear"
+    },
+    {
+      "name": "Aritzia",
+      "category": "clothing",
+      "subcategory": "Everyday"
+    },
+    {
+      "name": "Canada Goose",
+      "category": "clothing",
+      "subcategory": "Outerwear"
+    },
+    {
+      "name": "Converse",
+      "category": "clothing",
+      "subcategory": "Footwear"
+    },
+    {
+      "name": "Gap",
+      "category": "clothing",
+      "subcategory": "Everyday"
+    },
+    {
+      "name": "H&M",
+      "category": "clothing",
+      "subcategory": "Everyday"
+    },
+    {
+      "name": "Hugo Boss",
+      "category": "clothing",
+      "subcategory": "Everyday"
+    },
+    {
+      "name": "L.L.Bean",
+      "category": "clothing",
+      "subcategory": "Outerwear"
+    },
+    {
+      "name": "Levi's",
+      "category": "clothing",
+      "subcategory": "Outerwear"
+    },
+    {
+      "name": "Lids",
+      "category": "clothing",
+      "subcategory": "Accessories"
+    },
+    {
+      "name": "Lululemon",
+      "category": "clothing",
+      "subcategory": "Everyday"
+    },
+    {
+      "name": "Mark's Work Wearhouse",
+      "category": "clothing",
+      "subcategory": "Everyday"
+    },
+    {
+      "name": "New Balance",
+      "category": "clothing",
+      "subcategory": "Footwear"
+    },
+    {
+      "name": "Nike",
+      "category": "clothing",
+      "subcategory": "Footwear"
+    },
+    {
+      "name": "Old Navy",
+      "category": "clothing",
+      "subcategory": "Everyday"
+    },
+    {
+      "name": "Patagonia",
+      "category": "clothing",
+      "subcategory": "Outerwear"
+    },
+    {
+      "name": "Reitmans",
+      "category": "clothing",
+      "subcategory": "Everyday"
+    },
+    {
+      "name": "Roots",
+      "category": "clothing",
+      "subcategory": "Everyday"
+    },
+    {
+      "name": "Steve Madden",
+      "category": "clothing",
+      "subcategory": "Footwear"
+    },
+    {
+      "name": "The Bay",
+      "category": "clothing",
+      "subcategory": "Everyday"
+    },
+    {
+      "name": "The Children's Place",
+      "category": "clothing",
+      "subcategory": "Everyday"
+    },
+    {
+      "name": "The North Face",
+      "category": "clothing",
+      "subcategory": "Outerwear"
+    },
+    {
+      "name": "A&W",
+      "category": "dining_out",
+      "subcategory": "Fast Food"
+    },
+    {
+      "name": "Boston Pizza",
+      "category": "dining_out",
+      "subcategory": "Restaurant"
+    },
+    {
+      "name": "Dairy Queen",
+      "category": "dining_out",
+      "subcategory": "Fast Food"
+    },
+    {
+      "name": "Domino's Pizza",
+      "category": "dining_out",
+      "subcategory": "Food Delivery"
+    },
+    {
+      "name": "Earl's Kitchen + Bar",
+      "category": "dining_out",
+      "subcategory": "Restaurant"
+    },
+    {
+      "name": "Five Guys",
+      "category": "dining_out",
+      "subcategory": "Fast Food"
+    },
+    {
+      "name": "Harvey's",
+      "category": "dining_out",
+      "subcategory": "Fast Food"
+    },
+    {
+      "name": "Joe Beef",
+      "category": "dining_out",
+      "subcategory": "Restaurant"
+    },
+    {
+      "name": "KFC",
+      "category": "dining_out",
+      "subcategory": "Fast Food"
+    },
+    {
+      "name": "McDonald's",
+      "category": "dining_out",
+      "subcategory": "Fast Food"
+    },
+    {
+      "name": "Mr. Mikes Pizza",
+      "category": "dining_out",
+      "subcategory": "Restaurant"
+    },
+    {
+      "name": "Pita Pit",
+      "category": "dining_out",
+      "subcategory": "Fast Food"
+    },
+    {
+      "name": "Pizza Pizza",
+      "category": "dining_out",
+      "subcategory": "Restaurant"
+    },
+    {
+      "name": "Popeyes",
+      "category": "dining_out",
+      "subcategory": "Fast Food"
+    },
+    {
+      "name": "Shake Shack",
+      "category": "dining_out",
+      "subcategory": "Fast Food"
+    },
+    {
+      "name": "Starbucks",
+      "category": "dining_out",
+      "subcategory": "Coffee & Drinks"
+    },
+    {
+      "name": "Tim Hortons",
+      "category": "dining_out",
+      "subcategory": "Coffee & Drinks"
+    },
+    {
+      "name": "Wendy's",
+      "category": "dining_out",
+      "subcategory": "Fast Food"
+    },
+    {
+      "name": "British Columbia Institute of Technology",
+      "category": "education",
+      "subcategory": "Tuition"
+    },
+    {
+      "name": "McGill University",
+      "category": "education",
+      "subcategory": "Tuition"
+    },
+    {
+      "name": "Ryerson University",
+      "category": "education",
+      "subcategory": "Courses"
+    },
+    {
+      "name": "Saskatchewan Polytechnic",
+      "category": "education",
+      "subcategory": "Tuition"
+    },
+    {
+      "name": "University of British Columbia",
+      "category": "education",
+      "subcategory": "Tuition"
+    },
+    {
+      "name": "Apple",
+      "category": "electronics",
+      "subcategory": "Computers"
+    },
+    {
+      "name": "ASUS",
+      "category": "electronics",
+      "subcategory": "Phones & Accessories"
+    },
+    {
+      "name": "Audio-Technica",
+      "category": "electronics",
+      "subcategory": "Audio & Video"
+    },
+    {
+      "name": "Best Buy",
+      "category": "electronics",
+      "subcategory": "Computers"
+    },
+    {
+      "name": "Bose",
+      "category": "electronics",
+      "subcategory": "Audio & Video"
+    },
+    {
+      "name": "Cisco",
+      "category": "electronics",
+      "subcategory": "Components"
+    },
+    {
+      "name": "Dell",
+      "category": "electronics",
+      "subcategory": "Computers"
+    },
+    {
+      "name": "JBL",
+      "category": "electronics",
+      "subcategory": "Audio & Video"
+    },
+    {
+      "name": "Lenovo",
+      "category": "electronics",
+      "subcategory": "Phones & Accessories"
+    },
+    {
+      "name": "Netgear",
+      "category": "electronics",
+      "subcategory": "Components"
+    },
+    {
+      "name": "OnePlus",
+      "category": "electronics",
+      "subcategory": "Phones & Accessories"
+    },
+    {
+      "name": "Razer",
+      "category": "electronics",
+      "subcategory": "Phones & Accessories"
+    },
+    {
+      "name": "Seagate",
+      "category": "electronics",
+      "subcategory": "Components"
+    },
+    {
+      "name": "Sennheiser",
+      "category": "electronics",
+      "subcategory": "Audio & Video"
+    },
+    {
+      "name": "Sony",
+      "category": "electronics",
+      "subcategory": "Audio & Video"
+    },
+    {
+      "name": "SteelSeries",
+      "category": "electronics",
+      "subcategory": "Phones & Accessories"
+    },
+    {
+      "name": "Vizio",
+      "category": "electronics",
+      "subcategory": "Audio & Video"
+    },
+    {
+      "name": "Amazon.ca",
+      "category": "entertainment",
+      "subcategory": "Books & Music"
+    },
+    {
+      "name": "Barnes & Noble",
+      "category": "entertainment",
+      "subcategory": "Books & Music"
+    },
+    {
+      "name": "Cineplex",
+      "category": "entertainment",
+      "subcategory": "Cinema"
+    },
+    {
+      "name": "GameStop",
+      "category": "entertainment",
+      "subcategory": "Games"
+    },
+    {
+      "name": "Hockey Hall of Fame",
+      "category": "entertainment",
+      "subcategory": "Events & Tickets"
+    },
+    {
+      "name": "Indigo",
+      "category": "entertainment",
+      "subcategory": "Books & Music"
+    },
+    {
+      "name": "Theatres on Bay",
+      "category": "entertainment",
+      "subcategory": "Cinema"
+    },
+    {
+      "name": "Ticketmaster",
+      "category": "entertainment",
+      "subcategory": "Events & Tickets"
+    },
+    {
+      "name": "ATM",
+      "category": "fees",
+      "subcategory": "Bank Fees"
+    },
+    {
+      "name": "BMO Bank of Nova Scotia",
+      "category": "fees",
+      "subcategory": "Bank Fees"
+    },
+    {
+      "name": "Foreign Exchange",
+      "category": "fees",
+      "subcategory": "Bank Fees"
+    },
+    {
+      "name": "National Bank of Canada",
+      "category": "fees",
+      "subcategory": "Bank Fees"
+    },
+    {
+      "name": "TD Canada Trust",
+      "category": "fees",
+      "subcategory": "Bank Fees"
+    },
+    {
+      "name": "Toronto-Dominion Bank",
+      "category": "fees",
+      "subcategory": "Bank Fees"
+    },
+    {
+      "name": "BC Children's Hospital",
+      "category": "gifts_donations",
+      "subcategory": "Charity"
+    },
+    {
+      "name": "Canadian Cancer Society",
+      "category": "gifts_donations",
+      "subcategory": "Charity"
+    },
+    {
+      "name": "Canadian Diabetes Association",
+      "category": "gifts_donations",
+      "subcategory": "Charity"
+    },
+    {
+      "name": "Canadian Red Cross",
+      "category": "gifts_donations",
+      "subcategory": "Charity"
+    },
+    {
+      "name": "Community Foundation",
+      "category": "gifts_donations",
+      "subcategory": "Fundraising"
+    },
+    {
+      "name": "Kijiji",
+      "category": "gifts_donations",
+      "subcategory": "Fundraising"
+    },
+    {
+      "name": "Red Cross",
+      "category": "gifts_donations",
+      "subcategory": "Charity"
+    },
+    {
+      "name": "Salvation Army",
+      "category": "gifts_donations",
+      "subcategory": "Charity"
+    },
+    {
+      "name": "United Way",
+      "category": "gifts_donations",
+      "subcategory": "Charity"
+    },
+    {
+      "name": "Bulk Barn",
+      "category": "groceries",
+      "subcategory": "Bulk Store"
+    },
+    {
+      "name": "Costco",
+      "category": "groceries",
+      "subcategory": "Bulk Store"
+    },
+    {
+      "name": "Food Basics",
+      "category": "groceries",
+      "subcategory": "Supermarket"
+    },
+    {
+      "name": "Loblaws",
+      "category": "groceries",
+      "subcategory": "Supermarket"
+    },
+    {
+      "name": "Metro",
+      "category": "groceries",
+      "subcategory": "Supermarket"
+    },
+    {
+      "name": "No Frills",
+      "category": "groceries",
+      "subcategory": "Supermarket"
+    },
+    {
+      "name": "Real Canadian Superstore",
+      "category": "groceries",
+      "subcategory": "Supermarket"
+    },
+    {
+      "name": "Save-On-Foods",
+      "category": "groceries",
+      "subcategory": "Supermarket"
+    },
+    {
+      "name": "Sobeys",
+      "category": "groceries",
+      "subcategory": "Supermarket"
+    },
+    {
+      "name": "Walmart Canada",
+      "category": "groceries",
+      "subcategory": "Supermarket"
+    },
+    {
+      "name": "Zehrs",
+      "category": "groceries",
+      "subcategory": "Supermarket"
+    },
+    {
+      "name": "Great Canadian Pharmacy",
+      "category": "health",
+      "subcategory": "Pharmacy"
+    },
+    {
+      "name": "Pharmaprix",
+      "category": "health",
+      "subcategory": "Pharmacy"
+    },
+    {
+      "name": "Pharmasave Pharmacy",
+      "category": "health",
+      "subcategory": "Pharmacy"
+    },
+    {
+      "name": "Rexall Pharmacy",
+      "category": "health",
+      "subcategory": "Pharmacy"
+    },
+    {
+      "name": "Shoppers Drug Mart",
+      "category": "health",
+      "subcategory": "Pharmacy"
+    },
+    {
+      "name": "Specsavers",
+      "category": "health",
+      "subcategory": "Vision"
+    },
+    {
+      "name": "Bed Bath & Beyond",
+      "category": "home",
+      "subcategory": "Furniture"
+    },
+    {
+      "name": "Canadian Tire",
+      "category": "home",
+      "subcategory": "Hardware & DIY"
+    },
+    {
+      "name": "Home Depot",
+      "category": "home",
+      "subcategory": "Hardware & DIY"
+    },
+    {
+      "name": "Home Hardware",
+      "category": "home",
+      "subcategory": "Hardware & DIY"
+    },
+    {
+      "name": "IKEA",
+      "category": "home",
+      "subcategory": "Furniture"
+    },
+    {
+      "name": "Rona",
+      "category": "home",
+      "subcategory": "Hardware & DIY"
+    },
+    {
+      "name": "The Brick",
+      "category": "home",
+      "subcategory": "Furniture"
+    },
+    {
+      "name": "Canadian Imperial Bank of Commerce",
+      "category": "housing",
+      "subcategory": "Mortgage"
+    },
+    {
+      "name": "Equitable Bank",
+      "category": "housing",
+      "subcategory": "Mortgage"
+    },
+    {
+      "name": "H&R Block",
+      "category": "housing",
+      "subcategory": "Rent"
+    },
+    {
+      "name": "Habitat for Humanity",
+      "category": "housing",
+      "subcategory": "Rent"
+    },
+    {
+      "name": "Home Trust",
+      "category": "housing",
+      "subcategory": "Mortgage"
+    },
+    {
+      "name": "Lowe's",
+      "category": "housing",
+      "subcategory": "Rent"
+    },
+    {
+      "name": "RBC Royal Bank",
+      "category": "housing",
+      "subcategory": "Rent"
+    },
+    {
+      "name": "Scotiabank",
+      "category": "housing",
+      "subcategory": "Mortgage"
+    },
+    {
+      "name": "TD Bank",
+      "category": "housing",
+      "subcategory": "Rent"
+    },
+    {
+      "name": "AIG",
+      "category": "insurance",
+      "subcategory": "Home & Tenant"
+    },
+    {
+      "name": "Allianz",
+      "category": "insurance",
+      "subcategory": "Travel"
+    },
+    {
+      "name": "Allstate",
+      "category": "insurance",
+      "subcategory": "Auto"
+    },
+    {
+      "name": "Blue Cross",
+      "category": "insurance",
+      "subcategory": "Health & Dental"
+    },
+    {
+      "name": "Chubb",
+      "category": "insurance",
+      "subcategory": "Home & Tenant"
+    },
+    {
+      "name": "Cigna",
+      "category": "insurance",
+      "subcategory": "Health & Dental"
+    },
+    {
+      "name": "Great-West Life",
+      "category": "insurance",
+      "subcategory": "Health & Dental"
+    },
+    {
+      "name": "Liberty Mutual",
+      "category": "insurance",
+      "subcategory": "Auto"
+    },
+    {
+      "name": "Manulife",
+      "category": "insurance",
+      "subcategory": "Health & Dental"
+    },
+    {
+      "name": "New York Life",
+      "category": "insurance",
+      "subcategory": "Life"
+    },
+    {
+      "name": "Northwestern Mutual",
+      "category": "insurance",
+      "subcategory": "Life"
+    },
+    {
+      "name": "Progressive",
+      "category": "insurance",
+      "subcategory": "Auto"
+    },
+    {
+      "name": "State Farm",
+      "category": "insurance",
+      "subcategory": "Auto"
+    },
+    {
+      "name": "Sun Life Financial",
+      "category": "insurance",
+      "subcategory": "Health & Dental"
+    },
+    {
+      "name": "UnitedHealthcare",
+      "category": "insurance",
+      "subcategory": "Health & Dental"
+    },
+    {
+      "name": "Banfield Pet Hospital",
+      "category": "pets",
+      "subcategory": "Veterinary"
+    },
+    {
+      "name": "GNC Pet Nutrition",
+      "category": "pets",
+      "subcategory": "Grooming"
+    },
+    {
+      "name": "Pet Supplies Plus",
+      "category": "pets",
+      "subcategory": "Food & Supplies"
+    },
+    {
+      "name": "Pet Valu",
+      "category": "pets",
+      "subcategory": "Food & Supplies"
+    },
+    {
+      "name": "Petco",
+      "category": "pets",
+      "subcategory": "Food & Supplies"
+    },
+    {
+      "name": "PetSmart",
+      "category": "pets",
+      "subcategory": "Food & Supplies"
+    },
+    {
+      "name": "Royal Canin",
+      "category": "pets",
+      "subcategory": "Food & Supplies"
+    },
+    {
+      "name": "Hudson's Bay",
+      "category": "products",
+      "subcategory": "Online Shopping"
+    },
+    {
+      "name": "Marble Slab Creamery",
+      "category": "products",
+      "subcategory": "Online Shopping"
+    },
+    {
+      "name": "AARP",
+      "category": "subscriptions",
+      "subcategory": "Memberships"
+    },
+    {
+      "name": "Adobe",
+      "category": "subscriptions",
+      "subcategory": "Software"
+    },
+    {
+      "name": "Amazon Prime",
+      "category": "subscriptions",
+      "subcategory": "Streaming"
+    },
+    {
+      "name": "American Express",
+      "category": "subscriptions",
+      "subcategory": "Services"
+    },
+    {
+      "name": "Bank of America",
+      "category": "subscriptions",
+      "subcategory": "Services"
+    },
+    {
+      "name": "Capital One",
+      "category": "subscriptions",
+      "subcategory": "Services"
+    },
+    {
+      "name": "Disney+",
+      "category": "subscriptions",
+      "subcategory": "Streaming"
+    },
+    {
+      "name": "Dropbox",
+      "category": "subscriptions",
+      "subcategory": "Software"
+    },
+    {
+      "name": "Hulu",
+      "category": "subscriptions",
+      "subcategory": "Streaming"
+    },
+    {
+      "name": "LinkedIn",
+      "category": "subscriptions",
+      "subcategory": "Services"
+    },
+    {
+      "name": "Mastercard",
+      "category": "subscriptions",
+      "subcategory": "Services"
+    },
+    {
+      "name": "Microsoft",
+      "category": "subscriptions",
+      "subcategory": "Software"
+    },
+    {
+      "name": "Netflix",
+      "category": "subscriptions",
+      "subcategory": "Streaming"
+    },
+    {
+      "name": "Spotify",
+      "category": "subscriptions",
+      "subcategory": "Streaming"
+    },
+    {
+      "name": "Visa",
+      "category": "subscriptions",
+      "subcategory": "Services"
+    },
+    {
+      "name": "Budget",
+      "category": "transportation",
+      "subcategory": "Gas"
+    },
+    {
+      "name": "CIBC",
+      "category": "transportation",
+      "subcategory": "Gas"
+    },
+    {
+      "name": "Esso",
+      "category": "transportation",
+      "subcategory": "Gas"
+    },
+    {
+      "name": "Lyft",
+      "category": "transportation",
+      "subcategory": "Ride Share"
+    },
+    {
+      "name": "Petro-Canada",
+      "category": "transportation",
+      "subcategory": "Gas"
+    },
+    {
+      "name": "SaskEnergy",
+      "category": "transportation",
+      "subcategory": "Tolls"
+    },
+    {
+      "name": "Shell",
+      "category": "transportation",
+      "subcategory": "Gas"
+    },
+    {
+      "name": "TTC",
+      "category": "transportation",
+      "subcategory": "Public Transit"
+    },
+    {
+      "name": "Uber",
+      "category": "transportation",
+      "subcategory": "Ride Share"
+    },
+    {
+      "name": "Accor",
+      "category": "travel",
+      "subcategory": "Hotels"
+    },
+    {
+      "name": "Airbnb",
+      "category": "travel",
+      "subcategory": "Hotels"
+    },
+    {
+      "name": "Avis",
+      "category": "travel",
+      "subcategory": "Car Rental"
+    },
+    {
+      "name": "Best Western",
+      "category": "travel",
+      "subcategory": "Hotels"
+    },
+    {
+      "name": "Delta Hotels",
+      "category": "travel",
+      "subcategory": "Hotels"
+    },
+    {
+      "name": "Enterprise",
+      "category": "travel",
+      "subcategory": "Car Rental"
+    },
+    {
+      "name": "Expedia",
+      "category": "travel",
+      "subcategory": "Flights"
+    },
+    {
+      "name": "Fairmont Hotels",
+      "category": "travel",
+      "subcategory": "Hotels"
+    },
+    {
+      "name": "Hertz",
+      "category": "travel",
+      "subcategory": "Car Rental"
+    },
+    {
+      "name": "Hilton",
+      "category": "travel",
+      "subcategory": "Hotels"
+    },
+    {
+      "name": "Holiday Inn",
+      "category": "travel",
+      "subcategory": "Hotels"
+    },
+    {
+      "name": "Hotels.com",
+      "category": "travel",
+      "subcategory": "Hotels"
+    },
+    {
+      "name": "InterContinental Hotels Group",
+      "category": "travel",
+      "subcategory": "Hotels"
+    },
+    {
+      "name": "Marriott",
+      "category": "travel",
+      "subcategory": "Hotels"
+    },
+    {
+      "name": "Orbitz",
+      "category": "travel",
+      "subcategory": "Tours"
+    },
+    {
+      "name": "Priceline",
+      "category": "travel",
+      "subcategory": "Tours"
+    },
+    {
+      "name": "Travelocity",
+      "category": "travel",
+      "subcategory": "Tours"
+    },
+    {
+      "name": "TurboTax",
+      "category": "travel",
+      "subcategory": "Tours"
+    },
+    {
+      "name": "WestJet",
+      "category": "travel",
+      "subcategory": "Flights"
+    },
+    {
+      "name": "Bell Canada",
+      "category": "utilities",
+      "subcategory": "Internet"
+    },
+    {
+      "name": "Enbridge",
+      "category": "utilities",
+      "subcategory": "Electricity"
+    },
+    {
+      "name": "Fortis",
+      "category": "utilities",
+      "subcategory": "Electricity"
+    },
+    {
+      "name": "Hydro One",
+      "category": "utilities",
+      "subcategory": "Electricity"
+    },
+    {
+      "name": "Ontario Power Generation",
+      "category": "utilities",
+      "subcategory": "Electricity"
+    },
+    {
+      "name": "Rogers",
+      "category": "utilities",
+      "subcategory": "Internet"
+    },
+    {
+      "name": "SNC-Lavalin",
+      "category": "utilities",
+      "subcategory": "Water"
+    },
+    {
+      "name": "Telus",
+      "category": "utilities",
+      "subcategory": "Internet"
+    },
+    {
+      "name": "Toronto Hydro",
+      "category": "utilities",
+      "subcategory": "Electricity"
+    }
+  ],
+  "generatedAt": "2026-09-28T19:22:51.886Z",
+  "model": "hf_bartowski_Llama-3.2-3B-Instruct-Q4_K_M.gguf",
+  "verifiedBy": "hf_bartowski_Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf",
+  "verifiedAt": "2026-09-28T19:49:55.686Z"
+}

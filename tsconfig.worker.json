@@ -17,6 +17,7 @@
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.worker.tsbuildinfo",
     "strict": true,
     "skipLibCheck": true,
+    "resolveJsonModule": true,
     "types": []
   },
   // Exactly the workers' import graphs, listed rather than globbed.
@@ -53,6 +54,9 @@
     "src/utils/categorization.ts",
     "src/utils/stats/robust.ts",
     "src/utils/forecast/holtWinters.ts",
-    "src/utils/periodicity.ts"
+    "src/utils/periodicity.ts",
+    "src/utils/merchants.ts",
+    "src/utils/ml/features.ts",
+    "src/data/merchants.json"
   ]
 }

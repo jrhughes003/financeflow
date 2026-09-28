@@ -1,4 +1,5 @@
 import Modal from './ui/Modal';
+import MerchantCombobox from './ui/MerchantCombobox';
 import React, { useState, useEffect, useId, useRef, useMemo } from 'react';
 import { X, Zap, Plus, Sparkles, HandCoins } from 'lucide-react';
 import { format } from 'date-fns';
@@ -8,6 +9,7 @@ import { runAi, taxonomy, aiSupported } from '../ai/ai';
 import { train, classify } from '../utils/ml/categorizer';
 import { owedFromSplit, getOwedStatus, buildOwed } from '../utils/reimbursements';
 import { formatCurrency } from '../utils/calculations';
+import type { MerchantEntry } from '../utils/merchants';
 import type { Category, IsoDate, Transaction, TransactionKind } from '../types/domain';
 
 /**
@@ -151,6 +153,26 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
     } else {
       setSuggestion('');
     }
+  };
+
+  // Accepting a suggestion from the merchant table: a fourth source, earlier and
+  // cheaper than the three below, and the only one the user saw before it
+  // applied. It is an addition, not a replacement — handleMerchantChange still
+  // runs, so the learned hints and the keyword matcher keep their say, and a
+  // merchant the table does not list is exactly as it was.
+  //
+  // The category is filled only when the field is still empty. A row in a
+  // generated table is a good guess, not a better answer than the choice
+  // somebody made by hand, and overwriting that silently is the one thing this
+  // must never do.
+  const handleMerchantSelect = (entry: MerchantEntry) => {
+    const chosenByUser = !!form.category;
+    handleMerchantChange(entry.name);
+    if (chosenByUser) return;
+    setForm(f => ({ ...f, category: entry.category, subcategory: entry.subcategory }));
+    // The table has answered, so the "auto-categorize as…" offer that
+    // handleMerchantChange may have just raised has nothing left to add.
+    setSuggestion('');
   };
 
   // Three sources, cheapest first. Keywords handle the merchants someone wrote
@@ -407,12 +429,12 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
       {!isSavings && (
       <div>
         <label className="label-micro block mb-1.5" htmlFor={`${uid}-merchant`}>Merchant / Description</label>
-        <input
+        <MerchantCombobox
           id={`${uid}-merchant`}
-          type="text"
           placeholder="e.g. Uber Eats, Metro, Esso..."
           value={form.merchant}
-          onChange={e => handleMerchantChange(e.target.value)}
+          onChange={handleMerchantChange}
+          onSelect={handleMerchantSelect}
           onBlur={categorizeOnBlur}
           className={`w-full px-4 py-3 border-2 rounded-container focus:outline-none focus:border-accent transition-colors ${errors.merchant ? 'border-negative' : 'border-line-strong'}`}
         />

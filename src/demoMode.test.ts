@@ -14,7 +14,13 @@ async function loadContext({ demo }: { demo: boolean }) {
 beforeEach(() => localStorage.clear());
 afterEach(() => { vi.unstubAllEnvs(); localStorage.clear(); });
 
+// These reload the whole context module with vi.resetModules and then render
+// it, which on a cold run is slower than the 5s default — it has tripped the
+// suite three times without anything being wrong. The generous timeout is
+// about module loading, not about waiting for a race.
 describe('demo build', () => {
+  vi.setConfig({ testTimeout: 30_000 });
+
   it('starts empty when the flag is off', async () => {
     const { FinancialProvider } = await loadContext({ demo: false });
     const { render } = await import('@testing-library/react');

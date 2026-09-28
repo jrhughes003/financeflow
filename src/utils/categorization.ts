@@ -8,6 +8,7 @@
 // Custom categories added by the user are stored in context state.
 
 import type { Category } from '../types/domain';
+import { lookupMerchant } from './merchants';
 
 export const CATEGORIES: Category[] = [
   {
@@ -270,6 +271,14 @@ export function getAllCategories(customCategories: Category[] = []): Category[] 
  */
 export function autoCategorize(merchantName: string, customCategories: Category[] = []): string {
   if (!merchantName) return FALLBACK_CATEGORY_ID;
+
+  // The merchant table first, because it matches on the whole name and so can
+  // only be right or silent — it never half-matches the way a substring does.
+  // The keyword lists below are the opposite: broad, deliberately fuzzy, and
+  // able to catch a merchant nobody has ever listed. Specific before general.
+  const known = lookupMerchant(merchantName);
+  if (known) return known.category;
+
   const lower = merchantName.toLowerCase();
   for (const cat of getAllCategories(customCategories)) {
     if ((cat.keywords || []).some(kw => lower.includes(kw))) {
@@ -277,6 +286,17 @@ export function autoCategorize(merchantName: string, customCategories: Category[
     }
   }
   return FALLBACK_CATEGORY_ID;
+}
+
+/**
+ * The subcategory the merchant table suggests, if it knows this merchant.
+ *
+ * Separate from autoCategorize because a subcategory is a suggestion for a
+ * form field, not a classification: nothing downstream depends on it, and
+ * guessing one for an unknown merchant would be noise.
+ */
+export function autoSubcategory(merchantName: string): string | null {
+  return lookupMerchant(merchantName)?.subcategory ?? null;
 }
 
 export function getCategoryById(id: string, customCategories: Category[] = []): Category {

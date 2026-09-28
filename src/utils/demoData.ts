@@ -99,8 +99,8 @@ export default function generateDemoData(today: Date = new Date()): AppState {
   // nextDate is the next occurrence after today.
   const bills = [
     { merchant: 'Rent — Maple Grove Apts', amount: 1650, category: 'housing', subcategory: 'Rent', day: 1 },
-    { merchant: 'Hydro One', amount: 84.5, category: 'housing', subcategory: 'Utilities', day: 8, vary: 18 },
-    { merchant: 'Rogers Internet', amount: 74.99, category: 'housing', subcategory: 'Internet', day: 12 },
+    { merchant: 'Hydro One', amount: 84.5, category: 'utilities', subcategory: 'Electricity', day: 8, vary: 18 },
+    { merchant: 'Rogers Internet', amount: 74.99, category: 'utilities', subcategory: 'Internet', day: 12 },
     { merchant: 'GoodLife Fitness', amount: 39.99, category: 'health', subcategory: 'Gym', day: 3 },
     { merchant: 'Spotify', amount: 11.99, category: 'subscriptions', subcategory: 'Streaming', day: 17 },
     // Netflix raises its price partway through the history → price-increase insight.
@@ -143,7 +143,19 @@ export default function generateDemoData(today: Date = new Date()): AppState {
   const COFFEE = ['Tim Hortons', 'Starbucks'];
   const RESTAURANTS = ['Lucx Kitchen', 'Sakura Sushi', 'The Open Grill', 'Pizzeria Uno', 'Pho 88'];
   const DELIVERY = ['Uber Eats', 'DoorDash'];
-  const SHOPS = ['Amazon.ca', 'Best Buy', 'Indigo', 'Winners', 'Canadian Tire'];
+  // Each shop carries its own category now. These were all 'products' when the
+  // taxonomy had five categories and a catch-all; with electronics, clothing,
+  // home and entertainment as real categories, filing Best Buy and Winners
+  // together is a stale label rather than a simplification — and a stale label
+  // is worse than a coarse one, because it is what the categoriser is measured
+  // against.
+  const SHOPS: { merchant: string; category: string; subcategory: string }[] = [
+    { merchant: 'Amazon.ca', category: 'products', subcategory: 'Online Shopping' },
+    { merchant: 'Best Buy', category: 'electronics', subcategory: 'Computers' },
+    { merchant: 'Indigo', category: 'entertainment', subcategory: 'Books & Music' },
+    { merchant: 'Winners', category: 'clothing', subcategory: 'Everyday' },
+    { merchant: 'Canadian Tire', category: 'home', subcategory: 'Hardware & DIY' },
+  ];
   const GAS = ['Esso', 'Petro-Canada', 'Shell'];
 
   months.forEach((monthStart, mi) => {
@@ -220,14 +232,15 @@ export default function generateDemoData(today: Date = new Date()): AppState {
       });
     }
 
-    // Products / shopping.
+    // Shopping, spread across the categories these shops actually belong to.
     for (let i = 0; i < 3; i += 1) {
+      const shop = pick(SHOPS);
       add({
         date: dayIn(monthStart, 5 + i * 9 + Math.floor(rand() * 4)),
-        merchant: pick(SHOPS),
+        merchant: shop.merchant,
         amount: between(22, 180),
-        category: 'products',
-        subcategory: 'Online Shopping',
+        category: shop.category,
+        subcategory: shop.subcategory,
       });
     }
 
@@ -291,8 +304,8 @@ export default function generateDemoData(today: Date = new Date()): AppState {
     date: dayIn(months[HISTORY_MONTHS - 3], 22),
     merchant: 'Air Canada',
     amount: 812,
-    category: 'products',
-    subcategory: 'Events & Tickets',
+    category: 'travel',
+    subcategory: 'Flights',
     notes: 'Wedding travel — one-off',
     isException: true,
     tags: ['one-time'],

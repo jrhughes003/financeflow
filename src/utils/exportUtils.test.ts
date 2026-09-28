@@ -317,8 +317,13 @@ describe('exportToCSV / exportToJSON', () => {
     // The honest scope of the CSV route. Only three fields survive re-import,
     // and the Category column survives only when the app's own id happens to
     // be a key in CATEGORY_MAP (exportUtils.ts:98-115): 'groceries' is, and
-    // 'dining_out' is not, so a restaurant charge comes back as 'products'
-    // unless the merchant name happens to match a keyword.
+    // 'dining_out' is not, so a restaurant charge does not come back as one.
+    //
+    // What it comes back as instead is decided by the keyword table, and this
+    // fixture shows why that is not a detail: 'Zzz Kelsey Hardware' used to
+    // land in the 'products' catch-all, and now matches 'hardware' and lands
+    // in 'home'. Still wrong — it was a restaurant — but wrong for a reason
+    // the table can be argued with, rather than defaulted.
     const original = [
       makeTransaction({
         id: 'a', date: '2026-02-03', merchant: 'Zzz Kelsey Hardware, Inc.', category: 'dining_out',
@@ -331,7 +336,7 @@ describe('exportToCSV / exportToJSON', () => {
 
     expect(reimported.map(t => ({ date: t.date, merchant: t.merchant, amount: t.amount })))
       .toEqual(original.map(t => ({ date: t.date, merchant: t.merchant, amount: t.amount })));
-    expect(reimported.map(t => t.category)).toEqual(['products', 'groceries']);
+    expect(reimported.map(t => t.category)).toEqual(['home', 'groceries']);
     expect(reimported.map(t => t.subcategory)).toEqual(['', '']);
     expect(reimported.map(t => t.notes)).toEqual(['Imported from CSV', 'Imported from CSV']);
     expect(reimported.map(t => t.isException)).toEqual([false, false]);

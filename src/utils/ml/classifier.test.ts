@@ -237,12 +237,26 @@ describe('measured against the keyword matcher', () => {
     expect(repeat!.model.accuracy).toBeGreaterThanOrEqual(repeat!.baseline.accuracy - 0.02);
   });
 
-  it('helps exactly where keywords give up, which is the reason to ship it', () => {
-    // These demo merchants have no keyword rule, so the baseline scores zero on
-    // them by construction. The sample is small — it travels with the number.
-    expect(repeat!.whereKeywordsGiveUp.n).toBeGreaterThan(0);
+  it('has almost nothing left to do once the keyword table is large', () => {
+    // This test used to assert the model beat keywords on the rows where
+    // keywords gave up, and called that the reason to ship it. Expanding the
+    // taxonomy from 5 categories and 144 keywords to 18 and ~400 took the
+    // keyword matcher's macro-F1 on unseen merchants from 0.632 to 0.830, and
+    // took this sample down to a couple of rows in the demo ledger.
+    //
+    // So the claim is withdrawn rather than re-tuned. Two rows cannot support
+    // an accuracy figure, and asserting one on them would be inventing
+    // evidence. What is asserted instead is the shape of the result: the
+    // niche is now small, and the honest reading is that a bigger table beat
+    // the model at its own job.
     expect(repeat!.whereKeywordsGiveUp.baseline.accuracy).toBe(0);
-    expect(repeat!.whereKeywordsGiveUp.model.accuracy).toBeGreaterThan(0.5);
+    expect(repeat!.whereKeywordsGiveUp.n).toBeLessThan(10);
+  });
+
+  it('still earns its place on merchants the ledger has seen before', () => {
+    // Which is the case the feature actually exists for, and where it is
+    // strong: a second charge from a place already in the ledger.
+    expect(repeat!.model.accuracy).toBeGreaterThan(0.9);
   });
 
   it('is honest about coverage — abstentions are scored, not dropped', () => {

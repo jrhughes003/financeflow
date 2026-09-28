@@ -1,4 +1,10 @@
-// Core category definitions — 5 user-defined categories
+// Core category definitions.
+//
+// Order is behaviour, not presentation: autoCategorize returns the FIRST
+// category whose keyword list matches, so anything specific has to sit above
+// anything general. 'best buy' lives in electronics and no longer in the
+// shopping catch-all, and shopping stays last so it only ever wins when
+// nothing else did.
 // Custom categories added by the user are stored in context state.
 
 import type { Category } from '../types/domain';
@@ -9,13 +15,15 @@ export const CATEGORIES: Category[] = [
     name: 'Dining Out',
     color: '#f97316',
     icon: 'UtensilsCrossed',
-    subcategories: ['Restaurant', 'Fast Food', 'Coffee & Drinks', 'Food Delivery', 'Takeout'],
+    subcategories: ['Restaurant', 'Fast Food', 'Coffee & Drinks', 'Food Delivery', 'Takeout', 'Bar & Pub'],
     keywords: [
       'uber eats','ubereats','doordash','grubhub','skip','skipthedishes',
       'restaurant','burger','pizza','sushi','cafe','coffee','starbucks','dunkin',
       "mcdonald's",'mcdonalds',"wendy's",'wendys','tim hortons','tims',"tim's",
       'chipotle','subway','panera','deli','bakery','taco','thai','chinese',
       'italian','ramen','pho','bistro','grill','kitchen','eatery','foodhall',
+      'harveys',"harvey's",'swiss chalet','a&w','popeyes','five guys','dairy queen',
+      'pub','tavern','brewery','lcbo','beer store',
       'lucx','open grill','bp',  // bp can be a convenience store/diner
     ]
   },
@@ -24,12 +32,13 @@ export const CATEGORIES: Category[] = [
     name: 'Groceries',
     color: '#22c55e',
     icon: 'ShoppingCart',
-    subcategories: ['Supermarket', 'Bulk Store', 'Specialty Foods', 'Produce'],
+    subcategories: ['Supermarket', 'Bulk Store', 'Specialty Foods', 'Produce', 'Butcher & Bakery'],
     keywords: [
       'grocery','groceries','supermarket',
-      'metro','fortinos','loblaws','nofrills','food basics','freshco','sobeys',
+      'metro','fortinos','loblaws','nofrills','no frills','food basics','freshco','sobeys',
       'superstore','farm boy','whole foods','trader joe','kroger','safeway',
       'publix','aldi','costco','walmart grocery','instacart',
+      'zehrs','longos','independent grocer','iga','maxi','provigo','save-on-foods',
     ]
   },
   {
@@ -37,18 +46,43 @@ export const CATEGORIES: Category[] = [
     name: 'Transportation',
     color: '#3b82f6',
     icon: 'Car',
-    subcategories: ['Gas', 'Parking', 'Ride Share', 'Public Transit', 'Car Maintenance'],
+    subcategories: ['Gas', 'Parking', 'Ride Share', 'Public Transit', 'Car Maintenance', 'Tolls'],
     keywords: [
       // Gas
       'esso','petro-canada','petro canada','shell','exxon','chevron','sunoco','mobil','gas','fuel',
+      'ultramar','husky','pioneer energy','canadian tire gas',
       // Parking
       'parking','honk parking','honk','impark','greenp',
       // Ride share
       'uber ride','lyft',
       // Transit
-      'transit','go train','ttc','oc transpo','presto','bus pass',
+      'transit','go train','ttc','oc transpo','presto','bus pass','via rail','gotransit',
       // Auto
-      'car wash','mechanic','jiffy lube','midas','firestone','autozone',
+      'car wash','mechanic','jiffy lube','midas','firestone','autozone','mr lube','407 etr',
+    ]
+  },
+  {
+    id: 'housing',
+    name: 'Housing',
+    color: '#0ea5e9',
+    icon: 'Home',
+    subcategories: ['Rent', 'Mortgage', 'Property Tax', 'Condo Fees', 'Maintenance & Repairs'],
+    keywords: [
+      'rent','landlord','mortgage','property tax','condo fee','maintenance fee',
+      'strata','realty','property management',
+    ]
+  },
+  {
+    id: 'utilities',
+    name: 'Utilities',
+    color: '#14b8a6',
+    icon: 'Zap',
+    subcategories: ['Electricity', 'Heating', 'Water', 'Internet', 'Mobile Phone'],
+    keywords: [
+      'hydro','hydro one','toronto hydro','bc hydro','enbridge','union gas','fortis',
+      'utility','utilities','water bill','waste management',
+      'rogers','bell canada','bell mobility','telus','fido','koodo','freedom mobile',
+      'virgin plus','public mobile','teksavvy','internet',
     ]
   },
   {
@@ -59,26 +93,168 @@ export const CATEGORIES: Category[] = [
     subcategories: ['Software', 'Streaming', 'Services', 'Memberships'],
     keywords: [
       'subscription','netflix','hulu','disney','spotify','apple music','amazon prime',
-      'hbo','peacock','paramount','youtube premium','twitch',
+      'hbo','peacock','paramount','youtube premium','twitch','crave',
       'adobe','microsoft','google','dropbox','icloud','github','notion',
-      'slack','zoom','linkedin','audible','kindle','setapp',
+      'slack','zoom','linkedin','audible','kindle','setapp','claude','openai',
       'apple.com','uberone','uber one','monthly membership',
     ]
   },
   {
+    id: 'health',
+    name: 'Health & Personal Care',
+    color: '#ec4899',
+    icon: 'HeartPulse',
+    subcategories: ['Pharmacy', 'Dental', 'Vision', 'Therapy', 'Fitness', 'Hair & Beauty'],
+    keywords: [
+      'pharmacy','shoppers drug','pharmasave','rexall','jean coutu','guardian drug',
+      'dental','dentist','orthodont','optometr','eye care','physio','chiroprac',
+      'massage','therapy','therapist','counselling','medical','clinic','walk-in',
+      'gym','fitness','goodlife','planet fitness','crunch','orangetheory','yoga','pilates',
+      'salon','barber','spa','sephora','haircut',
+    ]
+  },
+  {
+    id: 'entertainment',
+    name: 'Entertainment',
+    color: '#a855f7',
+    icon: 'Ticket',
+    subcategories: ['Events & Tickets', 'Cinema', 'Games', 'Books & Music', 'Hobbies'],
+    keywords: [
+      'ticket','tickets','ticketmaster','eventbrite','stubhub','seatgeek',
+      'cineplex','cinema','theatre','theater','imax','landmark cinemas',
+      'steam','playstation','xbox','nintendo','epic games','humble bundle',
+      'indigo','chapters','coles books','concert','museum','gallery','bowling','arcade',
+      'thescore','draftkings',
+    ]
+  },
+  {
+    id: 'travel',
+    name: 'Travel',
+    color: '#06b6d4',
+    icon: 'Plane',
+    subcategories: ['Flights', 'Hotels', 'Car Rental', 'Baggage & Fees', 'Tours'],
+    keywords: [
+      'air canada','westjet','porter airlines','flair','air transat','united airlines',
+      'delta air','american airlines','expedia','booking.com','airbnb','vrbo',
+      'hotel','marriott','hilton','holiday inn','best western','hostel',
+      'enterprise rent','avis','hertz','budget rent','turo','travel',
+    ]
+  },
+  {
+    id: 'insurance',
+    name: 'Insurance',
+    color: '#64748b',
+    icon: 'ShieldCheck',
+    subcategories: ['Auto', 'Home & Tenant', 'Life', 'Health & Dental', 'Travel'],
+    keywords: [
+      'insurance','intact','aviva','desjardins','belairdirect','td insurance',
+      'state farm','allstate','co-operators','sun life','manulife','canada life',
+      'wawanesa','economical','square one',
+    ]
+  },
+  {
+    id: 'education',
+    name: 'Education',
+    color: '#eab308',
+    icon: 'GraduationCap',
+    subcategories: ['Tuition', 'Books & Supplies', 'Courses', 'Student Loans'],
+    keywords: [
+      'tuition','university','college','campus','student','osap','textbook',
+      'coursera','udemy','pluralsight','masterclass','duolingo','skillshare',
+      'school','academy','bookstore',
+    ]
+  },
+  {
+    id: 'pets',
+    name: 'Pets',
+    color: '#f472b6',
+    icon: 'PawPrint',
+    subcategories: ['Food & Supplies', 'Veterinary', 'Grooming', 'Boarding'],
+    keywords: [
+      'petsmart','pet valu','petland','rens pets','pet food',
+      'veterinar','vet clinic','animal hospital','grooming','chewy',
+    ]
+  },
+  {
+    id: 'gifts_donations',
+    name: 'Gifts & Donations',
+    color: '#fb7185',
+    icon: 'Gift',
+    subcategories: ['Gifts', 'Charity', 'Fundraising'],
+    keywords: [
+      'donation','charity','gofundme','red cross','unicef','united way',
+      'food bank','sick kids','heart and stroke','gift card','giftcard',
+    ]
+  },
+  {
+    id: 'fees',
+    name: 'Fees & Interest',
+    color: '#94a3b8',
+    icon: 'Receipt',
+    subcategories: ['Bank Fees', 'Interest', 'ATM', 'Foreign Exchange', 'Late Fees'],
+    keywords: [
+      'service charge','monthly fee','account fee','overdraft','nsf','interest charge',
+      'atm withdrawal','atm fee','foreign exchange','fx fee','late fee','annual fee',
+      'transfer fee','e-transfer fee',
+    ]
+  },
+  {
+    id: 'electronics',
+    name: 'Electronics',
+    color: '#6366f1',
+    icon: 'Laptop',
+    subcategories: ['Computers', 'Phones & Accessories', 'Audio & Video', 'Components'],
+    keywords: [
+      'best buy','apple store','canada computers','memory express','newegg',
+      'the source','staples','micro center','logitech','anker','samsung store',
+    ]
+  },
+  {
+    id: 'clothing',
+    name: 'Clothing',
+    color: '#d946ef',
+    icon: 'Shirt',
+    subcategories: ['Everyday', 'Footwear', 'Outerwear', 'Accessories'],
+    keywords: [
+      'nike','adidas','gap','h&m','zara','uniqlo','nordstrom','tj maxx','marshalls',
+      'winners','old navy','lululemon','roots','simons','sport chek',
+      'aritzia','urban outfitters','foot locker','shoe company',
+    ]
+  },
+  {
+    id: 'home',
+    name: 'Home & Garden',
+    color: '#84cc16',
+    icon: 'Sofa',
+    subcategories: ['Furniture', 'Hardware & DIY', 'Decor', 'Garden', 'Cleaning Supplies'],
+    keywords: [
+      'ikea','wayfair','home depot','rona','lowes','home hardware',
+      'canadian tire','structube','the brick','bed bath',
+      'dollarama','garden centre','nursery','hardware',
+    ]
+  },
+  {
     id: 'products',
-    name: 'Products',
+    name: 'Shopping',
     color: '#f59e0b',
     icon: 'ShoppingBag',
-    subcategories: ['Online Shopping', 'Electronics', 'Clothing', 'Home Goods', 'Events & Tickets', 'Miscellaneous'],
+    subcategories: ['Online Shopping', 'General Merchandise', 'Miscellaneous'],
     keywords: [
-      'amazon','walmart','target','best buy','apple store','nike','adidas','gap',
-      'h&m','zara','nordstrom','tj maxx','marshalls','ebay','etsy','wayfair','ikea',
-      'ticket','tickets','ticketmaster','eventbrite','stubhub',
+      'amazon','walmart','target','ebay','etsy','aliexpress','temu','shein',
       'mill run','scosci',
     ]
   },
 ];
+
+/**
+ * The category anything unrecognised lands in.
+ *
+ * Looked up by id rather than by position. It used to be
+ * `CATEGORIES[CATEGORIES.length - 1]`, which quietly makes the fallback
+ * whatever was appended most recently, so adding a category at the end would
+ * have silently redirected every unmatched transaction into it.
+ */
+export const FALLBACK_CATEGORY_ID = 'products';
 
 /**
  * Get all categories: core + any user-created custom categories.
@@ -93,17 +269,19 @@ export function getAllCategories(customCategories: Category[] = []): Category[] 
  * Returns the category id or 'products' (catch-all) if no match found.
  */
 export function autoCategorize(merchantName: string, customCategories: Category[] = []): string {
-  if (!merchantName) return 'products';
+  if (!merchantName) return FALLBACK_CATEGORY_ID;
   const lower = merchantName.toLowerCase();
   for (const cat of getAllCategories(customCategories)) {
     if ((cat.keywords || []).some(kw => lower.includes(kw))) {
       return cat.id;
     }
   }
-  return 'products';
+  return FALLBACK_CATEGORY_ID;
 }
 
 export function getCategoryById(id: string, customCategories: Category[] = []): Category {
-  return getAllCategories(customCategories).find(c => c.id === id)
-    || CATEGORIES[CATEGORIES.length - 1]; // fallback to Products
+  const all = getAllCategories(customCategories);
+  return all.find(c => c.id === id)
+    || all.find(c => c.id === FALLBACK_CATEGORY_ID)
+    || CATEGORIES[CATEGORIES.length - 1];
 }

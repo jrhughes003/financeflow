@@ -464,3 +464,71 @@ describe('as a modal', () => {
     expect(onClose).toHaveBeenCalled();
   });
 });
+
+// --- Telling a save apart from a dismissal ----------------------------------
+//
+// onClose fires on every exit, so a caller that treated it as success told
+// people "Transaction added" after they cancelled. onSaved is the signal that
+// a transaction was actually written, and these pin the difference.
+
+describe('reporting that something was saved', () => {
+  const fillValidEntry = () => {
+    fireEvent.change(amount(), { target: { value: '42.50' } });
+    typeMerchant('Zyxo Mart');
+    fireEvent.change(category(), { target: { value: 'groceries' } });
+  };
+
+  it('announces a save only once the transaction is written', () => {
+    const onSaved = vi.fn();
+    const onClose = vi.fn();
+    renderEntry({}, { isModal: true, onClose, onSaved });
+
+    fillValidEntry();
+    fireEvent.click(submit());
+
+    expect(dispatched('ADD_TRANSACTION')).toBeDefined();
+    expect(onSaved).toHaveBeenCalledTimes(1);
+    expect(onSaved.mock.calls[0][0]).toMatchObject({ merchant: 'Zyxo Mart', amount: 42.5 });
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('stays quiet when the form is dismissed by the X', () => {
+    const onSaved = vi.fn();
+    const onClose = vi.fn();
+    renderEntry({}, { isModal: true, onClose, onSaved });
+
+    fillValidEntry(); // typed, then abandoned — the case that was being congratulated
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+
+    expect(onClose).toHaveBeenCalled();
+    expect(onSaved).not.toHaveBeenCalled();
+    expect(dispatched('ADD_TRANSACTION')).toBeUndefined();
+  });
+
+  it('stays quiet when the form is dismissed by Cancel or Escape', () => {
+    const onSaved = vi.fn();
+    const onClose = vi.fn();
+    const { unmount } = renderEntry({}, { isModal: true, onClose, onSaved });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(onClose).toHaveBeenCalled();
+    expect(onSaved).not.toHaveBeenCalled();
+    unmount();
+
+    renderEntry({}, { isModal: true, onClose, onSaved });
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(onSaved).not.toHaveBeenCalled();
+  });
+
+  it('stays quiet when the entry is rejected as invalid', () => {
+    const onSaved = vi.fn();
+    const onClose = vi.fn();
+    renderEntry({}, { isModal: true, onClose, onSaved });
+
+    fireEvent.click(submit()); // nothing filled in
+
+    expect(onSaved).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(dispatched('ADD_TRANSACTION')).toBeUndefined();
+  });
+});

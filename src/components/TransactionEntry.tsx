@@ -58,9 +58,16 @@ const EMPTY_FORM: EntryForm = {
 
 const PRESET_COLORS = ['var(--c-data-2)','var(--c-positive)','var(--c-data-1)','var(--c-data-5)','var(--c-caution)','var(--c-data-7)','var(--c-data-6)','var(--c-data-3)','var(--c-negative)','var(--c-data-6)'];
 
-export default function TransactionEntry({ isModal = false, onClose, editTransaction = null }: {
+export default function TransactionEntry({ isModal = false, onClose, onSaved, editTransaction = null }: {
   isModal?: boolean;
+  /** Called on every way out: saving, Cancel, the X, Escape, the backdrop. */
   onClose?: () => void;
+  /**
+   * Called only when a transaction was actually written. onClose can't carry
+   * that meaning — it fires on dismissal too — so a caller that treated it as
+   * success announced "Transaction added" at people who had just cancelled.
+   */
+  onSaved?: (transaction: Transaction) => void;
   editTransaction?: Transaction | null;
 }) {
   const { state, dispatch } = useFinancial();
@@ -281,6 +288,7 @@ export default function TransactionEntry({ isModal = false, onClose, editTransac
     if (!isSavings && txData.merchant && txData.category) {
       dispatch({ type: 'UPDATE_SETTINGS', payload: { merchantCategoryHints: { ...hints, [hintKey(txData.merchant)]: txData.category } } });
     }
+    onSaved?.(txData);
     if (isModal && onClose) onClose();
     else {
       setForm(EMPTY_FORM);

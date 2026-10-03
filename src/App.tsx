@@ -111,10 +111,11 @@ function AppContent() {
       {showQuickAdd && (
         <TransactionEntry
           isModal
-          onClose={() => {
-            setShowQuickAdd(false);
-            toast('Transaction added');
-          }}
+          onClose={() => setShowQuickAdd(false)}
+          // Only on a real save. This used to hang off onClose, which fires on
+          // Cancel, the X and Escape too, so dismissing the form congratulated
+          // you on adding a transaction that was never written.
+          onSaved={tx => toast(`Added ${tx.merchant}`)}
         />
       )}
     </>

@@ -51,11 +51,34 @@ export interface DatabaseBridge {
   markInitialized(): Promise<true>;
 }
 
+/**
+ * One outbound request, exactly as it was handed to the transport.
+ *
+ * Recorded by wrapping the SDK rather than the payload gate, so it shows what
+ * actually left — including the tool results Q&A sends back in later turns,
+ * which a gate-level record would omit. In memory only; never written to disk.
+ */
+export interface AiAuditEntry {
+  feature: AiFeature;
+  /** ISO timestamp of when the request went out. */
+  at: string;
+  ms: number;
+  /** The verbatim request body. Shape is the Anthropic SDK's, not ours. */
+  request: unknown;
+  model: string | null;
+  usage: { input_tokens?: number; output_tokens?: number } | null;
+  outcome: 'ok' | 'error';
+  error?: string;
+}
+
 export interface AiBridge {
   status(): Promise<AiStatus>;
   setKey(key: string): Promise<AiResult<void>>;
   clearKey(): Promise<AiResult<void>>;
   run(feature: AiFeature, input: unknown): Promise<AiResult<unknown>>;
+  /** Newest first, capped at the last 20 requests. */
+  auditLog(): Promise<AiAuditEntry[]>;
+  clearAuditLog(): Promise<true>;
 }
 
 export interface FinanceFlowApi {
@@ -68,7 +91,7 @@ export interface FinanceFlowApi {
 /** The channel names both sides of the bridge must agree on. */
 export const IPC_CHANNELS = [
   'db:loadAll', 'db:saveAll', 'db:isInitialized', 'db:markInitialized',
-  'ai:status', 'ai:setKey', 'ai:clearKey', 'ai:run',
+  'ai:status', 'ai:setKey', 'ai:clearKey', 'ai:run', 'ai:auditLog', 'ai:clearAuditLog',
 ] as const;
 
 export type IpcChannel = (typeof IPC_CHANNELS)[number];

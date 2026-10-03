@@ -26,6 +26,8 @@ const AI_STUB: AiBridge = {
   setKey: vi.fn(),
   clearKey: vi.fn(),
   run: vi.fn(),
+  auditLog: vi.fn(),
+  clearAuditLog: vi.fn(),
 };
 
 // Hard-coded rather than imported: STORAGE_KEY is not exported, and it is a

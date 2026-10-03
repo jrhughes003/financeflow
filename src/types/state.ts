@@ -11,10 +11,14 @@ import type { LifePlan } from './lifeplan';
  * Every field optional: settings accumulated over versions and nothing
  * backfills them. The object itself is always present.
  */
+/** 'system' follows the OS setting, and keeps following it when it changes. */
+export type ThemePreference = 'light' | 'dark' | 'system';
+
 export interface Settings {
   currency?: string;
   showSampleData?: boolean;
   aiEnabled?: boolean;
+  theme?: ThemePreference;
   /** Overrides the default anomaly floor in src/utils/constants.js. */
   anomalyMinAverage?: number;
   anomalyMultiplier?: number;

@@ -61,6 +61,16 @@
   --c-data-6: #488a7b;
   --c-data-7: #a4544a;
 
+  /* --- sequential ramp: the spending heatmap ---------------------------- */
+  /* Single hue, light → dark, because the quantity it encodes is ordered.
+     In the dark theme it runs the other way: on a dark canvas "more" has to
+     mean brighter, or the scale reads backwards. */
+  --c-ramp-1: #e8f1ed;
+  --c-ramp-2: #bcd9cd;
+  --c-ramp-3: #7fb79e;
+  --c-ramp-4: #3f8f6d;
+  --c-ramp-5: #0f5540;
+
   /* --- radius: a hierarchy ---------------------------------------------- */
   --r-control:   4px;   /* buttons, inputs, chips */
   --r-container: 8px;   /* cards, panels, modals */
@@ -79,9 +89,79 @@
   --row-height: 36px;   /* table rows: more ledger on screen at once */
 }
 
-/* Placeholder for the dark theme: redefining this block is the whole job. */
+/*
+ * Dark theme. Redefining these is the whole job — nothing else in the app
+ * knows a colour, which is what the token layer was for.
+ *
+ * It is not the light theme inverted. Four things change on their own terms:
+ *
+ *   The canvas is a warm near-black rather than pure black. #000 against light
+ *   text produces a halo at the edges of glyphs on LCD panels, and the eye
+ *   reads a slight warmth as "paper at night" instead of "switched off".
+ *
+ *   Surfaces get *lighter* as they come forward, because in the dark the cue
+ *   for elevation is light, not shadow. The light theme does the reverse.
+ *
+ *   Text is never pure white. #fff on a dark canvas is harsher than #000 on a
+ *   light one, so the primary ink sits at ~90% and the hierarchy steps down
+ *   from there.
+ *
+ *   The accent and the data palette are *lifted*, not reused. The evergreen
+ *   that reads as confident on white nearly disappears on near-black: the same
+ *   hue needs more lightness and less saturation to hold the same weight. The
+ *   semantic pair matters most — red and green must stay distinguishable for
+ *   the ~8% of men with a colour vision deficiency, so they differ in
+ *   lightness here as well as hue.
+ */
 :root[data-theme='dark'] {
   color-scheme: dark;
+
+  --c-canvas:        #14161a;
+  --c-surface:       #1b1e24;
+  --c-surface-sunk:  #212429;  /* lighter, not darker: elevation reads as light */
+  --c-surface-hover: #272b32;
+
+  --c-ink:           rgb(255 255 255 / 0.92);
+  --c-ink-secondary: #a7b0bd;
+  --c-ink-muted:     #79838f;
+  --c-ink-inverse:   #0e1013;  /* text on an accent fill */
+
+  --c-line:          #2b3038;
+  --c-line-strong:   #3a414b;
+  --c-line-faint:    #23272e;
+
+  --c-accent:        #3f9e7c;  /* the evergreen, lifted enough to read on dark */
+  --c-accent-hover:  #4fb28e;
+  --c-accent-tint:   #16302a;
+  --c-accent-ink:    #7fd3b3;
+
+  --c-positive:      #4fb28e;
+  --c-positive-tint: #15302a;
+  --c-negative:      #e0765f;  /* lighter than the positive, not just redder */
+  --c-negative-tint: #35211e;
+  --c-caution:       #d2a24a;
+  --c-caution-tint:  #322719;
+
+  --c-data-1: #4fb28e;
+  --c-data-2: #d98d58;
+  --c-data-3: #6c9bd2;
+  --c-data-4: #d2a24a;
+  --c-data-5: #a98cc4;
+  --c-data-6: #5fb3a3;
+  --c-data-7: #d98378;
+
+  /* Reversed: brighter means more, which is the opposite of the light theme. */
+  --c-ramp-1: #1d2a26;
+  --c-ramp-2: #28463a;
+  --c-ramp-3: #35694f;
+  --c-ramp-4: #418d68;
+  --c-ramp-5: #5cb98d;
+
+  /* Shadows carry almost nothing in the dark; depth comes from the surface
+     ramp above. What is left is a dark halo that separates an overlay from
+     whatever is behind it. */
+  --shadow-overlay: 0 16px 40px -12px rgb(0 0 0 / 0.65), 0 2px 8px -2px rgb(0 0 0 / 0.45);
+  --shadow-raised:  0 1px 2px rgb(0 0 0 / 0.3);
 }
 
 /* --- base ---------------------------------------------------------------- */

@@ -16,7 +16,7 @@ import { needsSetup } from '../../types/projection';
 import { Card, NumberField, Stat, inputCls } from './ui';
 
 // Fixed order so a scenario keeps its colour when others are toggled off.
-const LINE_COLORS = ['var(--c-data-1)', 'var(--c-caution)', '#16a34a', '#db2777', '#0891b2'];
+const LINE_COLORS = ['var(--c-data-1)', 'var(--c-caution)', 'var(--c-data-6)', 'var(--c-data-7)', 'var(--c-data-3)'];
 const money = (v: number): string => formatCurrency(Math.round(v));
 const compact = (v: number): string => `${v < 0 ? '−' : ''}$${Math.abs(v) >= 1000000 ? `${(Math.abs(v) / 1000000).toFixed(1)}M` : `${Math.round(Math.abs(v) / 1000)}k`}`;
 const fmtDate = (s: string | null | undefined): string => (s ? format(parseISO(s), 'MMM d, yyyy') : '');

@@ -10,7 +10,7 @@ import { getSpendingCalendar, getMonthRhythm, getPurchaseSizeBreakdown } from '.
 import { percentile } from '../../utils/planning';
 
 // Sequential single-hue ramp (light → dark) for daily spend.
-const RAMP = ['#dbeafe', '#93c5fd', '#60a5fa', 'var(--c-data-1)', '#1d4ed8'];
+const RAMP = ['var(--c-ramp-1)', 'var(--c-ramp-2)', 'var(--c-ramp-3)', 'var(--c-ramp-4)', 'var(--c-ramp-5)'];
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const COUNT_COLOR = 'var(--c-ink-muted)';
 const SPEND_COLOR = 'var(--c-data-1)';
@@ -94,7 +94,7 @@ export default function HabitsPanel() {
               {Array.from({ length: leading }, (_, i) => <div key={`pad${i}`} />)}
               {cal.days.map(d => {
                 const noSpend = !d.future && d.total === 0;
-                const bg = d.future ? '#f8fafc' : noSpend ? '#ffffff' : step(d.total);
+                const bg = d.future ? 'var(--c-surface-sunk)' : noSpend ? 'var(--c-surface)' : step(d.total);
                 const dark = !d.future && !noSpend && RAMP.indexOf(bg) >= 3;
                 const tip = d.future
                   ? format(parseISO(d.date), 'EEE MMM d')

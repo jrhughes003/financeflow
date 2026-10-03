@@ -141,7 +141,7 @@ export default function TransactionEntry({ isModal = false, onClose, onSaved, ed
   // New category creation state
   const [showNewCat, setShowNewCat] = useState(false);
   const [newCatName, setNewCatName] = useState('');
-  const [newCatColor, setNewCatColor] = useState('#6366f1');
+  const [newCatColor, setNewCatColor] = useState('var(--c-data-5)');
 
   const amountRef = useRef<HTMLInputElement | null>(null);
   useEffect(() => { if (amountRef.current) amountRef.current.focus(); }, []);

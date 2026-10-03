@@ -9,6 +9,7 @@ const { loadAll, saveAll, getMeta, setMeta } = require('./db/repository.cjs');
 const { buildPayload } = require('./ai/payload.cjs');
 const { createClient, runFeature } = require('./ai/client.cjs');
 const { executeTool } = require('./ai/aggregates.cjs');
+const auditLog = require('./ai/auditLog.cjs');
 const secureStore = require('./ai/secureStore.cjs');
 
 const isDev = !app.isPackaged;
@@ -142,12 +143,21 @@ ipcMain.handle('ai:clearKey', () => {
   return { ok: true };
 });
 
+// In-memory only, and cleared when the app closes: the log is a transcript of
+// the user's finances, so writing it to disk would create the file this app
+// exists not to have.
+ipcMain.handle('ai:auditLog', () => auditLog.getEntries());
+ipcMain.handle('ai:clearAuditLog', () => { auditLog.clear(); return true; });
+
 ipcMain.handle('ai:run', async (_evt, feature, input) => {
   try {
     const apiKey = secureStore.getApiKey(getDb());
     if (!apiKey) return { ok: false, error: 'no_key' };
     const payload = buildPayload(feature, input); // data-minimization gate
-    const client = createClient(apiKey);
+    // Wrapped so every request body this feature sends is recorded for the
+    // "what was sent" panel — including the tool results Q&A returns in later
+    // turns, which a payload-level log would miss.
+    const client = auditLog.auditClient(createClient(apiKey), feature);
     // Q&A answers by calling local aggregate tools. State is read once per
     // question so every lookup within one answer sees the same data, and only
     // the aggregate a tool returns is ever sent.

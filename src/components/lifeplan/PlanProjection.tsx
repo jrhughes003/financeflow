@@ -10,7 +10,7 @@ import type { PlanOutcome, PlanRow } from '../../types/projection';
 import { needsSetup } from '../../types/projection';
 import { Card, Stat } from './ui';
 
-const COLORS = { liquid: 'var(--c-data-1)', home: 'var(--c-data-5)', debt: 'var(--c-negative)', net: '#0f172a', spend: 'var(--c-caution)', tax: '#64748b', income: '#16a34a' };
+const COLORS = { liquid: 'var(--c-data-1)', home: 'var(--c-data-5)', debt: 'var(--c-negative)', net: 'var(--c-ink)', spend: 'var(--c-caution)', tax: 'var(--c-ink-muted)', income: 'var(--c-positive)' };
 const money = (v: number): string => formatCurrency(Math.round(v));
 const compact = (v: number): string => `${v < 0 ? '−' : ''}$${Math.abs(v) >= 1000000 ? `${(Math.abs(v) / 1000000).toFixed(1)}M` : `${Math.round(Math.abs(v) / 1000)}k`}`;
 
@@ -132,7 +132,7 @@ export default function PlanProjection({ plan, result }: { plan: LifePlan; resul
             <XAxis dataKey="year" {...chart.xAxis} tick={{ fontSize: 11 }} interval="preserveStartEnd" minTickGap={40} />
             <YAxis {...chart.yAxis} tick={{ fontSize: 11 }} tickFormatter={compact} width={55} />
             <ReferenceLine y={0} stroke="var(--c-ink-muted)" />
-            {retireYear && <ReferenceLine x={retireYear} stroke="var(--c-ink-muted)" strokeDasharray="4 4" label={{ value: 'retirement', fontSize: 10, fill: '#64748b', position: 'insideTopRight' }} />}
+            {retireYear && <ReferenceLine x={retireYear} stroke="var(--c-ink-muted)" strokeDasharray="4 4" label={{ value: 'retirement', fontSize: 10, fill: 'var(--c-ink-muted)', position: 'insideTopRight' }} />}
             <Tooltip content={<ChartTooltip rows={rows} todayDollars={todayDollars} />} />
             <Legend wrapperStyle={{ fontSize: 12 }} />
             <Area dataKey="liquid" name="Savings & investments" stackId="a" stroke="none" fill={COLORS.liquid} fillOpacity={0.6} isAnimationActive={false} />

@@ -72,7 +72,7 @@ plaintext only in memory at call time.
 **The financial logic is real, and tested.** Budget rollover, recurring-charge detection,
 duplicate detection, reimbursement-aware spending, goal pacing, debt avalanche/snowball, a
 long-range life plan with Canadian tax treatment (RRSP/TFSA/FHSA, CPP/OAS, first-time-buyer
-rules) and a Monte Carlo simulation. Roughly 23k lines of source and **712 unit tests**.
+rules) and a Monte Carlo simulation. Roughly 24k lines of source and **732 unit tests**.
 Functions that depend on "now" take an explicit date, so they're deterministic under test.
 
 ## Features
@@ -290,6 +290,12 @@ without ever being sent, and each answer lists the lookups it used so you can ch
 
 - **The key** is encrypted through the OS keychain, never bundled and never committed.
 
+- **You don't have to take any of this on trust.** **Settings → What was sent** lists every
+request the app has made to the API, with the verbatim body. It records by wrapping the SDK
+rather than the payload gate, so it shows what actually left — including the tool results Q&A
+returns in later turns, which a gate-level record would miss. It is held in memory and never
+written to disk: a file of those requests would be the thing this app exists not to keep.
+
 ## Running it
 
 | Command | What it does |
@@ -297,7 +303,7 @@ without ever being sent, and each answer lists the lookups it used so you can ch
 | `npm run dev` | Browser app at `http://localhost:5173` (localStorage) |
 | `npm run electron:dev` | Desktop app in development (SQLite) |
 | `npm run electron:dev:mock` | Desktop app with AI wired to the local mock (no key, no spend) |
-| `npm test` | Unit tests (712) |
+| `npm test` | Unit tests (732) |
 | `npm run test:e2e` | One end-to-end test in a real browser (Playwright) |
 | `npm run build` | Production web bundle |
 | `npm run dist` | Windows installer into `release/` |

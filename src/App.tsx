@@ -4,6 +4,7 @@ import { ToastProvider, useToast } from './context/ToastContext';
 import { isTemplateDue } from './utils/recurring';
 import { getOwedSummary } from './utils/reimbursements';
 import { formatCurrency } from './utils/calculations';
+import { applyTheme, watchSystemTheme } from './utils/theme';
 import Layout from './components/Layout';
 import CommandPalette from './components/CommandPalette';
 import Dashboard from './components/Dashboard';
@@ -41,6 +42,15 @@ function AppContent() {
   const [showPalette, setShowPalette] = useState(false);
   const { toast } = useToast();
   const { state } = useFinancial();
+
+  // The theme is one attribute on <html>; tokens.css does the rest. Re-applied
+  // whenever the preference changes, and — for 'system' — whenever the OS
+  // does, so an app left open through sunset follows along.
+  const themePreference = state.settings?.theme ?? 'system';
+  useEffect(() => {
+    applyTheme(themePreference);
+    return watchSystemTheme(themePreference, () => applyTheme(themePreference));
+  }, [themePreference]);
 
   // Two things in this app are waiting on the user rather than just sitting
   // there: recurring charges that are due to post, and money other people owe

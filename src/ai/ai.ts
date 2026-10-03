@@ -3,7 +3,7 @@
 // a structured failure so callers can fall back to deterministic behavior.
 
 import { isElectron, electronApi } from '../storage/storage';
-import type { AiFeature, AiResult, AiStatus } from '../types/api';
+import type { AiAuditEntry, AiFeature, AiResult, AiStatus } from '../types/api';
 import type { Category } from '../types/domain';
 import type { AppState } from '../types/state';
 import { getAllCategories } from '../utils/categorization';
@@ -45,6 +45,25 @@ export async function runAi(feature: AiFeature, input: unknown): Promise<AiResul
   if (!api) return { ok: false, error: 'unavailable' };
   try { return await api.ai.run(feature, input); }
   catch (err) { return { ok: false, error: err instanceof Error ? err.message : 'AI request failed' }; }
+}
+
+/**
+ * What has actually been sent, newest first.
+ *
+ * Empty outside Electron, where no request can have been made: the browser
+ * build has no key and no network path to the API.
+ */
+export async function getAiAuditLog(): Promise<AiAuditEntry[]> {
+  const api = electronApi();
+  if (!api) return [];
+  try { return await api.ai.auditLog(); }
+  catch { return []; }
+}
+
+export async function clearAiAuditLog(): Promise<void> {
+  const api = electronApi();
+  if (!api) return;
+  try { await api.ai.clearAuditLog(); } catch { /* nothing to clear */ }
 }
 
 // Compact category taxonomy (id + name only) for prompts.

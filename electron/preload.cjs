@@ -17,5 +17,7 @@ contextBridge.exposeInMainWorld('api', {
     setKey: (key) => ipcRenderer.invoke('ai:setKey', key),
     clearKey: () => ipcRenderer.invoke('ai:clearKey'),
     run: (feature, input) => ipcRenderer.invoke('ai:run', feature, input),
+    auditLog: () => ipcRenderer.invoke('ai:auditLog'),
+    clearAuditLog: () => ipcRenderer.invoke('ai:clearAuditLog'),
   },
 });

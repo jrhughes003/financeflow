@@ -137,7 +137,7 @@ export default function BudgetManager() {
   // Create new category form (accessible from the budget manager too)
   const [showNewCat, setShowNewCat] = useState(false);
   const [newCatName, setNewCatName] = useState('');
-  const [newCatColor, setNewCatColor] = useState('#6366f1');
+  const [newCatColor, setNewCatColor] = useState('var(--c-data-5)');
 
   const handleCreateCategory = () => {
     if (!newCatName.trim()) return;

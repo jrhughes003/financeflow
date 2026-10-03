@@ -33,6 +33,8 @@ const AI_STUB: AiBridge = {
   setKey: vi.fn().mockResolvedValue({ ok: true, data: undefined }),
   clearKey: vi.fn().mockResolvedValue({ ok: true, data: undefined }),
   run: vi.fn().mockResolvedValue({ ok: true, data: null }),
+  auditLog: vi.fn().mockResolvedValue([]),
+  clearAuditLog: vi.fn().mockResolvedValue(true),
 };
 
 let captured: FinancialContextValue | undefined;

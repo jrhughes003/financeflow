@@ -1,10 +1,19 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Sparkles, ShieldCheck, Download, Upload, Trash2, KeyRound, AlertTriangle, Wand2 } from 'lucide-react';
+import { Sparkles, ShieldCheck, Download, Upload, Trash2, KeyRound, AlertTriangle, Wand2, Sun, Moon, Monitor } from 'lucide-react';
 import { useFinancial } from '../context/FinancialContext';
 import { aiSupported, getAiStatus, setAiKey, clearAiKey } from '../ai/ai';
 import { exportToJSON, importFromJSON } from '../utils/exportUtils';
 import generateDemoData from '../utils/demoData';
+import AiAuditPanel from './AiAuditPanel';
 import { SUPPORTED_CURRENCIES, formatCurrency } from '../utils/calculations';
+import { resolveTheme } from '../utils/theme';
+import type { ThemePreference } from '../types/state';
+
+const THEME_OPTIONS: { value: ThemePreference; label: string; icon: typeof Sun }[] = [
+  { value: 'light', label: 'Light', icon: Sun },
+  { value: 'dark', label: 'Dark', icon: Moon },
+  { value: 'system', label: 'System', icon: Monitor },
+];
 
 export default function Settings() {
   const { state, dispatch } = useFinancial();
@@ -138,6 +147,10 @@ export default function Settings() {
         )}
       </div>
 
+      {/* The privacy claim, made checkable. Desktop only, because the browser
+          build has no key and no path to the API — there is nothing to show. */}
+      {aiSupported && <AiAuditPanel />}
+
       {/* Backup & restore */}
       <div className="bg-surface rounded-container border border-line p-5">
         <h2 className="text-lg font-semibold text-ink mb-3">Backup & Restore</h2>
@@ -171,6 +184,33 @@ export default function Settings() {
           Changes how every figure is printed — for example {formatCurrency(1234.5)}. It does not
           convert anything: the amounts you entered stay exactly as they are.
         </p>
+
+        <fieldset className="mt-5">
+          <legend className="block text-caption text-ink-muted mb-1.5">Theme</legend>
+          <div role="radiogroup" aria-label="Theme" className="inline-flex rounded-control border border-line overflow-hidden">
+            {THEME_OPTIONS.map(({ value, label, icon: Icon }) => {
+              const active = (settings.theme ?? 'system') === value;
+              return (
+                <button
+                  key={value}
+                  role="radio"
+                  aria-checked={active}
+                  onClick={() => dispatch({ type: 'UPDATE_SETTINGS', payload: { theme: value } })}
+                  className={`inline-flex items-center gap-2 h-9 px-3.5 text-sm font-medium transition-colors border-r border-line last:border-r-0
+                    ${active ? 'bg-accent-tint text-accent-ink' : 'text-ink-secondary hover:bg-surface-hover hover:text-ink'}`}
+                >
+                  <Icon className="w-3.5 h-3.5" aria-hidden="true" />
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-sm text-ink-muted mt-2">
+            {(settings.theme ?? 'system') === 'system'
+              ? `Following your system, which is currently ${resolveTheme('system')}. It will change with it.`
+              : 'Fixed, whatever your system is set to.'}
+          </p>
+        </fieldset>
       </div>
 
       {/* Demo data */}

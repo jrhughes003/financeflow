@@ -4,23 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>FinanceFlow – Personal Financial Planner</title>
-    <script>
-      // Runs before first paint so a dark-theme user never gets a white flash.
-      // The real setting lives in app state — SQLite on the desktop, which
-      // cannot be read synchronously here — so the last choice is mirrored into
-      // localStorage and read back as a hint. React corrects it a moment later
-      // if the mirror is stale.
-      (function () {
-        try {
-          var saved = localStorage.getItem('financeflow_theme') || 'system';
-          var dark = saved === 'dark' || (saved === 'system'
-            && window.matchMedia('(prefers-color-scheme: dark)').matches);
-          document.documentElement.dataset.theme = dark ? 'dark' : 'light';
-        } catch (e) {
-          document.documentElement.dataset.theme = 'light';
-        }
-      })();
-    </script>
+    <!-- Before first paint, so a dark-theme user never gets a white flash.
+         External rather than inline because the app's CSP is script-src 'self'
+         — see public/theme-init.js. -->
+    <script src="./theme-init.js"></script>
   </head>
   <body>
     <div id="root"></div>

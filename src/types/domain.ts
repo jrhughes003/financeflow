@@ -214,4 +214,18 @@ export interface Category {
   subcategories: string[];
   /** Merchant substrings that classify into this category. */
   keywords: string[];
+  /**
+   * The category this one rolls up into for budgeting. Absent means this *is*
+   * a group — the level a budget is set against. See utils/categoryTree.ts.
+   */
+  parent?: string;
+  /**
+   * Kept for old data and for its keywords, but never offered in a picker.
+   *
+   * Retiring rather than deleting: a stored transaction still resolves to the
+   * right name, and the auto-categoriser still recognises the merchants. A
+   * deleted category would relabel existing history and push its merchants
+   * into the catch-all.
+   */
+  retired?: boolean;
 }

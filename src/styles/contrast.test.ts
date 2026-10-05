@@ -18,7 +18,7 @@
  *   the file:line that renders it.
  *
  *   Colours that come from logic are read by calling the logic. healthLabel()
- *   and getBudgetHealthScore() return a colour string; this imports them and
+ *   and getBudgetHealthScore(, TAXONOMY) return a colour string; this imports them and
  *   measures what they return. A copy of their palette here would drift the
  *   first time someone edited theirs, and would have agreed with itself while
  *   the app went unreadable.
@@ -44,7 +44,15 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { healthLabel } from '../utils/healthScore';
-import { getBudgetHealthScore } from '../utils/calculations';
+import {
+  getBudgetHealthScore, taxonomyFromState,
+} from '../utils/calculations';
+import { CATEGORIES } from '../utils/categorization';
+
+// The taxonomy derived the way the app derives it, so these tests exercise the
+// same grouping rules the screens do — including that budgeting a category
+// makes it a group.
+const tax = (budgets: readonly { category: string }[] = []) => taxonomyFromState({ budgets } as never);
 
 // --- the token file, as the browser would see it -------------------------
 
@@ -292,7 +300,7 @@ describe('colours returned by application logic', () => {
     // A-F plus the no-budgets case. Grade comes from the share of categories
     // within budget, so these are driven through the real function with
     // budgets rather than asserted against a copied palette.
-    const empty = getBudgetHealthScore([], [], 0, 2026);
+    const empty = getBudgetHealthScore([], [], 0, 2026, tax([]));
     expect(empty.color).toMatch(/^var\(--c-[\w-]+\)$/);
   });
 

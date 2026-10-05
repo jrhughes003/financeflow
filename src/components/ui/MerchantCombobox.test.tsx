@@ -30,7 +30,18 @@ import type { AppState } from '../../types/state';
 // shape the provider hands consumers, with the dispatch readable directly.
 let state: AppState = makeState();
 const dispatch = vi.fn();
-vi.mock('../../context/FinancialContext', () => ({ useFinancial: () => ({ state, dispatch }) }));
+// Async factory because vi.mock is hoisted above the imports.
+vi.mock('../../context/FinancialContext', async () => {
+  const { getAllCategories } = await vi.importActual<typeof import('../../utils/categorization')>('../../utils/categorization');
+  const { effectiveOverrides } = await vi.importActual<typeof import('../../utils/categoryTree')>('../../utils/categoryTree');
+  return {
+    useFinancial: () => ({ state, dispatch }),
+    useTaxonomy: () => ({
+      categories: getAllCategories(state.customCategories || []),
+      parentOverrides: effectiveOverrides(state.budgets || [], state.settings?.categoryParents),
+    }),
+  };
+});
 
 // aiSupported off, so no tier of the categorisation chain can reach out. The
 // merchant table is meant to answer before any of them anyway; this makes sure a

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { format } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import * as chart from './ui/chartTheme';
-import { useFinancial } from '../context/FinancialContext';
+import { useFinancial, useTaxonomy } from '../context/FinancialContext';
 import { Card, PageLede, Stat, Money } from './ui';
 import { getBudgetStatus, getMonthlyTrend, getConsistentlyOverBudget, formatCurrency } from '../utils/calculations';
 import { useGetCategory } from '../context/FinancialContext';
@@ -19,6 +19,7 @@ function StatusBadge({ status }: { status: BudgetStatusName }) {
 
 export default function BudgetComparison() {
   const { state } = useFinancial();
+  const taxonomy = useTaxonomy();
   const { transactions, budgets } = state;
   const getCategory = useGetCategory();
   const now = new Date();
@@ -27,7 +28,7 @@ export default function BudgetComparison() {
   const [sortField, setSortField] = useState<SortField>('category');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
-  const statuses = getBudgetStatus(budgets, transactions, month, year);
+  const statuses = getBudgetStatus(budgets, transactions, month, year, taxonomy);
   const trend = getMonthlyTrend(transactions, 6);
 
   // Sort
@@ -60,7 +61,7 @@ export default function BudgetComparison() {
 
   // Identify consistently overspent categories (over budget 2+ of the last 3
   // months). Batched: computes each month's statuses once instead of 3× per budget.
-  const consistentlyOver = getConsistentlyOverBudget(budgets, transactions, month, year);
+  const consistentlyOver = getConsistentlyOverBudget(budgets, transactions, month, year, taxonomy);
 
   const changeMonth = (delta: number) => {
     const d = new Date(year, month + delta, 1);

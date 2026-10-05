@@ -30,7 +30,21 @@ import type { Action, AppState } from '../types/state';
 // provider hands consumers. (CommandPalette.test.tsx does the same.)
 let state: AppState = makeState();
 const dispatch = vi.fn();
-vi.mock('../context/FinancialContext', () => ({ useFinancial: () => ({ state, dispatch }) }));
+// Async factory because vi.mock is hoisted above the imports, so the helpers
+// have to be pulled in here rather than referenced from module scope.
+vi.mock('../context/FinancialContext', async () => {
+  const { getAllCategories } = await vi.importActual<typeof import('../utils/categorization')>('../utils/categorization');
+  const { effectiveOverrides } = await vi.importActual<typeof import('../utils/categoryTree')>('../utils/categoryTree');
+  return {
+    useFinancial: () => ({ state, dispatch }),
+    // The real grouping, derived from the same mocked state the component
+    // sees, so the picker under test offers what the app would offer.
+    useTaxonomy: () => ({
+      categories: getAllCategories(state.customCategories || []),
+      parentOverrides: effectiveOverrides(state.budgets || [], state.settings?.categoryParents),
+    }),
+  };
+});
 
 // Mocked at the module boundary, not at the network: runAi is the only door to
 // the Electron AI bridge, so with this module stubbed no real call is

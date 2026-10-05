@@ -6,6 +6,7 @@ import EmptyState from './EmptyState';
 import { Money, CategoryMark } from './ui';
 import { useUndoableDelete } from '../hooks/useUndoableDelete';
 import { CATEGORIES, getAllCategories } from '../utils/categorization';
+import { selectable } from '../utils/categoryTree';
 import { useGetCategory } from '../context/FinancialContext';
 import { exportToCSV, importFromCSV } from '../utils/exportUtils';
 import { formatCurrency } from '../utils/calculations';
@@ -227,7 +228,8 @@ export default function TransactionHistory() {
             <label className="label-micro block mb-1.5">Category</label>
             <select value={filterCategory} onChange={e => { setFilterCategory(e.target.value); setPage(1); }} className="w-full h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent">
               <option value="">All categories</option>
-              {allCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              {/* A filter lists what you can have recorded, minus the retired ones. */}
+              {selectable(allCategories).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
           <div>

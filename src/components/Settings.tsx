@@ -5,6 +5,7 @@ import { aiSupported, getAiStatus, setAiKey, clearAiKey } from '../ai/ai';
 import { exportToJSON, importFromJSON } from '../utils/exportUtils';
 import generateDemoData from '../utils/demoData';
 import AiAuditPanel from './AiAuditPanel';
+import CategoryGrouping from './CategoryGrouping';
 import { SUPPORTED_CURRENCIES, formatCurrency } from '../utils/calculations';
 import { resolveTheme } from '../utils/theme';
 import type { ThemePreference } from '../types/state';
@@ -165,6 +166,8 @@ export default function Settings() {
           <input ref={fileRef} type="file" accept="application/json,.json" onChange={handleImport} className="hidden" />
         </div>
       </div>
+
+      <CategoryGrouping />
 
       {/* Display */}
       <div className="bg-surface rounded-container border border-line p-5">

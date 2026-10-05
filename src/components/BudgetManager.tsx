@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { Plus, Trash2, Edit2, Check, X, Lightbulb, Tag , Wallet } from 'lucide-react';
-import { useFinancial, useGetCategory } from '../context/FinancialContext';
+import { useFinancial, useGetCategory, useTaxonomy } from '../context/FinancialContext';
 import EmptyState from './EmptyState';
 import { useUndoableDelete } from '../hooks/useUndoableDelete';
 import { CATEGORIES, getAllCategories } from '../utils/categorization';
+import { groups as groupsOf, childrenOf, selectable } from '../utils/categoryTree';
 import { getSpendingByCategory, getMonthlyTrend, getBudgetStatus, formatCurrency } from '../utils/calculations';
 import { format } from 'date-fns';
 import type { Budget, Money } from '../types/domain';
@@ -105,8 +106,13 @@ export default function BudgetManager() {
   const { state, dispatch } = useFinancial();
   const removeItem = useUndoableDelete();
   const getCategory = useGetCategory();
+  const taxonomy = useTaxonomy();
   const { transactions, budgets, customCategories = [] } = state;
   const allCategories = getAllCategories(customCategories);
+  // What a budget can be set against, and how much each one gathers up.
+  const budgetable = groupsOf(selectable(allCategories), taxonomy.parentOverrides);
+  const childCount = (id: string) =>
+    childrenOf(id, selectable(allCategories), taxonomy.parentOverrides).length;
 
   const now = new Date();
   const month = now.getMonth();
@@ -115,7 +121,7 @@ export default function BudgetManager() {
   const trend = getMonthlyTrend(transactions, 3);
   // Rollover-aware status per category (carry + effective limit for this month).
   const statusByCategory = Object.fromEntries(
-    getBudgetStatus(budgets, transactions, month, year).map(s => [s.category, s]),
+    getBudgetStatus(budgets, transactions, month, year, taxonomy).map(s => [s.category, s]),
   );
 
   // Smart suggestions from 3-month average
@@ -272,7 +278,17 @@ export default function BudgetManager() {
               <label className="label-micro block mb-1.5">Category</label>
               <select value={newCat} onChange={e => setNewCat(e.target.value)} className="w-full h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent">
                 <option value="">Select...</option>
-                {allCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                {/*
+                  Groups only. Budgeting a child is possible — doing so makes
+                  it a group, see categoryTree.effectiveOverrides — but it is
+                  not what this control is for, and offering eighteen lines
+                  here is the thing that made budgeting feel like admin.
+                */}
+                {budgetable.map(c => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}{childCount(c.id) ? ` (incl. ${childCount(c.id)} more)` : ''}
+                  </option>
+                ))}
               </select>
             </div>
             <div>

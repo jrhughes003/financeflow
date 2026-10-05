@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { AlertTriangle, ChevronLeft, ChevronRight, HandCoins } from 'lucide-react';
 import { format } from 'date-fns';
-import { useFinancial, useGetCategory } from '../context/FinancialContext';
+import { useFinancial, useGetCategory, useTaxonomy } from '../context/FinancialContext';
 import {
   getTotalIncome, getTotalExpenses, getBudgetStatus, getSavingsRate,
   getNetWorth, getBudgetHealthScore, detectAnomalies,
@@ -57,6 +57,7 @@ function BudgetLine({ item, getCategory }: BudgetLineProps) {
 
 export default function Dashboard({ onQuickAdd, onNavigate }: DashboardProps) {
   const { state } = useFinancial();
+  const taxonomy = useTaxonomy();
   const now = new Date();
   const [month, setMonth] = useState(now.getMonth());
   const [year, setYear] = useState(now.getFullYear());
@@ -69,8 +70,8 @@ export default function Dashboard({ onQuickAdd, onNavigate }: DashboardProps) {
   const totalExpenses = getTotalExpenses(transactions, month, year);
   const savingsRate = getSavingsRate(incomeSources, transactions, month, year);
   const netWorth = getNetWorth(investments, debts, savings_goals);
-  const budgetStatuses = getBudgetStatus(budgets, transactions, month, year).filter(b => b.budget > 0);
-  const health = getBudgetHealthScore(budgets, transactions, month, year);
+  const budgetStatuses = getBudgetStatus(budgets, transactions, month, year, taxonomy).filter(b => b.budget > 0);
+  const health = getBudgetHealthScore(budgets, transactions, month, year, taxonomy);
   const anomalies = detectAnomalies(transactions, month, year);
   const owedSummary = getOwedSummary(transactions);
   const recent = [...transactions].sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 6);

@@ -13,7 +13,7 @@ import {
   getTransactionsForPeriod, formatCurrency
 } from '../utils/calculations';
 import { CATEGORIES, getAllCategories } from '../utils/categorization';
-import { useGetCategory } from '../context/FinancialContext';
+import { useGetCategory, useTaxonomy } from '../context/FinancialContext';
 import { AlertTriangle, LayoutGrid, CalendarClock, PiggyBank, CalendarDays, ClipboardList } from 'lucide-react';
 import WhatChangedPanel from './analytics/WhatChangedPanel';
 import ForecastPanel from './analytics/ForecastPanel';
@@ -38,6 +38,7 @@ export default function SpendingAnalytics() {
   const { state } = useFinancial();
   const { transactions, budgets, customCategories = [], settings = {} } = state;
   const getCategory = useGetCategory();
+  const taxonomy = useTaxonomy();
   const allCategories = getAllCategories(customCategories);
   const now = new Date();
   const [month, setMonth] = useState(now.getMonth());
@@ -52,7 +53,7 @@ export default function SpendingAnalytics() {
     minAverage: settings.anomalyMinAverage,
     multiplier: settings.anomalyMultiplier,
   });
-  const health = getBudgetHealthScore(budgets, transactions, month, year);
+  const health = getBudgetHealthScore(budgets, transactions, month, year, taxonomy);
   // Same month filter as everything else: timezone-safe, excludes exceptions and
   // savings transfers, and nets out repaid amounts on fronted purchases.
   const dow = getSpendingByDayOfWeek(getTransactionsForPeriod(transactions, month, year));

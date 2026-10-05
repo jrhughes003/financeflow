@@ -3,8 +3,9 @@ import MerchantCombobox from './ui/MerchantCombobox';
 import React, { useState, useEffect, useId, useRef, useMemo } from 'react';
 import { X, Zap, Plus, Sparkles, HandCoins } from 'lucide-react';
 import { format } from 'date-fns';
-import { useFinancial } from '../context/FinancialContext';
+import { useFinancial, useTaxonomy } from '../context/FinancialContext';
 import { getAllCategories, autoCategorize } from '../utils/categorization';
+import { selectableByGroup, selectable } from '../utils/categoryTree';
 import { runAi, taxonomy, aiSupported } from '../ai/ai';
 import { train, classify } from '../utils/ml/categorizer';
 import { owedFromSplit, getOwedStatus, buildOwed } from '../utils/reimbursements';
@@ -74,6 +75,9 @@ export default function TransactionEntry({ isModal = false, onClose, onSaved, ed
   const customCategories = state.customCategories || [];
   const savingsGoals = state.savings_goals || [];
   const allCategories = getAllCategories(customCategories);
+  // `taxonomy` imported above is the AI's flat category list, which is a
+  // different thing wearing the same word.
+  const grouping = useTaxonomy();
 
   const [form, setForm] = useState<EntryForm>(editTransaction
     ? { ...EMPTY_FORM, ...editTransaction, tags: (editTransaction.tags || []).join(', '), amount: String(editTransaction.amount) }
@@ -480,9 +484,31 @@ export default function TransactionEntry({ isModal = false, onClose, onSaved, ed
             className={`flex-1 px-3 py-3 border-2 rounded-container focus:outline-none focus:border-accent transition-colors bg-surface ${errors.category ? 'border-negative' : 'border-line-strong'}`}
           >
             <option value="">Select category...</option>
-            {allCategories.map(c => (
-              <option key={c.id} value={c.id}>{c.name}</option>
+            {/*
+              Grouped under the six things a budget is set against, and
+              retired categories left out. The optgroup label is the budget
+              line the choice will count toward, which is the question people
+              are actually answering when they pick one.
+
+              The category currently on the transaction is forced back in even
+              if it is retired, so editing an old record does not silently
+              re-file it.
+            */}
+            {selectableByGroup(allCategories, grouping.parentOverrides).map(({ group, children }) => (
+              children.length === 0
+                ? <option key={group.id} value={group.id}>{group.name}</option>
+                : (
+                  <optgroup key={group.id} label={group.name}>
+                    <option value={group.id}>{group.name}</option>
+                    {children.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </optgroup>
+                )
             ))}
+            {form.category && !selectable(allCategories).some(c => c.id === form.category) && (
+              <option value={form.category}>
+                {allCategories.find(c => c.id === form.category)?.name} (retired)
+              </option>
+            )}
           </select>
           <button
             type="button"

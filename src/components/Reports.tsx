@@ -3,7 +3,7 @@ import { format } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import * as chart from './ui/chartTheme';
 import { Download, FileText, Sparkles } from 'lucide-react';
-import { useFinancial, useGetCategory } from '../context/FinancialContext';
+import { useFinancial, useGetCategory, useTaxonomy } from '../context/FinancialContext';
 import { Card, PageLede, Stat, Money } from './ui';
 import {
   getTotalIncome, getTotalExpenses, getSpendingByCategory,
@@ -38,6 +38,9 @@ const TOOL_LABELS: Record<string, string> = {
 
 export default function Reports() {
   const { state } = useFinancial();
+  // Named for the budget roll-up it feeds; `taxonomy` above is the AI's
+  // category list, which is a different thing with the same word.
+  const budgetTaxonomy = useTaxonomy();
   const { transactions, budgets, incomes, savings_goals, investments, debts } = state;
   const getCategory = useGetCategory();
   const now = new Date();
@@ -87,9 +90,9 @@ export default function Reports() {
   const expenses = getTotalExpenses(transactions, month, year);
   const savingsRate = getSavingsRate(incomeSources, transactions, month, year);
   const netWorth = getNetWorth(investments, debts, savings_goals);
-  const health = getBudgetHealthScore(budgets, transactions, month, year);
+  const health = getBudgetHealthScore(budgets, transactions, month, year, budgetTaxonomy);
   const byCategory = getSpendingByCategory(transactions, month, year);
-  const budgetStatus = getBudgetStatus(budgets, transactions, month, year);
+  const budgetStatus = getBudgetStatus(budgets, transactions, month, year, budgetTaxonomy);
   const trend = getMonthlyTrend(transactions, 12);
 
   // Top 5 categories for this month

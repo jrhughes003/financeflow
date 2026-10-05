@@ -52,6 +52,9 @@
     "src/utils/insights.ts",
     "src/utils/recurring.ts",
     "src/utils/categorization.ts",
+    // Pure tree walking over the category list — no DOM, and calculations.ts
+    // needs it to roll spending up to the level budgets are set at.
+    "src/utils/categoryTree.ts",
     "src/utils/stats/robust.ts",
     "src/utils/forecast/holtWinters.ts",
     "src/utils/periodicity.ts",

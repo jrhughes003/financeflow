@@ -8,7 +8,7 @@ import type { Category } from '../types/domain';
 import type { AppState } from '../types/state';
 import { getAllCategories } from '../utils/categorization';
 import {
-  getSpendingByCategory, getBudgetStatus, getTotalExpenses, getTotalIncome,
+  getSpendingByCategory, getBudgetStatus, getTotalExpenses, getTotalIncome, taxonomyFromState,
   getSavingsRate, detectAnomalies, getMonthlyTrend,
 } from '../utils/calculations';
 import { getIncomeSources, isInRepayment } from '../utils/accounts';
@@ -97,9 +97,9 @@ export function buildSummary(
   const round = (n: unknown): number => Math.round((Number(n) || 0) * 100) / 100;
 
   const deltas = getCategoryDeltas(transactions, month, year, opts);
-  const monthEnd = projectMonthEnd({ transactions, budgets, recurringTemplates, ...opts });
+  const monthEnd = projectMonthEnd({ transactions, budgets, recurringTemplates, ...opts , taxonomy: taxonomyFromState(state) });
   const forecast = forecastCashFlow({ transactions, incomes, recurringTemplates, ...opts });
-  const opportunities = getSavingsOpportunities({ transactions, budgets, recurringTemplates, ...opts });
+  const opportunities = getSavingsOpportunities({ transactions, budgets, recurringTemplates, ...opts , taxonomy: taxonomyFromState(state) });
   const duplicates = detectDuplicateCharges(transactions, opts);
   const irregular = detectIrregularExpenses(transactions, { recurringTemplates, ...opts });
   const goalStatuses = getGoalStatuses(goals, transactions, opts);
@@ -113,7 +113,7 @@ export function buildSummary(
     byCategory: Object.fromEntries(
       Object.entries(getSpendingByCategory(transactions, month, year)).map(([c, v]) => [c, round(v)]),
     ),
-    budgetStatus: getBudgetStatus(budgets, transactions, month, year).map(s => ({
+    budgetStatus: getBudgetStatus(budgets, transactions, month, year, taxonomyFromState(state)).map(s => ({
       category: s.category, budget: s.effectiveBudget, actual: s.actual, status: s.status,
     })),
     anomalies: detectAnomalies(transactions, month, year).map(a => ({

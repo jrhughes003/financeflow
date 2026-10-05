@@ -6,7 +6,7 @@ import {
 } from 'recharts';
 import * as chart from '../ui/chartTheme';
 import { AlertTriangle, AlertCircle, CheckCircle2, Info } from 'lucide-react';
-import { useFinancial, useGetCategory } from '../../context/FinancialContext';
+import { useFinancial, useGetCategory, useTaxonomy } from '../../context/FinancialContext';
 import { formatCurrency } from '../../utils/calculations';
 import { projectMonthEnd, forecastCashFlow } from '../../utils/insights';
 import IrregularExpensesPanel from './IrregularExpensesPanel';
@@ -73,11 +73,15 @@ function CashFlowTooltip({ active, payload }: TooltipProps<number, string>) {
 
 export default function ForecastPanel() {
   const { state } = useFinancial();
+  const taxonomy = useTaxonomy();
   const { transactions, budgets, recurringTemplates = [] } = state;
   const incomes = useMemo(() => getIncomeSources(state.incomes, state.investments), [state.incomes, state.investments]);
   const getCategory = useGetCategory();
 
-  const p = useMemo(() => projectMonthEnd({ transactions, budgets, recurringTemplates }), [transactions, budgets, recurringTemplates]);
+  const p = useMemo(
+    () => projectMonthEnd({ transactions, budgets, recurringTemplates, taxonomy }),
+    [transactions, budgets, recurringTemplates, taxonomy],
+  );
   const cf = useMemo(() => forecastCashFlow({ transactions, incomes, recurringTemplates }), [transactions, incomes, recurringTemplates]);
   const conf = CONFIDENCE[p.confidence as keyof typeof CONFIDENCE];
   const monthLabel = format(new Date(p.year, p.month, 1), 'MMMM');

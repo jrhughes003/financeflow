@@ -13,7 +13,7 @@
 import { addMonths, addDays, subMonths, format, getDaysInMonth, parseISO, differenceInCalendarMonths } from 'date-fns';
 import {
   getTransactionsForPeriod, getBudgetStatus, getConsistentlyOverBudget,
-  getTotalIncome, getGoalProgress, toMonthlyAmount,
+  getTotalIncome, getGoalProgress, toMonthlyAmount, type Taxonomy,
 } from './calculations';
 import { advanceDate, detectRecurringCandidates } from './recurring';
 import { effectiveAmount } from './reimbursements';
@@ -532,13 +532,15 @@ function billsInRange(bills: PeriodicBill[], start: IsoDate, end: IsoDate) {
  */
 export function projectMonthEnd({
   transactions, budgets = [], recurringTemplates = [], today = new Date(),
-  lookback = INSIGHT_LOOKBACK_MONTHS,
+  lookback = INSIGHT_LOOKBACK_MONTHS, taxonomy,
 }: {
   transactions: Transaction[];
   budgets?: Budget[];
   recurringTemplates?: RecurringTemplate[];
   today?: Date;
   lookback?: number;
+  /** Which categories roll into which budget. See calculations.ts. */
+  taxonomy: Taxonomy;
 }) {
   const month = today.getMonth();
   const year = today.getFullYear();
@@ -568,7 +570,7 @@ export function projectMonthEnd({
   const hist = discretionaryHistory(transactions, recurringTemplates, priorMonths(month, year, lookback), fixedIds);
 
   const statusByCat: Record<string, BudgetStatus> = {};
-  getBudgetStatus(budgets, transactions, month, year).forEach(s => { statusByCat[s.category] = s; });
+  getBudgetStatus(budgets, transactions, month, year, taxonomy).forEach(s => { statusByCat[s.category] = s; });
 
   const cats = new Set([...Object.keys(actual), ...Object.keys(recurring), ...Object.keys(hist.avgByCategory)]);
   const categories = [...cats].map(category => {
@@ -874,13 +876,15 @@ export function getRecurringCosts(transactions: Transaction[], templates: Recurr
  */
 export function getSavingsOpportunities({
   transactions, budgets = [], recurringTemplates = [], today = new Date(),
-  lookback = INSIGHT_LOOKBACK_MONTHS,
+  lookback = INSIGHT_LOOKBACK_MONTHS, taxonomy,
 }: {
   transactions: Transaction[];
   budgets?: Budget[];
   recurringTemplates?: RecurringTemplate[];
   today?: Date;
   lookback?: number;
+  /** Which categories roll into which budget. See calculations.ts. */
+  taxonomy: Taxonomy;
 }) {
   const recent = getCategoryAverages(transactions, { today, lookback });
   if (!recent.months) return [];
@@ -895,7 +899,7 @@ export function getSavingsOpportunities({
 
   // Categories over budget in most recent months.
   const overCats = new Set<string>();
-  getConsistentlyOverBudget(budgets.filter(b => b.amount > 0), transactions, month, year, lookback, Math.min(2, lookback))
+  getConsistentlyOverBudget(budgets.filter(b => b.amount > 0), transactions, month, year, taxonomy, lookback, Math.min(2, lookback))
     .forEach(b => {
       const avg = recent.byCategory[b.category] || 0;
       const saving = avg - b.amount;

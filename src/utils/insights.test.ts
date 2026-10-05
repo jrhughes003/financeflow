@@ -1,3 +1,6 @@
+import {
+  taxonomyFromState,
+} from './calculations';
 import { describe, it, expect } from 'vitest';
 import {
   getCategoryDeltas,
@@ -18,6 +21,12 @@ import {
 } from './insights';
 import { makeBudget, makeGoal, makeIncome, makeRecurring, makeTransaction } from '../test/factories';
 import type { IsoDate, Money, RecurringTemplate, Transaction } from '../types/domain';
+import { CATEGORIES } from './categorization';
+
+// The taxonomy derived the way the app derives it, so these tests exercise the
+// same grouping rules the screens do — including that budgeting a category
+// makes it a group.
+const tax = (budgets: readonly { category: string }[] = []) => taxonomyFromState({ budgets } as never);
 
 const tx = (over: Partial<Transaction> = {}): Transaction => makeTransaction({
   id: Math.random().toString(36).slice(2),
@@ -102,7 +111,7 @@ describe('projectMonthEnd', () => {
   it('uses pace alone with no history, plus scheduled recurring charges', () => {
     const txns = [tx({ date: '2026-04-05', amount: 100 })];
     const templates = [makeRecurring({ id: 'r1', merchant: 'Gym', amount: 40, category: 'health', frequency: 'monthly', nextDate: '2026-04-25' })];
-    const p = projectMonthEnd({ transactions: txns, recurringTemplates: templates, today: day(2026, 3, 10) });
+    const p = projectMonthEnd({ transactions: txns, recurringTemplates: templates, today: day(2026, 3, 10) , taxonomy: tax([]) });
     const dining = p.categories.find(c => c.category === 'dining_out');
     expect(dining).toBeDefined();
     if (!dining) throw new Error('unreachable');
@@ -121,7 +130,7 @@ describe('projectMonthEnd', () => {
       tx({ date: '2026-04-10', amount: 300 }), // already at last months' full total
     ];
     const budgets = [makeBudget({ id: 'b', category: 'dining_out', amount: 350, flex: 0 })];
-    const p = projectMonthEnd({ transactions: txns, budgets, today: day(2026, 3, 15) });
+    const p = projectMonthEnd({ transactions: txns, budgets, today: day(2026, 3, 15) , taxonomy: tax([]) });
     const dining = p.categories[0];
     // weight 0.5: pace 20/day, history 10/day → 15/day × 15 days = 225.
     expect(dining.projected).toBe(525);
@@ -134,7 +143,7 @@ describe('projectMonthEnd', () => {
   it('does not double-count recurring bills already posted', () => {
     const templates = [makeRecurring({ id: 'r1', merchant: 'Rent Co', amount: 1000, category: 'housing', frequency: 'monthly', nextDate: '2026-05-01' })];
     const txns = [tx({ date: '2026-04-01', merchant: 'Rent Co', amount: 1000, category: 'housing', recurringTemplateId: 'r1' })];
-    const p = projectMonthEnd({ transactions: txns, recurringTemplates: templates, today: day(2026, 3, 5) });
+    const p = projectMonthEnd({ transactions: txns, recurringTemplates: templates, today: day(2026, 3, 5) , taxonomy: tax([]) });
     expect(p.categories.find(c => c.category === 'housing')?.projected).toBe(1000);
   });
 });
@@ -193,13 +202,13 @@ describe('getSavingsOpportunities', () => {
   const today = day(2026, 6, 10); // July 2026; recent window Apr–Jun, earlier Jan–Mar.
 
   it('returns nothing without history', () => {
-    expect(getSavingsOpportunities({ transactions: [], today })).toEqual([]);
+    expect(getSavingsOpportunities({ transactions: [], today , taxonomy: tax([]) })).toEqual([]);
   });
 
   it('flags categories consistently over budget', () => {
     const txns = ['2026-04-10', '2026-05-10', '2026-06-10'].map(date => tx({ date, amount: 300 }));
     const budgets = [makeBudget({ id: 'b', category: 'dining_out', amount: 200, flex: 0 })];
-    const [first] = getSavingsOpportunities({ transactions: txns, budgets, today });
+    const [first] = getSavingsOpportunities({ transactions: txns, budgets, today , taxonomy: tax([]) });
     expect(first).toMatchObject({ type: 'over_budget', category: 'dining_out', monthlySaving: 100, annualSaving: 1200, suggestedCutPct: 33 });
   });
 
@@ -208,14 +217,14 @@ describe('getSavingsOpportunities', () => {
       ...['2026-01-10', '2026-02-10', '2026-03-10'].map(date => tx({ date, category: 'products', amount: 100 })),
       ...['2026-04-10', '2026-05-10', '2026-06-10'].map(date => tx({ date, category: 'products', amount: 160 })),
     ];
-    const ops = getSavingsOpportunities({ transactions: txns, today });
+    const ops = getSavingsOpportunities({ transactions: txns, today , taxonomy: tax([]) });
     expect(ops.find(o => o.type === 'trending_up')).toMatchObject({ category: 'products', monthlySaving: 60 });
   });
 
   it('flags frequent small purchases at one merchant', () => {
     const txns: Transaction[] = [];
     ['04', '05', '06'].forEach(m => { for (let d = 1; d <= 5; d++) txns.push(tx({ date: `2026-${m}-0${d}`, merchant: 'Starbucks', amount: 6 })); });
-    const small = getSavingsOpportunities({ transactions: txns, today }).find(o => o.type === 'frequent_small');
+    const small = getSavingsOpportunities({ transactions: txns, today , taxonomy: tax([]) }).find(o => o.type === 'frequent_small');
     expect(small).toMatchObject({ merchant: 'Starbucks', perMonth: 5, monthlySpend: 30, monthlySaving: 15 });
   });
 
@@ -223,7 +232,7 @@ describe('getSavingsOpportunities', () => {
     const txns = ([
       ['2026-03-05', 10], ['2026-04-05', 10], ['2026-05-05', 10], ['2026-06-05', 13],
     ] as [IsoDate, Money][]).map(([date, amount]) => tx({ date, merchant: 'StreamCo', amount, category: 'subscriptions' }));
-    const ops = getSavingsOpportunities({ transactions: txns, today });
+    const ops = getSavingsOpportunities({ transactions: txns, today , taxonomy: tax([]) });
     expect(ops.find(o => o.type === 'price_increase')).toMatchObject({ merchant: 'StreamCo', before: 10, after: 13, monthlySaving: 3 });
     expect(ops[ops.length - 1].type).toBe('recurring_review');
   });
@@ -232,7 +241,7 @@ describe('getSavingsOpportunities', () => {
     const txns = ([
       ['2026-03-05', 10], ['2026-04-05', 10], ['2026-05-05', 13], ['2026-06-05', 13],
     ] as [IsoDate, Money][]).map(([date, amount]) => tx({ date, merchant: 'StreamCo', amount, category: 'subscriptions' }));
-    const inc = getSavingsOpportunities({ transactions: txns, today }).find(o => o.type === 'price_increase');
+    const inc = getSavingsOpportunities({ transactions: txns, today , taxonomy: tax([]) }).find(o => o.type === 'price_increase');
     expect(inc).toMatchObject({ before: 10, after: 13 });
   });
 
@@ -240,7 +249,7 @@ describe('getSavingsOpportunities', () => {
     const txns = ([
       ['2026-01-05', 10], ['2026-02-05', 13], ['2026-03-05', 13], ['2026-04-05', 13], ['2026-05-05', 13], ['2026-06-05', 13],
     ] as [IsoDate, Money][]).map(([date, amount]) => tx({ date, merchant: 'StreamCo', amount, category: 'subscriptions' }));
-    expect(getSavingsOpportunities({ transactions: txns, today }).find(o => o.type === 'price_increase')).toBeUndefined();
+    expect(getSavingsOpportunities({ transactions: txns, today , taxonomy: tax([]) }).find(o => o.type === 'price_increase')).toBeUndefined();
   });
 });
 
@@ -433,7 +442,7 @@ describe('forecasts with periodic bills', () => {
       tx({ date: '2025-07-25', merchant: 'State Farm', amount: 600, category: 'insurance' }),
       tx({ date: '2026-01-22', merchant: 'State Farm', amount: 600, category: 'insurance' }),
     ];
-    const p = projectMonthEnd({ transactions: [...due, ...everyday], today });
+    const p = projectMonthEnd({ transactions: [...due, ...everyday], today , taxonomy: tax([]) });
     expect(p.categories.find(c => c.category === 'insurance')).toMatchObject({ recurringRemaining: 600, projected: 600 });
   });
 });

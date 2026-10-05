@@ -75,6 +75,7 @@ export const CATEGORIES: Category[] = [
   },
   {
     id: 'utilities',
+    parent: 'housing',
     name: 'Utilities',
     color: '#14b8a6',
     icon: 'Zap',
@@ -102,6 +103,8 @@ export const CATEGORIES: Category[] = [
   },
   {
     id: 'health',
+    parent: 'products',
+    retired: true,
     name: 'Health & Personal Care',
     color: '#ec4899',
     icon: 'HeartPulse',
@@ -116,6 +119,7 @@ export const CATEGORIES: Category[] = [
   },
   {
     id: 'entertainment',
+    parent: 'products',
     name: 'Entertainment',
     color: '#a855f7',
     icon: 'Ticket',
@@ -130,6 +134,7 @@ export const CATEGORIES: Category[] = [
   },
   {
     id: 'travel',
+    parent: 'transportation',
     name: 'Travel',
     color: '#06b6d4',
     icon: 'Plane',
@@ -143,6 +148,8 @@ export const CATEGORIES: Category[] = [
   },
   {
     id: 'insurance',
+    parent: 'products',
+    retired: true,
     name: 'Insurance',
     color: '#64748b',
     icon: 'ShieldCheck',
@@ -155,6 +162,8 @@ export const CATEGORIES: Category[] = [
   },
   {
     id: 'education',
+    parent: 'products',
+    retired: true,
     name: 'Education',
     color: '#eab308',
     icon: 'GraduationCap',
@@ -167,6 +176,8 @@ export const CATEGORIES: Category[] = [
   },
   {
     id: 'pets',
+    parent: 'products',
+    retired: true,
     name: 'Pets',
     color: '#f472b6',
     icon: 'PawPrint',
@@ -178,6 +189,7 @@ export const CATEGORIES: Category[] = [
   },
   {
     id: 'gifts_donations',
+    parent: 'products',
     name: 'Gifts & Donations',
     color: '#fb7185',
     icon: 'Gift',
@@ -189,6 +201,7 @@ export const CATEGORIES: Category[] = [
   },
   {
     id: 'fees',
+    parent: 'products',
     name: 'Fees & Interest',
     color: '#94a3b8',
     icon: 'Receipt',
@@ -201,6 +214,7 @@ export const CATEGORIES: Category[] = [
   },
   {
     id: 'electronics',
+    parent: 'products',
     name: 'Electronics',
     color: '#6366f1',
     icon: 'Laptop',
@@ -212,6 +226,7 @@ export const CATEGORIES: Category[] = [
   },
   {
     id: 'clothing',
+    parent: 'products',
     name: 'Clothing',
     color: '#d946ef',
     icon: 'Shirt',
@@ -224,6 +239,8 @@ export const CATEGORIES: Category[] = [
   },
   {
     id: 'home',
+    parent: 'housing',
+    retired: true,
     name: 'Home & Garden',
     color: '#84cc16',
     icon: 'Sofa',
@@ -260,9 +277,24 @@ export const FALLBACK_CATEGORY_ID = 'products';
 /**
  * Get all categories: core + any user-created custom categories.
  * Always call this instead of using CATEGORIES directly when you need the full list.
+ *
+ * Deduplicated by id, with the custom one winning. A user can hold a custom
+ * category whose id matches a built-in — the demo ledger does exactly that for
+ * `housing`, and anyone who made their own before the taxonomy grew from 5 to
+ * 18 could have collided with one of the 13 new ids. Concatenating blindly was
+ * survivable while every consumer did a `.find()` by id and took the first
+ * match; it stopped being survivable the moment anything iterated the list,
+ * which is how Housing came to appear twice in the picker and twice as a
+ * budget group.
+ *
+ * The custom one wins because it is the more deliberate statement: the user
+ * named and coloured it, and their stored transactions already point at it.
  */
 export function getAllCategories(customCategories: Category[] = []): Category[] {
-  return [...CATEGORIES, ...customCategories];
+  const byId = new Map<string, Category>();
+  for (const c of CATEGORIES) byId.set(c.id, c);
+  for (const c of customCategories || []) if (c?.id) byId.set(c.id, c);
+  return [...byId.values()];
 }
 
 /**

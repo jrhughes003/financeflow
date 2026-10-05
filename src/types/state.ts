@@ -26,6 +26,16 @@ export interface Settings {
   merchantCategoryHints?: Record<string, string>;
   dismissedBudgetTips?: string[];
   dismissedDuplicates?: string[];
+  /**
+   * Category id → the id it rolls up into for budgeting, overriding the
+   * default `parent` in categorization.ts.
+   *
+   * Here rather than in the taxonomy because the right grouping is personal.
+   * Someone with a custom "Rent+Household" category wants Housing and
+   * Utilities underneath it; no shipped default can know that, and editing the
+   * shared taxonomy to suit one ledger would change it for everyone.
+   */
+  categoryParents?: Record<string, string>;
   /** Plan Ahead lives in settings rather than its own tables. */
   lifePlan?: LifePlan;
 }

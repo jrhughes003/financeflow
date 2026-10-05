@@ -13,9 +13,11 @@ import { withEffectiveAmount } from './reimbursements';
 import { getInvestmentsValue } from './accounts';
 
 import type {
-  Budget, Debt, EffectiveTransaction, Goal, Income, IncomeFrequency,
+  Budget, Category, Debt, EffectiveTransaction, Goal, Income, IncomeFrequency,
   Investment, Money, Transaction,
 } from '../types/domain';
+import { rollUp, effectiveOverrides, type ParentOverrides } from './categoryTree';
+import { getAllCategories } from './categorization';
 import type {
   Anomaly, AnomalyOptions, BudgetHealth, BudgetStatus, BudgetStatusName,
   DayOfWeekSpending, DebtPayoff, GoalCompletion, GoalProgress, MerchantTotal,
@@ -117,6 +119,56 @@ export function getSpendingByCategory(
   return map;
 }
 
+/**
+ * The category shape a budget is measured against.
+ *
+ * Required rather than optional on purpose. A budget is set at group level and
+ * transactions are recorded at category level, so every figure here depends on
+ * knowing which categories roll into which group. An optional argument would
+ * have let a call site quietly skip the roll-up and report a group as
+ * underspent because it only counted the group's own transactions — the kind
+ * of wrong that looks plausible. Making it required turns the type checker
+ * into the list of places that have to care.
+ */
+export interface Taxonomy {
+  /** Built-ins plus the user's custom categories. */
+  categories: Category[];
+  /** The user's personal regrouping, from settings.categoryParents. */
+  parentOverrides?: ParentOverrides;
+}
+
+/**
+ * The taxonomy implied by a stored state.
+ *
+ * For the callers that already receive the whole AppState — the health score,
+ * the AI summary — so they do not need the shape threaded in separately and
+ * cannot disagree with the screens about it.
+ */
+export function taxonomyFromState(state: {
+  budgets?: Budget[];
+  customCategories?: Category[];
+  settings?: { categoryParents?: ParentOverrides };
+}): Taxonomy {
+  return {
+    categories: getAllCategories(state?.customCategories || []),
+    parentOverrides: effectiveOverrides(state?.budgets || [], state?.settings?.categoryParents),
+  };
+}
+
+/** Spending for a month, totalled at the level budgets are set. */
+function groupSpending(
+  transactions: Transaction[],
+  month: number | undefined,
+  year: number | undefined,
+  taxonomy: Taxonomy,
+): SpendingByCategory {
+  return rollUp(
+    getSpendingByCategory(transactions, month, year),
+    taxonomy.categories,
+    taxonomy.parentOverrides,
+  );
+}
+
 // Rollover carry for a budget: the previous month's unused (positive) or
 // overspent (negative) amount, which folds into this month's effective limit.
 // Budgets in FinanceFlow are not per-month, so the previous month's limit is the
@@ -127,10 +179,14 @@ export function getRolloverCarry(
   transactions: Transaction[],
   month: number,
   year: number,
+  taxonomy: Taxonomy,
 ): Money {
   if (!budget || !budget.rollover) return 0;
   const prev = subMonths(new Date(year, month, 1), 1);
-  const prevSpending = getSpendingByCategory(transactions, prev.getMonth(), prev.getFullYear());
+  // Rolled up, like the current month: carrying a group's unused room forward
+  // from a figure that counted only part of the group would compound the
+  // error month over month.
+  const prevSpending = groupSpending(transactions, prev.getMonth(), prev.getFullYear(), taxonomy);
   const prevActual = prevSpending[budget.category] || 0;
   return roundCents(budget.amount - prevActual);
 }
@@ -143,12 +199,13 @@ export function getBudgetStatus(
   transactions: Transaction[],
   month: number,
   year: number,
+  taxonomy: Taxonomy,
 ): BudgetStatus[] {
-  const spending = getSpendingByCategory(transactions, month, year);
+  const spending = groupSpending(transactions, month, year, taxonomy);
   return budgets.map(b => {
     const actual = spending[b.category] || 0;
     const flex = b.flex || 0; // percentage of acceptable overage
-    const carry = getRolloverCarry(b, transactions, month, year);
+    const carry = getRolloverCarry(b, transactions, month, year, taxonomy);
     // Effective limit can't go below zero (a large prior overage zeroes it out).
     const effectiveBudget = roundCents(Math.max(0, b.amount + carry));
     const flexLimit = effectiveBudget * (1 + flex / 100);
@@ -180,13 +237,14 @@ export function getConsistentlyOverBudget(
   transactions: Transaction[],
   month: number,
   year: number,
+  taxonomy: Taxonomy,
   monthsBack = 3,
   minOverMonths = 2,
 ): Budget[] {
   const overCounts: Record<string, number> = {};
   for (let i = 1; i <= monthsBack; i++) {
     const d = subMonths(new Date(year, month, 1), i);
-    const statuses = getBudgetStatus(budgets, transactions, d.getMonth(), d.getFullYear());
+    const statuses = getBudgetStatus(budgets, transactions, d.getMonth(), d.getFullYear(), taxonomy);
     statuses.forEach(s => {
       if (s.status === 'danger') overCounts[s.category] = (overCounts[s.category] || 0) + 1;
     });
@@ -245,13 +303,14 @@ export function getBudgetHealthScore(
   transactions: Transaction[],
   month: number,
   year: number,
+  taxonomy: Taxonomy,
 ): BudgetHealth {
   // Colours are token references, not literals: a hex here is a colour the
   // theme swap cannot reach, and these particular hexes were unreadable on a
   // white card anyway (#22c55e is 2.3:1). Callers must place them somewhere
   // var() resolves — a `style` object, not an SVG presentation attribute.
   if (!budgets.length) return { grade: 'N/A', percent: 0, color: 'var(--c-score-none)' };
-  const statuses = getBudgetStatus(budgets, transactions, month, year);
+  const statuses = getBudgetStatus(budgets, transactions, month, year, taxonomy);
   const withinBudget = statuses.filter(s => s.status !== 'danger').length;
   const percent = Math.round((withinBudget / statuses.length) * 100);
   let grade: BudgetHealth['grade'];

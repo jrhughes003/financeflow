@@ -6,7 +6,7 @@
 // lets the same function produce a month-by-month trend.
 
 import { subMonths, format } from 'date-fns';
-import { getTotalIncome, getTransactionsForPeriod, getBudgetStatus, getDisplayCurrency, localeFor } from './calculations';
+import { getTotalIncome, getTransactionsForPeriod, getBudgetStatus, getDisplayCurrency, localeFor, taxonomyFromState } from './calculations';
 import { getIncomeSources, getInvestmentsValue, requiredPayment } from './accounts';
 
 import type { Goal, IsoDate, Money, Transaction } from '../types/domain';
@@ -102,6 +102,10 @@ function savingsAsOf(goals: Goal[], transactions: Transaction[], beforeStr: IsoD
  */
 export function getFinancialHealth(state: AppState, { ref = new Date() }: { ref?: Date } = {}) {
   const { transactions = [], budgets = [], incomes = [], savings_goals = [], debts = [], investments = [] } = state || {};
+  // Derived here rather than passed in: this already has the whole state,
+  // and two sources of truth for the grouping is how screens end up
+  // disagreeing about the same budget.
+  const taxonomy = taxonomyFromState(state);
   const income = getTotalIncome(getIncomeSources(incomes, investments));
 
   // Expenses over the last 3 full months with data (and 6 for stability).
@@ -137,7 +141,7 @@ export function getFinancialHealth(state: AppState, { ref = new Date() }: { ref?
   if (activeBudgets.length && recent.length) {
     let within = 0, total = 0;
     recent.forEach(m => {
-      getBudgetStatus(activeBudgets, transactions, m.month, m.year).forEach(s => {
+      getBudgetStatus(activeBudgets, transactions, m.month, m.year, taxonomy).forEach(s => {
         total++;
         if (s.status !== 'danger') within++;
       });

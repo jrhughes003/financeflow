@@ -1,28 +1,15 @@
 import { describe, it, expect } from 'vitest';
 import {
-  formatCurrency,
-  toMonthlyAmount,
-  getTotalIncome,
-  getTransactionsForPeriod,
-  getTotalExpenses,
-  getSpendingByCategory,
-  getBudgetStatus,
-  getSavingsRate,
-  getNetWorth,
-  getBudgetHealthScore,
-  detectAnomalies,
-  projectGoalCompletion,
-  getTopMerchants,
-  getSpendingByDayOfWeek,
-  calculateDebtPayoff,
-  getMonthlyTrend,
-  getRolloverCarry,
-  getGoalContributions,
-  getGoalProgress,
-  getConsistentlyOverBudget,
+  formatCurrency, toMonthlyAmount, getTotalIncome, getTransactionsForPeriod, getTotalExpenses, getSpendingByCategory, getBudgetStatus, getSavingsRate, getNetWorth, getBudgetHealthScore, detectAnomalies, projectGoalCompletion, getTopMerchants, getSpendingByDayOfWeek, calculateDebtPayoff, getMonthlyTrend, getRolloverCarry, getGoalContributions, getGoalProgress, getConsistentlyOverBudget, taxonomyFromState,
 } from './calculations';
 import { makeBudget, makeDebt, makeGoal, makeIncome, makeInvestment, makeTransaction } from '../test/factories';
 import type { IncomeFrequency, Transaction } from '../types/domain';
+import { CATEGORIES } from './categorization';
+
+// The taxonomy derived the way the app derives it, so these tests exercise the
+// same grouping rules the screens do — including that budgeting a category
+// makes it a group.
+const tax = (budgets: readonly { category: string }[] = []) => taxonomyFromState({ budgets } as never);
 
 // Helper: build a transaction with sane defaults.
 const tx = (over: Partial<Transaction> = {}): Transaction => makeTransaction({
@@ -124,7 +111,7 @@ describe('getBudgetStatus', () => {
 
   it('flags good when under 80%', () => {
     const txns = [tx({ amount: 50 })];
-    const [s] = getBudgetStatus(budgets, txns, MARCH.month, MARCH.year);
+    const [s] = getBudgetStatus(budgets, txns, MARCH.month, MARCH.year, tax(budgets));
     expect(s.status).toBe('good');
     expect(s.variance).toBe(50);
     expect(s.percentUsed).toBe(50);
@@ -132,13 +119,13 @@ describe('getBudgetStatus', () => {
 
   it('flags warning at/above 80% but within flex', () => {
     const txns = [tx({ amount: 85 })];
-    const [s] = getBudgetStatus(budgets, txns, MARCH.month, MARCH.year);
+    const [s] = getBudgetStatus(budgets, txns, MARCH.month, MARCH.year, tax(budgets));
     expect(s.status).toBe('warning');
   });
 
   it('flags danger above the flex limit', () => {
     const txns = [tx({ amount: 120 })]; // flexLimit = 110
-    const [s] = getBudgetStatus(budgets, txns, MARCH.month, MARCH.year);
+    const [s] = getBudgetStatus(budgets, txns, MARCH.month, MARCH.year, tax(budgets));
     expect(s.status).toBe('danger');
     expect(s.flexLimit).toBeCloseTo(110);
   });
@@ -146,7 +133,7 @@ describe('getBudgetStatus', () => {
   it('handles a zero budget amount without dividing by zero', () => {
     const [s] = getBudgetStatus(
       [makeBudget({ id: 'b1', category: 'dining_out', amount: 0, flex: 10 })],
-      [tx({ amount: 5 })], MARCH.month, MARCH.year,
+      [tx({ amount: 5 })], MARCH.month, MARCH.year, tax([{ category: 'dining_out' }]),
     );
     expect(s.percentUsed).toBe(0);
     expect(s.status).toBe('danger'); // 5 > flexLimit of 0
@@ -162,8 +149,8 @@ describe('budget rollover', () => {
 
   it('carries prior-month unused budget when rollover is on', () => {
     const b = makeBudget({ id: 'b1', category: 'dining_out', amount: 100, flex: 0, rollover: true });
-    expect(getRolloverCarry(b, txns, MARCH.month, MARCH.year)).toBe(40);
-    const [s] = getBudgetStatus([b], txns, MARCH.month, MARCH.year);
+    expect(getRolloverCarry(b, txns, MARCH.month, MARCH.year, tax([b]))).toBe(40);
+    const [s] = getBudgetStatus([b], txns, MARCH.month, MARCH.year, tax([b]));
     expect(s.effectiveBudget).toBe(140);
     expect(s.carry).toBe(40);
   });
@@ -171,22 +158,22 @@ describe('budget rollover', () => {
   it('carries a negative amount when the prior month overspent', () => {
     const over = [tx({ date: '2026-02-10', amount: 130 }), tx({ date: '2026-03-10', amount: 10 })];
     const b = makeBudget({ id: 'b1', category: 'dining_out', amount: 100, flex: 0, rollover: true });
-    expect(getRolloverCarry(b, over, MARCH.month, MARCH.year)).toBe(-30);
-    const [s] = getBudgetStatus([b], over, MARCH.month, MARCH.year);
+    expect(getRolloverCarry(b, over, MARCH.month, MARCH.year, tax([b]))).toBe(-30);
+    const [s] = getBudgetStatus([b], over, MARCH.month, MARCH.year, tax([b]));
     expect(s.effectiveBudget).toBe(70);
   });
 
   it('does not carry when rollover is off (back-compat)', () => {
     const b = makeBudget({ id: 'b1', category: 'dining_out', amount: 100, flex: 0, rollover: false });
-    expect(getRolloverCarry(b, txns, MARCH.month, MARCH.year)).toBe(0);
-    const [s] = getBudgetStatus([b], txns, MARCH.month, MARCH.year);
+    expect(getRolloverCarry(b, txns, MARCH.month, MARCH.year, tax([b]))).toBe(0);
+    const [s] = getBudgetStatus([b], txns, MARCH.month, MARCH.year, tax([b]));
     expect(s.effectiveBudget).toBe(100);
   });
 
   it('clamps a large prior overage so the effective budget never goes negative', () => {
     const over = [tx({ date: '2026-02-10', amount: 500 }), tx({ date: '2026-03-10', amount: 5 })];
     const b = makeBudget({ id: 'b1', category: 'dining_out', amount: 100, flex: 0, rollover: true });
-    const [s] = getBudgetStatus([b], over, MARCH.month, MARCH.year);
+    const [s] = getBudgetStatus([b], over, MARCH.month, MARCH.year, tax([b]));
     expect(s.effectiveBudget).toBe(0);
     expect(s.status).toBe('danger');
   });
@@ -225,14 +212,14 @@ describe('getConsistentlyOverBudget', () => {
       tx({ date: '2026-01-10', amount: 200 }),
       tx({ date: '2026-02-10', amount: 200 }),
     ];
-    const over = getConsistentlyOverBudget(budgets, txns, MARCH.month, MARCH.year);
+    const over = getConsistentlyOverBudget(budgets, txns, MARCH.month, MARCH.year, tax(budgets));
     expect(over.map(b => b.category)).toEqual(['dining_out']);
   });
 
   it('does not flag a single over-budget month', () => {
     const budgets = [makeBudget({ id: 'b1', category: 'dining_out', amount: 100, flex: 0 })];
     const txns = [tx({ date: '2026-02-10', amount: 200 })];
-    expect(getConsistentlyOverBudget(budgets, txns, MARCH.month, MARCH.year)).toEqual([]);
+    expect(getConsistentlyOverBudget(budgets, txns, MARCH.month, MARCH.year, tax(budgets))).toEqual([]);
   });
 });
 
@@ -276,11 +263,11 @@ describe('getNetWorth', () => {
 
 describe('getBudgetHealthScore', () => {
   it('returns N/A with no budgets', () => {
-    expect(getBudgetHealthScore([], [], MARCH.month, MARCH.year).grade).toBe('N/A');
+    expect(getBudgetHealthScore([], [], MARCH.month, MARCH.year, tax([])).grade).toBe('N/A');
   });
   it('grades A when all categories are within budget', () => {
     const budgets = [makeBudget({ id: 'b1', category: 'dining_out', amount: 100, flex: 10 })];
-    const result = getBudgetHealthScore(budgets, [tx({ amount: 10 })], MARCH.month, MARCH.year);
+    const result = getBudgetHealthScore(budgets, [tx({ amount: 10 })], MARCH.month, MARCH.year, tax(budgets));
     expect(result.grade).toBe('A');
     expect(result.percent).toBe(100);
   });

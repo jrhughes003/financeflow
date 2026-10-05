@@ -13,12 +13,19 @@
 import { describe, it, expect } from 'vitest';
 import fc from 'fast-check';
 import {
-  getTotalExpenses, getSpendingByCategory, getBudgetStatus, getRolloverCarry,
-  toMonthlyAmount, calculateDebtPayoff, getGoalProgress, getTotalIncome,
+  getTotalExpenses, getSpendingByCategory, getBudgetStatus, getRolloverCarry, toMonthlyAmount, calculateDebtPayoff, getGoalProgress, getTotalIncome, taxonomyFromState,
 } from './calculations';
 import { effectiveAmount, getOwedStatus, owedFromSplit } from './reimbursements';
 import { makeGoal, makeTransaction } from '../test/factories';
 import type { IncomeFrequency, Transaction } from '../types/domain';
+// Aliased: CATEGORIES below is this file's own list of ids to generate from,
+// which is a different thing from the shipped taxonomy.
+import { CATEGORIES as TAXONOMY_CATEGORIES } from './categorization';
+
+// The taxonomy derived the way the app derives it, so these tests exercise the
+// same grouping rules the screens do — including that budgeting a category
+// makes it a group.
+const tax = (budgets: readonly { category: string }[] = []) => taxonomyFromState({ budgets } as never);
 
 const CATEGORIES = ['dining_out', 'groceries', 'transportation', 'subscriptions', 'products'];
 const cents = () => fc.integer({ min: 1, max: 500000 }).map(n => n / 100);
@@ -123,7 +130,7 @@ describe('budgets and rollover', () => {
       // Positional, not by category: two budgets may share a category (an
       // import can produce that), and looking up by name would compare a row
       // against the wrong source.
-      getBudgetStatus(budgets, txns, 8, 2026).forEach((status, index) => {
+      getBudgetStatus(budgets, txns, 8, 2026, tax(budgets)).forEach((status, index) => {
         expect(status.effectiveBudget).toBeGreaterThanOrEqual(0);
         expect(status.effectiveBudget).toBeCloseTo(Math.max(0, budgets[index].amount + status.carry), 2);
       });
@@ -132,14 +139,14 @@ describe('budgets and rollover', () => {
 
   it('carries nothing when rollover is off', () => {
     fc.assert(fc.property(budget, ledger(), (b, txns) => {
-      const carry = getRolloverCarry({ ...b, rollover: false }, txns, 8, 2026);
+      const carry = getRolloverCarry({ ...b, rollover: false }, txns, 8, 2026, tax([b]));
       expect(carry).toBe(0);
     }), { numRuns: 200 });
   });
 
   it('variance always reconciles the limit against what was spent', () => {
     fc.assert(fc.property(fc.array(budget, { minLength: 1, maxLength: 5 }), ledger(), (budgets, txns) => {
-      getBudgetStatus(budgets, txns, 8, 2026).forEach(s => {
+      getBudgetStatus(budgets, txns, 8, 2026, tax(budgets)).forEach(s => {
         expect(s.variance).toBeCloseTo(s.effectiveBudget - s.actual, 2);
         if (s.effectiveBudget > 0) expect(s.percentUsed).toBeCloseTo((s.actual / s.effectiveBudget) * 100, 2);
       });

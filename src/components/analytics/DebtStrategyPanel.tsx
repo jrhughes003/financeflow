@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { format, parseISO } from 'date-fns';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { Landmark, AlertTriangle, Sparkles } from 'lucide-react';
-import { useFinancial } from '../../context/FinancialContext';
+import { useFinancial, useTaxonomy } from '../../context/FinancialContext';
 import { formatCurrency } from '../../utils/calculations';
 import { compareDebtStrategies } from '../../utils/planning';
 import { runOptimize } from '../../utils/runOptimize';
@@ -28,6 +28,7 @@ const duration = (m: number | null): string => {
 
 export default function DebtStrategyPanel() {
   const { state } = useFinancial();
+  const taxonomy = useTaxonomy();
   const { debts = [], transactions, budgets, recurringTemplates = [] } = state;
   const owing = useMemo(() => debts.filter(d => (Number(d.balance) || 0) > 0), [debts]);
   const [extra, setExtra] = useState(0);
@@ -35,10 +36,10 @@ export default function DebtStrategyPanel() {
   // "Found money" from the Save Money tab, as a one-click extra payment.
   // Rounded to the slider's $10 step so the link and the slider agree.
   const potential = useMemo(() => Math.round(
-    getSavingsOpportunities({ transactions, budgets, recurringTemplates })
+    getSavingsOpportunities({ transactions, budgets, recurringTemplates , taxonomy })
       .filter(o => o.monthlySaving !== null)
       .reduce((s, o) => s + (o.monthlySaving ?? 0), 0) / 10,
-  ) * 10, [transactions, budgets, recurringTemplates]);
+  ) * 10, [transactions, budgets, recurringTemplates, taxonomy]);
 
   const cmp = useMemo(() => compareDebtStrategies(owing, { extra }), [owing, extra]);
 

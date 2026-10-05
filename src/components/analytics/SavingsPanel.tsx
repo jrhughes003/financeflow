@@ -2,7 +2,7 @@ import type { SavingsOpportunity } from '../../utils/insights';
 import React, { useMemo, useState } from 'react';
 import { addMonths, format } from 'date-fns';
 import { AlertTriangle, TrendingUp, Coffee, BadgeDollarSign, Repeat, SlidersHorizontal, RotateCcw, Lightbulb } from 'lucide-react';
-import { useFinancial, useGetCategory } from '../../context/FinancialContext';
+import { useFinancial, useGetCategory, useTaxonomy } from '../../context/FinancialContext';
 import { formatCurrency, getTotalIncome, getGoalProgress } from '../../utils/calculations';
 import {
   getSavingsOpportunities, getCategoryAverages, simulateCuts, goalTimelineImpact,
@@ -60,14 +60,15 @@ function describe(
 
 export default function SavingsPanel() {
   const { state } = useFinancial();
+  const taxonomy = useTaxonomy();
   const { transactions, budgets, incomes, savings_goals = [], recurringTemplates = [] } = state;
   const getCategory = useGetCategory();
   const catName = (id: string): string => getCategory(id).name;
 
   // Heavy scans — only recompute when the data changes, not on every slider move.
   const opportunities = useMemo(
-    () => getSavingsOpportunities({ transactions, budgets, recurringTemplates }),
-    [transactions, budgets, recurringTemplates],
+    () => getSavingsOpportunities({ transactions, budgets, recurringTemplates, taxonomy }),
+    [transactions, budgets, recurringTemplates, taxonomy],
   );
   const actionable = opportunities.filter(o => o.monthlySaving !== null);
   const review = opportunities.find(o => o.type === 'recurring_review');

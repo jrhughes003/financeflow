@@ -1,9 +1,10 @@
-import React, { createContext, useContext, useReducer, useEffect, useRef, useState } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useMemo, useRef, useState } from 'react';
 import { sampleData } from '../utils/sampleData';
 import generateDemoData from '../utils/demoData';
 import { isDemoBuild } from '../demoMode';
-import { getCategoryById } from '../utils/categorization';
-import { setDisplayCurrency } from '../utils/calculations';
+import { getCategoryById, getAllCategories } from '../utils/categorization';
+import { effectiveOverrides } from '../utils/categoryTree';
+import { setDisplayCurrency, type Taxonomy } from '../utils/calculations';
 import type { Category } from '../types/domain';
 import type { Action, AppState, Dispatch } from '../types/state';
 import { asAppState } from '../types/state';
@@ -251,4 +252,28 @@ export function useGetCategory(): (id: string) => Category {
   const { state } = useFinancial();
   const customCategories = state.customCategories || [];
   return (id: string) => getCategoryById(id, customCategories);
+}
+
+/**
+ * The category shape every budget figure is measured against.
+ *
+ * One hook rather than each screen assembling its own, because the pieces come
+ * from two places — the built-in taxonomy plus the user's custom categories,
+ * and the personal regrouping in settings — and a screen that assembled only
+ * half would show a different budget total from the screen next to it. The
+ * memo keeps the identity stable so it can be passed into other memos.
+ */
+export function useTaxonomy(): Taxonomy {
+  const { state } = useFinancial();
+  const { customCategories, budgets } = state;
+  const parentOverrides = state.settings?.categoryParents;
+  return useMemo(
+    () => ({
+      categories: getAllCategories(customCategories || []),
+      // Budgets participate: budgeting a category makes it a group, so
+      // nobody's existing budget is emptied by the default grouping.
+      parentOverrides: effectiveOverrides(budgets || [], parentOverrides),
+    }),
+    [customCategories, budgets, parentOverrides],
+  );
 }

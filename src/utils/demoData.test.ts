@@ -5,11 +5,19 @@
 
 import { describe, it, expect } from 'vitest';
 import generateDemoData from './demoData';
-import { getTransactionsForPeriod, getBudgetStatus, getGoalProgress, getTotalIncome } from './calculations';
+import {
+  getTransactionsForPeriod, getBudgetStatus, getGoalProgress, getTotalIncome, taxonomyFromState,
+} from './calculations';
 import { getOwedStatus, effectiveAmount } from './reimbursements';
 import { runPlan } from './lifeplan/engine';
 import { buildSnapshot, normalizePlan } from './lifeplan/snapshot';
 import { needsSetup } from '../types/projection';
+import { CATEGORIES } from './categorization';
+
+// The taxonomy derived the way the app derives it, so these tests exercise the
+// same grouping rules the screens do — including that budgeting a category
+// makes it a group.
+const tax = (budgets: readonly { category: string }[] = []) => taxonomyFromState({ budgets } as never);
 
 const TODAY = new Date(2026, 8, 22); // 2026-09-22, fixed so assertions are stable
 
@@ -84,7 +92,7 @@ describe('generateDemoData', () => {
 
   it('covers every budgeted category with actual spending', () => {
     // Use the prior full month so a partially elapsed current month can't fail it.
-    getBudgetStatus(data.budgets, data.transactions, 7, 2026).forEach(status => {
+    getBudgetStatus(data.budgets, data.transactions, 7, 2026, tax(data.budgets)).forEach(status => {
       expect(status.actual).toBeGreaterThan(0);
     });
   });

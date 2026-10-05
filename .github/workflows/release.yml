@@ -75,7 +75,7 @@ jobs:
           echo "version $pkg matches the tag"
 
       - name: Publish the release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           draft: true    # so the notes can be written before anyone downloads it
           generate_release_notes: true

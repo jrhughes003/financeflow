@@ -34,6 +34,11 @@ export default {
         positive: { DEFAULT: 'var(--c-positive)', tint: 'var(--c-positive-tint)' },
         negative: { DEFAULT: 'var(--c-negative)', tint: 'var(--c-negative-tint)' },
         caution: { DEFAULT: 'var(--c-caution)', tint: 'var(--c-caution-tint)' },
+        info: { DEFAULT: 'var(--c-info)', tint: 'var(--c-info-tint)' },
+        score: {
+          1: 'var(--c-score-1)', 2: 'var(--c-score-2)', 3: 'var(--c-score-3)',
+          4: 'var(--c-score-4)', 5: 'var(--c-score-5)', none: 'var(--c-score-none)',
+        },
         data: {
           1: 'var(--c-data-1)', 2: 'var(--c-data-2)', 3: 'var(--c-data-3)', 4: 'var(--c-data-4)',
           5: 'var(--c-data-5)', 6: 'var(--c-data-6)', 7: 'var(--c-data-7)',

@@ -246,17 +246,21 @@ export function getBudgetHealthScore(
   month: number,
   year: number,
 ): BudgetHealth {
-  if (!budgets.length) return { grade: 'N/A', percent: 0, color: '#94a3b8' };
+  // Colours are token references, not literals: a hex here is a colour the
+  // theme swap cannot reach, and these particular hexes were unreadable on a
+  // white card anyway (#22c55e is 2.3:1). Callers must place them somewhere
+  // var() resolves — a `style` object, not an SVG presentation attribute.
+  if (!budgets.length) return { grade: 'N/A', percent: 0, color: 'var(--c-score-none)' };
   const statuses = getBudgetStatus(budgets, transactions, month, year);
   const withinBudget = statuses.filter(s => s.status !== 'danger').length;
   const percent = Math.round((withinBudget / statuses.length) * 100);
   let grade: BudgetHealth['grade'];
   let color: string;
-  if (percent >= 90) { grade = 'A'; color = '#22c55e'; }
-  else if (percent >= 80) { grade = 'B'; color = '#84cc16'; }
-  else if (percent >= 70) { grade = 'C'; color = '#f59e0b'; }
-  else if (percent >= 60) { grade = 'D'; color = '#f97316'; }
-  else { grade = 'F'; color = '#ef4444'; }
+  if (percent >= 90) { grade = 'A'; color = 'var(--c-score-1)'; }
+  else if (percent >= 80) { grade = 'B'; color = 'var(--c-score-2)'; }
+  else if (percent >= 70) { grade = 'C'; color = 'var(--c-score-3)'; }
+  else if (percent >= 60) { grade = 'D'; color = 'var(--c-score-4)'; }
+  else { grade = 'F'; color = 'var(--c-score-5)'; }
   return { grade, percent, color };
 }
 

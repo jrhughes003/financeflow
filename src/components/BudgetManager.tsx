@@ -222,9 +222,18 @@ export default function BudgetManager() {
         <div className="bg-surface rounded-container border border-line p-4">
           <p className="text-caption font-semibold text-ink-muted uppercase tracking-wider mb-2">Your Custom Categories</p>
           <div className="flex flex-wrap gap-2">
+            {/*
+              The category colour identifies the category; it is not a text
+              colour. It used to be all three at once — border, label and an 8%
+              wash behind the label — and a saturated hue on an 8% wash of
+              itself is unreadable by construction: every one of the 18 category
+              colours came in under 4.5:1, the worst at 1.8:1. The hue stays, as
+              the dot and the border; the label takes --c-ink, which is what
+              rule 1 in tokens.css asks for.
+            */}
             {customCategories.map(c => (
-              <div key={c.id} className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-sm font-medium" style={{ borderColor: c.color, color: c.color, backgroundColor: c.color + '15' }}>
-                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: c.color }} />
+              <div key={c.id} className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-sm font-medium text-ink" style={{ borderColor: c.color, backgroundColor: c.color + '15' }}>
+                <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: c.color }} />
                 {c.name}
                 <button onClick={() => dispatch({ type: 'DELETE_CATEGORY', payload: c.id })} className="ml-1 opacity-50 hover:opacity-100 text-caption leading-none">✕</button>
               </div>

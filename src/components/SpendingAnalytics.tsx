@@ -243,9 +243,15 @@ export default function SpendingAnalytics() {
             <button
               key={cat.id}
               onClick={() => setHiddenLines(h => ({ ...h, [cat.id]: !h[cat.id] }))}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-caption font-medium border transition-colors ${hiddenLines[cat.id] ? 'opacity-40' : ''}`}
-              style={{ borderColor: cat.color, color: cat.color, backgroundColor: cat.color + '15' }}
+              // The category colour stays, as the border and a swatch; the
+              // label takes --c-ink. Painting the label in the category colour
+              // on an 8% wash of that same colour put every one of these
+              // between 2.1:1 and 3.8:1 — unreadable by construction, since a
+              // hue cannot contrast with itself.
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-caption font-medium border text-ink transition-colors ${hiddenLines[cat.id] ? 'opacity-40' : ''}`}
+              style={{ borderColor: cat.color, backgroundColor: cat.color + '15' }}
             >
+              <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: cat.color }} aria-hidden="true" />
               {cat.name}
             </button>
           ))}

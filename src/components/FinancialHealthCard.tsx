@@ -47,7 +47,9 @@ function Ring({ score, color }: { score: number | null; color: string }) {
           strokeDasharray={`${filled} ${c}`} transform="rotate(-90 44 44)"
         />
       )}
-      <text x="44" y="50" textAnchor="middle" className="fill-gray-900" style={{ fontSize: 22, fontWeight: 800 }}>
+      {/* Was fill-gray-900 — a light-mode literal, so the score sat
+          near-black inside a near-black ring once dark mode landed. */}
+      <text x="44" y="50" textAnchor="middle" className="fill-ink" style={{ fontSize: 22, fontWeight: 800 }}>
         {score === null ? '—' : score}
       </text>
     </svg>

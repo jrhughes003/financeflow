@@ -448,7 +448,7 @@ export default function TransactionEntry({ isModal = false, onClose, onSaved, ed
         />
         {errors.merchant && <p className="text-caption text-negative mt-1">{errors.merchant}</p>}
         {suggestion && (
-          <button type="button" onClick={applySuggestion} className="mt-1.5 flex items-center gap-1.5 text-caption text-accent hover:text-accent-ink bg-accent-tint px-2.5 py-1.5 rounded-control">
+          <button type="button" onClick={applySuggestion} className="mt-1.5 flex items-center gap-1.5 text-caption text-accent-ink hover:text-accent bg-accent-tint px-2.5 py-1.5 rounded-control">
             <Zap className="w-3 h-3" />
             Auto-categorize as "{allCategories.find(c => c.id === suggestion)?.name}"
           </button>

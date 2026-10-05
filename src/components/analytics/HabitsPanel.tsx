@@ -106,7 +106,16 @@ export default function HabitsPanel() {
                     className={`rounded-control h-14 flex flex-col items-center justify-center border ${noSpend ? 'border-positive' : 'border-transparent'} ${d.future ? 'border-dashed border-line-strong' : ''}`}
                     style={{ backgroundColor: bg }}
                   >
-                    <span className={`text-caption ${dark ? 'text-ink-inverse/80' : d.future || noSpend ? 'text-ink-muted' : 'text-ink-secondary'}`}>{d.day}</span>
+                    {/*
+                      On a coloured cell the day number is de-emphasised by
+                      weight, not by colour. It used to drop to ink-secondary
+                      (and ink-inverse/80 on the deep steps), but a mid-grey on
+                      a mid-green cannot clear 4.5:1 at any ramp value — the
+                      two are the same lightness, which is what makes grey a
+                      good colour on a surface and a useless one on a fill.
+                      ink-muted still applies on the uncoloured cells.
+                    */}
+                    <span className={`text-caption ${d.future || noSpend ? 'text-ink-muted' : dark ? 'text-ink-inverse font-light' : 'text-ink font-light'}`}>{d.day}</span>
                     {noSpend
                       ? <Check className="w-3.5 h-3.5 text-positive" />
                       : !d.future && <span className={`text-caption font-semibold ${dark ? 'text-ink-inverse' : 'text-ink'}`}>${Math.round(d.total)}</span>}

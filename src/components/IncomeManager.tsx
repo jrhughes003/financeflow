@@ -157,7 +157,7 @@ export default function IncomeManager() {
         <div className="space-y-3">
           {accountIncomes.map(inc => (
             <div key={inc.id} className="flex items-center gap-4 p-3 rounded-container border border-dashed border-line-strong bg-surface-sunk/50">
-              <div className="w-3 h-3 rounded-full shrink-0 bg-violet-500" />
+              <div className="w-3 h-3 rounded-full shrink-0 bg-data-5" />
               <div className="flex-1">
                 <p className="font-medium text-ink text-sm">{inc.name}</p>
                 <p className="text-caption text-ink-muted">Monthly withdrawal · managed on the Investments page</p>

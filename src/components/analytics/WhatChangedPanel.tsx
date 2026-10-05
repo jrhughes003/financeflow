@@ -143,7 +143,7 @@ export default function WhatChangedPanel({ transactions, month, year }: PeriodPa
                     </td>
                     <td className="py-2 text-right text-ink">{formatCurrency(r.current)}</td>
                     <td className="py-2 text-right text-ink-muted">{formatCurrency(r[baseKey])}</td>
-                    <td className={`py-2 text-right font-medium ${r[changeKey] > 0 ? 'text-caution' : r[changeKey] < 0 ? 'text-sky-600' : 'text-ink-muted'}`}>
+                    <td className={`py-2 text-right font-medium ${r[changeKey] > 0 ? 'text-caution' : r[changeKey] < 0 ? 'text-info' : 'text-ink-muted'}`}>
                       {signed(r[changeKey])}
                       <span className="block text-caption font-normal text-ink-muted">{r[baseKey] > 0 || r.current > 0 ? signedPct(r[pctKey]) : '—'}</span>
                     </td>

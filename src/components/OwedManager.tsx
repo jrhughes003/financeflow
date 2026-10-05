@@ -19,7 +19,7 @@ const age = (days: number): string => (days === 0 ? 'today' : days === 1 ? 'yest
 
 const STATUS: Record<OwedStatus, { label: string; cls: string }> = {
   open: { label: 'Not paid back', cls: 'bg-caution-tint text-caution' },
-  partial: { label: 'Partly paid back', cls: 'bg-sky-50 text-sky-700' },
+  partial: { label: 'Partly paid back', cls: 'bg-info-tint text-info' },
   settled: { label: 'Paid back', cls: 'bg-positive-tint text-positive' },
   forgiven: { label: 'Forgiven', cls: 'bg-surface-hover text-ink-secondary' },
 };
@@ -215,7 +215,7 @@ export default function OwedManager() {
             <ChevronDown className={`w-4 h-4 text-ink-muted transition-transform ${showClosed ? 'rotate-180' : ''}`} />
           </button>
           {showClosed && (
-            <div className="mt-3 divide-y divide-gray-50">
+            <div className="mt-3 divide-y divide-line">
               {summary.closed.map(item => {
                 const st = STATUS[item.status];
                 return (

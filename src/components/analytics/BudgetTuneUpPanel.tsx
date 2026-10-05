@@ -19,7 +19,7 @@ const NONE: string[] = [];
 type Suggestion = ReturnType<typeof getBudgetSuggestions>['suggestions'][number] & { months: number };
 const TYPE = {
   raise: { label: 'Too tight', cls: 'bg-negative-tint text-negative' },
-  lower: { label: 'Too loose', cls: 'bg-sky-50 text-sky-700' },
+  lower: { label: 'Too loose', cls: 'bg-info-tint text-info' },
   add: { label: 'No budget', cls: 'bg-surface-hover text-ink-secondary' },
 };
 const FREQ: Record<string, string> = { quarterly: 'every 3 months', semiannual: 'every 6 months', annual: 'yearly' };
@@ -73,7 +73,7 @@ export default function BudgetTuneUpPanel() {
         {freed > 0 && (
           <div className="text-right">
             <p className="text-caption text-ink-muted">Could free up</p>
-            <p className="text-xl font-bold text-sky-700">{formatCurrency(freed)}<span className="text-sm font-medium text-ink-muted">/mo</span></p>
+            <p className="text-xl font-bold text-info">{formatCurrency(freed)}<span className="text-sm font-medium text-ink-muted">/mo</span></p>
           </div>
         )}
       </div>

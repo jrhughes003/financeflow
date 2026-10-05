@@ -58,12 +58,24 @@ const MAX_DEBT_RATIO = 40;        // min payments as % of income → score 0
 const STABLE_CV = 0.1;            // spending variation → 100 at or below
 const UNSTABLE_CV = 0.5;          // → 0 at or above
 
+/**
+ * The band a score falls in, with the colour to draw it in.
+ *
+ * The colour is a token reference rather than a hex value. These used to be
+ * literals from the Tailwind palette, which made them the one kind of colour
+ * the theme swap cannot reach — the ring and its label stayed light-mode green
+ * on a near-black card. They were also the wrong values on white: #16a34a
+ * manages 3.3:1 there, under the 4.5:1 the label needs at 16px bold.
+ *
+ * Callers must put this somewhere var() resolves — a `style` object or a CSS
+ * property. It is not valid in an SVG presentation attribute.
+ */
 export function healthLabel(score: number | null): HealthLabel {
-  if (score === null) return { label: 'Not enough data', color: '#94a3b8' };
-  if (score >= 80) return { label: 'Excellent', color: '#16a34a' };
-  if (score >= 60) return { label: 'Good', color: '#65a30d' };
-  if (score >= 40) return { label: 'Fair', color: '#d97706' };
-  return { label: 'Needs work', color: '#dc2626' };
+  if (score === null) return { label: 'Not enough data', color: 'var(--c-score-none)' };
+  if (score >= 80) return { label: 'Excellent', color: 'var(--c-score-1)' };
+  if (score >= 60) return { label: 'Good', color: 'var(--c-score-2)' };
+  if (score >= 40) return { label: 'Fair', color: 'var(--c-score-3)' };
+  return { label: 'Needs work', color: 'var(--c-score-5)' };
 }
 
 function monthsBefore(ref: Date, n: number): { month: number; year: number }[] {

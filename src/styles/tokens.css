@@ -28,7 +28,11 @@
   /* --- ink -------------------------------------------------------------- */
   --c-ink:           #16181d;  /* primary text, figures */
   --c-ink-secondary: #5b6472;  /* labels, supporting copy */
-  --c-ink-muted:     #8a93a2;  /* captions, placeholders, axis labels */
+  /* Captions and axis labels are 11–12px, which WCAG treats as normal text, so
+     4.5:1 applies — and they land on tinted stat tiles as well as on the plain
+     surfaces, so --c-accent-tint and --c-caution-tint are the binding cases
+     rather than --c-surface-sunk. The old #8a93a2 managed 2.9:1 on a card. */
+  --c-ink-muted:     #5e6876;  /* captions, placeholders, axis labels */
   --c-ink-inverse:   #ffffff;
 
   /* --- lines ------------------------------------------------------------ */
@@ -44,12 +48,39 @@
   --c-accent-ink:    #0a3d2f;  /* accent text on tint */
 
   /* --- semantics: only ever applied to money ---------------------------- */
-  --c-positive:      #1b7f5a;  /* money in, under budget, on track */
-  --c-positive-tint: #e9f4ef;
+  /* Deepened a shade from #1b7f5a: a green figure lands on the tinted summary
+     tiles too, and on --c-accent-tint the old value was 4.3:1. */
+  --c-positive:      #1a7554;  /* money in, under budget, on track */
+  --c-positive-tint: #f1f8f5;  /* lightened: the old #e9f4ef left it at 4.4:1 */
   --c-negative:      #b3402e;  /* money out, over budget, behind */
   --c-negative-tint: #fceeeb;
   --c-caution:       #8a6212;  /* approaching a limit */
   --c-caution-tint:  #faf1de;
+  /* Neutral, non-judgemental state — "partly paid back", "deferred", a budget
+     that could be loosened. Rule 1 says colour belongs to data, and these are
+     facts rather than good or bad news, so they get their own quiet blue
+     rather than borrowing the caution amber. It replaces three leftover
+     `bg-sky-50 text-sky-700` pairs that could not follow the theme. */
+  --c-info:          #3d6a99;
+  --c-info-tint:     #e1e9f3;
+
+  /* --- score bands: health score and budget grade ----------------------- */
+  /* A five-step quality ramp, best to worst, plus "not enough data". Both
+     scales that need one ride on it: the health score's four labels take
+     1/2/3/5, and the A–F budget grade takes all five.
+     These used to be literal hexes returned from healthScore.ts and
+     calculations.ts — the one kind of colour the theme swap cannot reach, so
+     the ring and its label stayed light-mode green on a near-black card. They
+     were also wrong on white: #22c55e manages 2.3:1 there.
+     Direction is carried by hue, green through to red, because the lightness
+     is spoken for — every step is pushed to whatever lightness clears 4.5:1
+     on a card in its own theme. */
+  --c-score-1:    #1c805b;  /* excellent · A */
+  --c-score-2:    #507d1d;  /* good · B */
+  --c-score-3:    #946914;  /* fair · C */
+  --c-score-4:    #ab5b1e;  /* D */
+  --c-score-5:    #ce3a2a;  /* needs work · F */
+  --c-score-none: #647285;  /* not enough data · N/A */
 
   /* --- data visualisation ----------------------------------------------- */
   /* Muted and harmonious: these sit on a light canvas without vibrating. */
@@ -64,12 +95,18 @@
   /* --- sequential ramp: the spending heatmap ---------------------------- */
   /* Single hue, light → dark, because the quantity it encodes is ordered.
      In the dark theme it runs the other way: on a dark canvas "more" has to
-     mean brighter, or the scale reads backwards. */
-  --c-ramp-1: #e8f1ed;
-  --c-ramp-2: #bcd9cd;
-  --c-ramp-3: #7fb79e;
-  --c-ramp-4: #3f8f6d;
-  --c-ramp-5: #0f5540;
+     mean brighter, or the scale reads backwards.
+
+     Each cell carries a figure, so every step has to be a legible backdrop.
+     That constrains the ramp from both ends: steps 1–3 are pale enough for
+     --c-ink, steps 4–5 deep enough for --c-ink-inverse, and the gap between
+     3 and 4 is where HabitsPanel flips the text. The old step 4 (#3f8f6d)
+     sat in the dead zone where neither reached 4.5:1. */
+  --c-ramp-1: #f0f5f3;
+  --c-ramp-2: #9ed1be;
+  --c-ramp-3: #2e9e75;
+  --c-ramp-4: #1e7152;
+  --c-ramp-5: #0f3829;
 
   /* --- radius: a hierarchy ---------------------------------------------- */
   --r-control:   4px;   /* buttons, inputs, chips */
@@ -123,8 +160,8 @@
 
   --c-ink:           rgb(255 255 255 / 0.92);
   --c-ink-secondary: #a7b0bd;
-  --c-ink-muted:     #79838f;
-  --c-ink-inverse:   #0e1013;  /* text on an accent fill */
+  --c-ink-muted:     #8b95a2;  /* lifted: #79838f was 4.0:1 on --c-surface-sunk */
+  --c-ink-inverse:   #0e1013;  /* text on an accent fill, and on the bright ramp */
 
   --c-line:          #2b3038;
   --c-line-strong:   #3a414b;
@@ -141,6 +178,18 @@
   --c-negative-tint: #35211e;
   --c-caution:       #d2a24a;
   --c-caution-tint:  #322719;
+  --c-info:          #6c9bd2;
+  --c-info-tint:     #19304b;
+
+  /* Lifted the same way the accent is, and still ordered best → worst by
+     hue; on near-black every one of them needs more lightness than its light
+     counterpart to carry the same weight. */
+  --c-score-1:    #25a677;
+  --c-score-2:    #69a326;
+  --c-score-3:    #c1891a;
+  --c-score-4:    #da7a30;
+  --c-score-5:    #e07467;
+  --c-score-none: #8894a5;
 
   --c-data-1: #4fb28e;
   --c-data-2: #d98d58;
@@ -150,12 +199,15 @@
   --c-data-6: #5fb3a3;
   --c-data-7: #d98378;
 
-  /* Reversed: brighter means more, which is the opposite of the light theme. */
-  --c-ramp-1: #1d2a26;
-  --c-ramp-2: #28463a;
-  --c-ramp-3: #35694f;
-  --c-ramp-4: #418d68;
-  --c-ramp-5: #5cb98d;
+  /* Reversed: brighter means more, which is the opposite of the light theme.
+     Because --c-ink-inverse also flips with the theme, the component's one
+     rule — light text on steps 1–3, inverse on 4–5 — lands correctly in both:
+     here it puts near-black figures on the two brightest cells. */
+  --c-ramp-1: #0b281d;
+  --c-ramp-2: #15513b;
+  --c-ramp-3: #217d5b;
+  --c-ramp-4: #41be90;
+  --c-ramp-5: #9ed1be;
 
   /* Shadows carry almost nothing in the dark; depth comes from the surface
      ramp above. What is left is a dark halo that separates an overlay from
@@ -210,6 +262,23 @@ body {
   letter-spacing: -0.03em;
   font-weight: 500;
   color: var(--c-ink);
+}
+
+/*
+ * Chart legend labels.
+ *
+ * Recharts paints each legend label in its own series colour, as an inline
+ * style on the span — so a muted olive series produced olive text at 2.8:1 on
+ * white, and ten separate <Legend> call sites would each have had to override
+ * it. The colour still identifies the series: it stays in the swatch beside
+ * the label, which is non-text and only needs 3:1.
+ *
+ * !important is load-bearing here. The declaration it beats is inline, set by
+ * a third-party renderer at paint time, and nothing in this file can outrank
+ * that by specificity alone.
+ */
+.recharts-legend-item-text {
+  color: var(--c-ink-secondary) !important;
 }
 
 /* Focus that is visible without being a blue halo. */

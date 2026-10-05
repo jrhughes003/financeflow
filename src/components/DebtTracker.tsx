@@ -208,14 +208,18 @@ export default function DebtTracker() {
                         <div className="flex items-center gap-2">
                           <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color }} />
                           <p className="font-semibold text-ink text-sm">{d.name}</p>
-                          <span className="text-caption px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: color + '20', color }}>{DEBT_LABELS[d.type]}</span>
+                          {/* Same reason as the category chips: the debt-type
+                              colour is already carried by the dot to the left,
+                              so the label reads in ink rather than as a hue on
+                              a 12% wash of itself. */}
+                          <span className="text-caption px-2 py-0.5 rounded-full font-medium text-ink" style={{ backgroundColor: color + '20' }}>{DEBT_LABELS[d.type]}</span>
                         </div>
                         <p className="text-caption text-ink-muted mt-0.5">
                           {Number(d.interestRate) === 0 ? 'Interest-free' : `${d.interestRate}% APR`}
                           {' · '}{isInRepayment(d) ? `Min payment ${formatCurrency(d.minimumPayment)}/mo` : d.minimumPayment > 0 ? `${formatCurrency(d.minimumPayment)}/mo once repayment starts` : 'No payment set yet'}
                         </p>
                         {!isInRepayment(d) && (
-                          <span className="inline-flex items-center gap-1 mt-1 text-caption font-medium text-sky-700 bg-sky-50 px-2 py-0.5 rounded-full">
+                          <span className="inline-flex items-center gap-1 mt-1 text-caption font-medium text-info bg-info-tint px-2 py-0.5 rounded-full">
                             <PauseCircle className="w-3.5 h-3.5" />Deferred — repayment starts {fmtMonth(d.repaymentStart)} ({monthsUntilRepayment(d)} mo)
                           </span>
                         )}
@@ -288,7 +292,7 @@ export default function DebtTracker() {
           <div className="grid sm:grid-cols-2 gap-4">
             <div className="bg-accent-tint rounded-container p-4">
               <p className="font-semibold text-accent-ink text-sm mb-1">Avalanche Method</p>
-              <p className="text-caption text-accent mb-2">Pay highest interest rate first — saves the most money</p>
+              <p className="text-caption text-accent-ink mb-2">Pay highest interest rate first — saves the most money</p>
               <div className="space-y-1">
                 {[...debts].sort((a, b) => b.interestRate - a.interestRate).map((d, i) => (
                   <p key={d.id} className="text-caption text-accent-ink">{i + 1}. {d.name} ({d.interestRate}%)</p>

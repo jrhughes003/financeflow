@@ -23,6 +23,7 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "stats": "node scripts/stats.cjs",
+    "downloads": "node scripts/downloads.cjs",
     "typecheck": "tsc -b"
   },
   "dependencies": {

@@ -2,6 +2,7 @@
 // one narrowing function that turns untrusted JSON into an AppState.
 
 import type {
+  CashPlan,
   Budget, Category, Debt, Goal, Income, Investment,
   RecurringTemplate, Transaction,
 } from './domain';
@@ -38,6 +39,14 @@ export interface Settings {
   categoryParents?: Record<string, string>;
   /** Plan Ahead lives in settings rather than its own tables. */
   lifePlan?: LifePlan;
+  /**
+   * The short-term cash flow scratchpad: an opening balance and dated items.
+   *
+   * Settings rather than its own table, for the same reason as lifePlan —
+   * these are hypotheticals, not records. A planned payment that quietly
+   * became a transaction would put money in the ledger that was never spent.
+   */
+  cashPlan?: CashPlan;
 }
 
 export interface AppState {

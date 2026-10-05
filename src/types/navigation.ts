@@ -17,7 +17,7 @@ export const PAGE_IDS = [
   'reports',
   'income',
   'investments',
-  'debts',
+  'debts', 'cashflow',
   'plan',
   'settings',
 ] as const;

@@ -31,6 +31,7 @@ const InvestmentTracker = lazy(() => import('./components/InvestmentTracker'));
 const Reports = lazy(() => import('./components/Reports'));
 const IncomeManager = lazy(() => import('./components/IncomeManager'));
 const LifePlanPage = lazy(() => import('./components/lifeplan/LifePlanPage'));
+const CashFlowPlanner = lazy(() => import('./components/CashFlowPlanner'));
 
 function PageFallback() {
   return <div className="text-sm text-ink-muted py-12 text-center">Loading…</div>;
@@ -96,6 +97,7 @@ function AppContent() {
     investments:  <InvestmentTracker />,
     debts:        <DebtTracker />,
     recurring:    <RecurringManager />,
+    cashflow:     <CashFlowPlanner />,
     plan:         <LifePlanPage />,
     reports:      <Reports />,
     settings:     <Settings />,

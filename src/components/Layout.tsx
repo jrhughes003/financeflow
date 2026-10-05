@@ -3,7 +3,7 @@ import {
   LayoutDashboard, CreditCard, PieChart, Target, TrendingUp, Wallet,
   BarChart3, FileText, Menu, X, Plus, DollarSign, Landmark, RefreshCw,
   Settings as SettingsIcon, HandCoins, Milestone, ChevronDown, Receipt, LineChart, PiggyBank
-} from 'lucide-react';
+, Waves } from 'lucide-react';
 import DemoBanner from './DemoBanner';
 import type { LucideIcon } from 'lucide-react';
 import type { NavBadge as Badge, NavBadges, PageId } from '../types/navigation';
@@ -64,6 +64,7 @@ const NAV: NavEntry[] = [
       { id: 'income',      label: 'Income',      icon: DollarSign },
       { id: 'investments', label: 'Investments', icon: TrendingUp },
       { id: 'debts',       label: 'Debts',       icon: Landmark },
+      { id: 'cashflow',    label: 'Cash Flow',   icon: Waves },
       { id: 'plan',        label: 'Plan Ahead',  icon: Milestone },
     ],
   },

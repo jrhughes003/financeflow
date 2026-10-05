@@ -242,3 +242,19 @@ export interface Category {
    */
   retired?: boolean;
 }
+
+/** A dated item on the short-term cash plan. Never enters the ledger. */
+export interface CashPlanItem {
+  id: string;
+  label: string;
+  amount: Money;
+  date: IsoDate;
+  /** Money arriving or leaving. */
+  kind: 'in' | 'out';
+}
+
+export interface CashPlan {
+  /** What the accounts hold today. Without it the line is a change, not a balance. */
+  openingBalance?: Money;
+  items?: CashPlanItem[];
+}

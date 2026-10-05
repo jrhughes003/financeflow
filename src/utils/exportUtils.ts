@@ -1,4 +1,5 @@
 import { format } from 'date-fns';
+import { canonicaliseTags } from './tags';
 import type { IsoDate, Money, Transaction } from '../types/domain';
 import type { AppState } from '../types/state';
 import { asAppState, looksLikeAppState } from '../types/state';
@@ -190,7 +191,16 @@ function parseAmount(raw: string | undefined): Money {
   return parseFloat(cleaned) || 0;
 }
 
-export function importFromCSV(file: File): Promise<Transaction[]> {
+/**
+ * `existingTags` lets an imported account tag adopt a spelling already in use.
+ *
+ * This importer is where a split tag came from: it derived its tag by
+ * lowercasing the account column while the transaction form stored what the
+ * user typed, so one bank ended up as both 'RBC' and 'rbc'. It now preserves
+ * the capitalisation in the file and defers to an existing spelling when there
+ * is one.
+ */
+export function importFromCSV(file: File, existingTags: Iterable<string> = []): Promise<Transaction[]> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -251,7 +261,10 @@ export function importFromCSV(file: File): Promise<Transaction[]> {
             category,
             subcategory: '',
             notes: account ? `Imported · ${account}` : 'Imported from CSV',
-            tags: ['imported', ...(account ? [account.toLowerCase().replace(/\s+/g,'-')] : [])],
+            tags: canonicaliseTags(
+              ['imported', ...(account ? [account.trim().replace(/\s+/g, '-')] : [])],
+              existingTags,
+            ),
             isException: false,
           });
         }

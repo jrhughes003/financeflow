@@ -9,6 +9,7 @@ import { CATEGORIES, getAllCategories } from '../utils/categorization';
 import { selectable } from '../utils/categoryTree';
 import { useGetCategory } from '../context/FinancialContext';
 import { exportToCSV, importFromCSV } from '../utils/exportUtils';
+import { tagCounts } from '../utils/tags';
 import { formatCurrency } from '../utils/calculations';
 import { PAGE_SIZE } from '../utils/constants';
 import { runAi, taxonomy, aiSupported } from '../ai/ai';
@@ -114,7 +115,7 @@ export default function TransactionHistory() {
     const file = e.target.files?.[0];
     if (!file) return;
     try {
-      const txs = await importFromCSV(file);
+      const txs = await importFromCSV(file, tagCounts(state.transactions).keys());
       dispatch({ type: 'IMPORT_TRANSACTIONS', payload: txs });
     } catch { alert('Failed to import CSV. Check format.'); }
     e.target.value = '';

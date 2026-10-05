@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Plus, Edit2, Trash2 , DollarSign } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import * as chart from './ui/chartTheme';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { useFinancial } from '../context/FinancialContext';
 import { Card, PageLede, Stat, Money } from './ui';
 import EmptyState from './EmptyState';
@@ -11,8 +11,11 @@ import { getTotalIncome, getTotalExpenses, toMonthlyAmount, formatCurrency } fro
 import { getIncomeSources } from '../utils/accounts';
 import type { Income, IncomeFrequency } from '../types/domain';
 
-const FREQUENCIES: IncomeFrequency[] = ['weekly', 'biweekly', 'semi-monthly', 'monthly', 'annual'];
-const FREQ_LABELS = { weekly: 'Weekly', biweekly: 'Biweekly', 'semi-monthly': 'Semi-monthly', monthly: 'Monthly', annual: 'Annual' };
+const FREQUENCIES: IncomeFrequency[] = ['weekly', 'biweekly', 'semi-monthly', 'monthly', 'annual', 'once'];
+const FREQ_LABELS: Record<IncomeFrequency, string> = {
+  weekly: 'Weekly', biweekly: 'Biweekly', 'semi-monthly': 'Semi-monthly',
+  monthly: 'Monthly', annual: 'Annual', once: 'One-time',
+};
 
 /** The edit form. Mirrors Income, but `amount` is the raw input string and the
  *  spread in openEdit carries the id of the record being edited. */
@@ -21,11 +24,13 @@ interface IncomeForm {
   name?: string;
   amount: string;
   frequency: IncomeFrequency;
+  /** Only meaningful when frequency is 'once'. */
+  date: string;
   source?: string;
   color?: string;
 }
 
-const EMPTY_FORM: IncomeForm = { name: '', amount: '', frequency: 'monthly', source: 'employer', color: 'var(--c-data-1)' };
+const EMPTY_FORM: IncomeForm = { name: '', amount: '', frequency: 'monthly', date: '', source: 'employer', color: 'var(--c-data-1)' };
 const COLORS = ['var(--c-data-1)','var(--c-positive)','var(--c-caution)','var(--c-data-7)','var(--c-data-5)','var(--c-data-2)'];
 
 export default function IncomeManager() {
@@ -45,7 +50,7 @@ export default function IncomeManager() {
   const netAvailable = totalMonthly - totalExpenses;
 
   const openEdit = (inc: Income) => {
-    setForm({ ...inc, amount: String(inc.amount) });
+    setForm({ ...inc, amount: String(inc.amount), date: inc.date || '' });
     setEditId(inc.id);
     setShowForm(true);
   };
@@ -57,6 +62,9 @@ export default function IncomeManager() {
       name: form.name,
       amount: parseFloat(form.amount),
       frequency: form.frequency,
+      // Only stored for a one-off; a recurring income has no single date,
+      // and keeping a stale one would be a trap for anything that reads it.
+      ...(form.frequency === 'once' ? { date: form.date } : {}),
       source: form.source,
       color: form.color,
     };
@@ -138,6 +146,18 @@ export default function IncomeManager() {
                   {FREQUENCIES.map(f => <option key={f} value={f}>{FREQ_LABELS[f]}</option>)}
                 </select>
               </div>
+              {/* A one-off needs the date it lands on; nothing else does. */}
+              {form.frequency === 'once' && (
+                <div>
+                  <label className="label-micro block mb-1.5">Date received</label>
+                  <input
+                    type="date"
+                    value={form.date}
+                    onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
+                    className="w-full h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink focus:outline-none focus:border-accent"
+                  />
+                </div>
+              )}
               <div>
                 <label className="label-micro block mb-1.5">Color</label>
                 <div className="flex gap-1.5 flex-wrap">
@@ -184,10 +204,20 @@ export default function IncomeManager() {
                     <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: inc.color || 'var(--c-data-1)' }} />
                     <div className="flex-1">
                       <p className="font-medium text-ink text-sm">{inc.name}</p>
-                      <p className="text-caption text-ink-muted">{FREQ_LABELS[inc.frequency]} · {formatCurrency(inc.amount)}</p>
+                      <p className="text-caption text-ink-muted">
+                        {FREQ_LABELS[inc.frequency]} · {formatCurrency(inc.amount)}
+                        {inc.frequency === 'once' && inc.date && <> · {format(parseISO(inc.date), 'd MMM yyyy')}</>}
+                      </p>
                     </div>
                     <div className="text-right">
-                      <p className="font-semibold text-ink text-sm">{formatCurrency(monthly)}<span className="text-caption text-ink-muted font-normal">/mo</span></p>
+                      {/*
+                        A one-off has no monthly rate, so showing one would be
+                        a lie — $2,675 arriving in November is not $2,675 a
+                        month. It shows the amount and when it lands instead.
+                      */}
+                      {inc.frequency === 'once'
+                        ? <p className="font-semibold text-ink text-sm">{formatCurrency(inc.amount)}<span className="text-caption text-ink-muted font-normal"> once</span></p>
+                        : <p className="font-semibold text-ink text-sm">{formatCurrency(monthly)}<span className="text-caption text-ink-muted font-normal">/mo</span></p>}
                     </div>
                     <div className="flex gap-1">
                       <button onClick={() => openEdit(inc)} className="p-1.5 text-ink-muted hover:text-accent hover:bg-accent-tint rounded-control"><Edit2 className="w-3.5 h-3.5" /></button>

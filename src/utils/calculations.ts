@@ -53,21 +53,69 @@ export function formatCurrency(amount: number, currency: string = displayCurrenc
   return new Intl.NumberFormat(localeFor(currency), { style: 'currency', currency }).format(amount || 0);
 }
 
-// Normalize any income frequency to monthly equivalent
+/**
+ * A frequency expressed as a monthly rate.
+ *
+ * A one-off has no rate, so this returns 0 for it: $2,675 arriving once in
+ * November is not $2,675 a month. Use incomeInMonth to find what actually
+ * lands in a given month.
+ *
+ * The switch is exhaustive and the unreachable branch is typed `never`, so
+ * adding a frequency without deciding its monthly meaning fails to compile.
+ * The previous `default: return amount` would have taken a one-off and
+ * reported it as recurring — a $2,675 bonus becoming $32,100 a year, in the
+ * direction that flatters.
+ */
 export function toMonthlyAmount(amount: Money, frequency: IncomeFrequency | undefined): Money {
   switch (frequency) {
+    case 'once': return 0;
     case 'weekly': return amount * 52 / 12;
     case 'biweekly': return amount * 26 / 12;
     case 'semi-monthly': return amount * 2;
     case 'monthly': return amount;
     case 'annual': return amount / 12;
-    default: return amount;
+    case undefined: return amount; // legacy rows stored before the field existed
+    default: {
+      const exhaustive: never = frequency;
+      return exhaustive;
+    }
   }
 }
 
-// Get total monthly income from all income sources
+/**
+ * The recurring monthly income rate. One-offs contribute nothing.
+ *
+ * This is the "what do I earn in a typical month" figure — a savings rate or a
+ * budget headroom calculation wants it, and would be distorted by a bonus that
+ * happens once a year.
+ */
 export function getTotalIncome(incomes: Income[]): Money {
   return incomes.reduce((sum, inc) => sum + toMonthlyAmount(inc.amount, inc.frequency), 0);
+}
+
+/** Does this one-off land in the given month? */
+export function landsInMonth(income: Income, month: number, year: number): boolean {
+  if (income.frequency !== 'once' || !income.date) return false;
+  // String comparison on YYYY-MM, for the same timezone reason as
+  // getTransactionsForPeriod: parseISO would shift a 1st-of-month date back a
+  // day in any negative-offset zone.
+  return income.date.slice(0, 7) === `${year}-${String(month + 1).padStart(2, '0')}`;
+}
+
+/**
+ * Income actually arriving in one specific month: the recurring rate plus any
+ * one-offs dated within it.
+ *
+ * Separate from getTotalIncome because the two answer different questions, and
+ * collapsing them would either hide a bonus from the month it arrives or smear
+ * it across every month of the year.
+ */
+export function getIncomeForMonth(incomes: Income[], month: number, year: number): Money {
+  const recurring = getTotalIncome(incomes);
+  const oneOffs = incomes
+    .filter(i => landsInMonth(i, month, year))
+    .reduce((sum, i) => sum + (Number(i.amount) || 0), 0);
+  return roundCents(recurring + oneOffs);
 }
 
 // Get transactions for a specific month/year (or all if month/year not provided).

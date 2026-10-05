@@ -95,8 +95,16 @@ export interface Budget {
   rollover: boolean;
 }
 
-/** Note that RecurringFrequency is a different set. Sharing one type would lie. */
-export type IncomeFrequency = 'weekly' | 'biweekly' | 'semi-monthly' | 'monthly' | 'annual';
+/**
+ * Note that RecurringFrequency is a different set. Sharing one type would lie.
+ *
+ * 'once' is not a rate. It is a single payment on a single date — a signing
+ * bonus, a tax refund, a deposit you have been told to expect — and it has no
+ * monthly equivalent. Everything that turns income into a per-month figure has
+ * to decide what to do with it, which is why toMonthlyAmount is exhaustive
+ * rather than defaulting.
+ */
+export type IncomeFrequency = 'once' | 'weekly' | 'biweekly' | 'semi-monthly' | 'monthly' | 'annual';
 
 export interface Income {
   id: string;
@@ -104,6 +112,11 @@ export interface Income {
   source?: string;
   amount: Money;
   frequency: IncomeFrequency;
+  /**
+   * When a one-off lands. Required when frequency is 'once', meaningless
+   * otherwise — a recurring income has no single date.
+   */
+  date?: IsoDate;
   color?: string;
 }
 

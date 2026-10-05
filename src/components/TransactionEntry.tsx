@@ -9,6 +9,7 @@ import { selectableByGroup, selectable } from '../utils/categoryTree';
 import { runAi, taxonomy, aiSupported } from '../ai/ai';
 import { train, classify } from '../utils/ml/categorizer';
 import { owedFromSplit, getOwedStatus, buildOwed } from '../utils/reimbursements';
+import { canonicaliseTags, tagCounts } from '../utils/tags';
 import { formatCurrency } from '../utils/calculations';
 import type { MerchantEntry } from '../utils/merchants';
 import type { Category, IsoDate, Transaction, TransactionKind } from '../types/domain';
@@ -268,7 +269,13 @@ export default function TransactionEntry({ isModal = false, onClose, onSaved, ed
       ...form,
       id: editTransaction ? editTransaction.id : `tx_${Date.now()}_${Math.random().toString(36).slice(2)}`,
       amount: parseFloat(form.amount),
-      tags: form.tags ? form.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
+      // Matched against the tags already in use, so a typed 'rbc' adopts the
+      // existing 'RBC' rather than starting a second tag that every filter
+      // and chart will treat as unrelated.
+      tags: canonicaliseTags(
+        form.tags ? form.tags.split(',') : [],
+        tagCounts(state.transactions).keys(),
+      ),
       // Savings contributions get a fixed category + a merchant fallback so they
       // read sensibly in the ledger; goalId links them to a goal for progress.
       ...(isSavings ? {

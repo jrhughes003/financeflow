@@ -17,7 +17,7 @@ import {
 } from './forecast/monthPace';
 import {
   getTransactionsForPeriod, getBudgetStatus, getConsistentlyOverBudget,
-  getTotalIncome, getGoalProgress, toMonthlyAmount, type Taxonomy,
+  getTotalIncome, getGoalProgress, toMonthlyAmount, landsInMonth, type Taxonomy,
 } from './calculations';
 import { advanceDate, detectRecurringCandidates } from './recurring';
 import { effectiveAmount } from './reimbursements';
@@ -749,7 +749,10 @@ export function forecastCashFlow({
   /** Window for the forecasting model, which needs two cycles for a season. */
   modelMonths?: number;
 }) {
-  const income = roundCents(getTotalIncome(incomes));
+  // The recurring rate. One-offs are added per row below, in the month they
+  // actually land — smearing a November bonus across twelve months would make
+  // every month look slightly better than it is and November look ordinary.
+  const recurringIncome = roundCents(getTotalIncome(incomes));
   const { bills, billTransactionIds } = detectIrregularExpenses(transactions, { recurringTemplates, today });
   const hist = discretionaryHistory(transactions, recurringTemplates, priorMonths(today.getMonth(), today.getFullYear(), historyMonths), billTransactionIds);
   const mean = hist.months ? sum(hist.totals) / hist.months : 0;
@@ -799,6 +802,12 @@ export function forecastCashFlow({
     const discLow = seasonalIntervalIsHonest && step?.lower != null ? Math.max(0, step.lower) : low;
     const discHigh = seasonalIntervalIsHonest && step?.upper != null ? step.upper : high;
 
+    const oneOff = roundCents(sum(
+      incomes.filter(inc => landsInMonth(inc, d.getMonth(), d.getFullYear()))
+        .map(inc => Number(inc.amount) || 0),
+    ));
+    const income = roundCents(recurringIncome + oneOff);
+
     const net = income - fixed - irregular - discretionary;
     cum += net;
     cumBest += income - fixed - irregular - discLow;
@@ -808,6 +817,8 @@ export function forecastCashFlow({
       month: d.getMonth(),
       year: d.getFullYear(),
       income,
+      /** Part of `income` that is a dated one-off rather than the usual rate. */
+      oneOffIncome: oneOff,
       fixed,
       irregular,
       discretionary: roundCents(discretionary),
@@ -819,7 +830,8 @@ export function forecastCashFlow({
 
   return {
     rows,
-    income,
+    /** The recurring monthly rate; per-row `income` adds any one-off due then. */
+    income: recurringIncome,
     discretionaryAverage: roundCents(mean),
     discretionaryRange: [roundCents(low), roundCents(high)],
     historyMonths: hist.months,

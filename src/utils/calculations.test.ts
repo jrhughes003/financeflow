@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   formatCurrency, toMonthlyAmount, getTotalIncome, getTransactionsForPeriod, getTotalExpenses, getSpendingByCategory, getBudgetStatus, getSavingsRate, getNetWorth, getBudgetHealthScore, detectAnomalies, projectGoalCompletion, getTopMerchants, getSpendingByDayOfWeek, calculateDebtPayoff, getMonthlyTrend, getRolloverCarry, getGoalContributions, getGoalProgress, getConsistentlyOverBudget, taxonomyFromState,
+  getIncomeForMonth,
+  landsInMonth,
 } from './calculations';
 import { makeBudget, makeDebt, makeGoal, makeIncome, makeInvestment, makeTransaction } from '../test/factories';
 import type { IncomeFrequency, Transaction } from '../types/domain';
@@ -35,8 +37,19 @@ describe('toMonthlyAmount', () => {
     expect(toMonthlyAmount(100, 'semi-monthly')).toBe(200);
     expect(toMonthlyAmount(100, 'monthly')).toBe(100);
     expect(toMonthlyAmount(1200, 'annual')).toBe(100);
-    // A frequency outside the union — the case exists to cover the default branch.
-    expect(toMonthlyAmount(100, 'unknown' as IncomeFrequency)).toBe(100); // default passthrough
+  });
+
+  it('gives a one-off no monthly rate', () => {
+    // $2,675 arriving once in November is not $2,675 a month. The old
+    // implementation ended in `default: return amount`, so adding 'once'
+    // without this branch would have reported it as recurring — a bonus
+    // becoming $32,100 a year, in the direction that flatters.
+    expect(toMonthlyAmount(2675, 'once')).toBe(0);
+  });
+
+  it('passes a legacy row with no frequency through unchanged', () => {
+    // Rows stored before the field existed.
+    expect(toMonthlyAmount(100, undefined)).toBe(100);
   });
 });
 
@@ -452,5 +465,46 @@ describe('formatCurrency', () => {
     // `number | undefined` still have to deal with it. The `amount || 0` guard
     // is for values that reach a formatter from disk; the cast pins the guard.
     expect(formatCurrency(null as unknown as number)).toBe('$0.00');
+  });
+});
+
+describe('one-off income', () => {
+  const nov = makeIncome({ id: 'bonus', amount: 2675, frequency: 'once', date: '2026-11-15' });
+  const salary = makeIncome({ id: 'sal', amount: 500, frequency: 'semi-monthly' });
+
+  it('keeps a one-off out of the recurring monthly rate', () => {
+    // Otherwise every month looks $2,675 better than it is, and the month it
+    // actually arrives looks ordinary.
+    expect(getTotalIncome([salary, nov])).toBe(getTotalIncome([salary]));
+  });
+
+  it('lands it in the month it is dated', () => {
+    expect(getIncomeForMonth([salary, nov], 10, 2026)).toBe(1000 + 2675); // November
+    expect(getIncomeForMonth([salary, nov], 9, 2026)).toBe(1000); // October
+    expect(getIncomeForMonth([salary, nov], 11, 2026)).toBe(1000); // December
+  });
+
+  it('matches on the month, not a parsed date', () => {
+    // The 1st of a month is the case that breaks under timezone parsing: in a
+    // negative-offset zone parseISO('2026-11-01') is 31 October locally.
+    const first = makeIncome({ id: 'f', amount: 100, frequency: 'once', date: '2026-11-01' });
+    expect(getIncomeForMonth([first], 10, 2026)).toBe(100);
+    expect(getIncomeForMonth([first], 9, 2026)).toBe(0);
+  });
+
+  it('ignores a one-off with no date rather than guessing one', () => {
+    const undated = makeIncome({ id: 'u', amount: 999, frequency: 'once' });
+    expect(getIncomeForMonth([undated], 10, 2026)).toBe(0);
+    expect(landsInMonth(undated, 10, 2026)).toBe(false);
+  });
+
+  it('does not treat a recurring income as landing in any single month', () => {
+    expect(landsInMonth(salary, 10, 2026)).toBe(false);
+  });
+
+  it('adds several one-offs in the same month', () => {
+    const a = makeIncome({ id: 'a', amount: 2000, frequency: 'once', date: '2027-01-05' });
+    const b = makeIncome({ id: 'b', amount: 2000, frequency: 'once', date: '2027-01-28' });
+    expect(getIncomeForMonth([a, b], 0, 2027)).toBe(4000);
   });
 });

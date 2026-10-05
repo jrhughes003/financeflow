@@ -21,6 +21,8 @@ import { Plus, Trash2, TriangleAlert, Wallet, Info } from 'lucide-react';
 import * as chart from './ui/chartTheme';
 import { useFinancial } from '../context/FinancialContext';
 import { buildCashFlow } from '../utils/cashPlan';
+import { buildPosition, hasPositionData } from '../utils/position';
+import PositionPanel, { PositionEmpty } from './PositionPanel';
 import { formatCurrency } from '../utils/calculations';
 import { projectMonthEnd } from '../utils/insights';
 import { useTaxonomy } from '../context/FinancialContext';
@@ -55,14 +57,48 @@ export default function CashFlowPlanner() {
     return p.totals.actual + p.totals.discretionaryRemaining;
   }, [state.transactions, state.budgets, state.recurringTemplates, today, taxonomy]);
 
+  const horizon = useMemo(
+    () => new Date(today.getFullYear(), today.getMonth() + months, today.getDate()),
+    [today, months],
+  );
+
+  const knowsPosition = hasPositionData(state.investments || [], state.debts || []);
+  const position = useMemo(() => buildPosition({
+    today,
+    horizon,
+    investments: state.investments || [],
+    debts: state.debts || [],
+    transactions: state.transactions,
+    incomes: state.incomes || [],
+    recurringTemplates: state.recurringTemplates || [],
+    plan,
+  }), [today, horizon, state.investments, state.debts, state.transactions, state.incomes, state.recurringTemplates, plan]);
+
+  /*
+   * The projection starts from what you can actually spend, not from your
+   * chequing balance.
+   *
+   * This matters more than it looks. Future spending in the line below is
+   * mostly card spending, and card spending does not leave chequing on the day
+   * it happens — it sits on the card until the card is paid. Starting from
+   * chequing would deduct it twice over: once as it is forecast, again when
+   * the card is cleared. Starting from cash minus current card balances is the
+   * one figure where "spending leaves immediately" is already true, because
+   * the cards' existing spend has been subtracted up front.
+   *
+   * A typed opening balance still wins, for the case where you want to ask
+   * "what if I started from X".
+   */
+  const openingBalance = plan.openingBalance ?? (position.hasCash ? position.availableNow : 0);
+
   const flow = useMemo(() => buildCashFlow({
     today,
     months,
-    plan,
+    plan: { ...plan, openingBalance },
     incomes: state.incomes || [],
     recurringTemplates: state.recurringTemplates || [],
     monthlyDiscretionary,
-  }), [today, months, plan, state.incomes, state.recurringTemplates, monthlyDiscretionary]);
+  }), [today, months, plan, openingBalance, state.incomes, state.recurringTemplates, monthlyDiscretionary]);
 
   const save = (next: Partial<typeof plan>) =>
     dispatch({ type: 'UPDATE_SETTINGS', payload: { cashPlan: { ...plan, ...next } } });
@@ -97,7 +133,11 @@ export default function CashFlowPlanner() {
         </p>
       </div>
 
-      {/* Opening balance — without it the line is a change, not a balance. */}
+      {knowsPosition
+        ? <PositionPanel position={position} horizon={horizon} />
+        : <PositionEmpty />}
+
+      {/* Opening balance — derived from the position unless overridden. */}
       <div className="bg-surface rounded-container border border-line p-5">
         <div className="flex flex-wrap items-end gap-5">
           <div>
@@ -107,7 +147,10 @@ export default function CashFlowPlanner() {
               type="number"
               value={plan.openingBalance ?? ''}
               onChange={e => save({ openingBalance: e.target.value === '' ? undefined : Number(e.target.value) })}
-              placeholder="$0"
+              // Shows what the projection is actually seeded with, which is not
+              // availableNow when no cash account exists — promising a figure the
+              // chart is not using is worse than showing none.
+              placeholder={position.hasCash ? String(position.availableNow) : '$0'}
               className="w-40 h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent money"
             />
           </div>
@@ -134,8 +177,11 @@ export default function CashFlowPlanner() {
         {plan.openingBalance === undefined && (
           <p className="text-caption text-ink-muted mt-3 flex items-start gap-1.5">
             <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-            Enter what your accounts hold today. Until then the line below shows the change from
-            zero, not your balance.
+            {knowsPosition
+              ? <>Starting from your available balance above. Type a figure to override it — useful for
+                  asking what would happen if you started from somewhere else.</>
+              : <>Add a cash account and your cards, or type a starting balance. Until then the line
+                  below shows the change from zero, not your balance.</>}
           </p>
         )}
       </div>

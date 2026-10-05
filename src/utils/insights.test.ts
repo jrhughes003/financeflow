@@ -122,7 +122,7 @@ describe('projectMonthEnd', () => {
     expect(p.confidence).toBe('low');
   });
 
-  it('blends pace with history and flags budgets on track to be exceeded', () => {
+  it('blends this month against history and flags budgets on track to be exceeded', () => {
     const txns = [
       tx({ date: '2026-01-10', amount: 300 }),
       tx({ date: '2026-02-10', amount: 300 }),
@@ -130,14 +130,29 @@ describe('projectMonthEnd', () => {
       tx({ date: '2026-04-10', amount: 300 }), // already at last months' full total
     ];
     const budgets = [makeBudget({ id: 'b', category: 'dining_out', amount: 350, flex: 0 })];
-    const p = projectMonthEnd({ transactions: txns, budgets, today: day(2026, 3, 15) , taxonomy: tax([]) });
+    const p = projectMonthEnd({ transactions: txns, budgets, today: day(2026, 3, 15), taxonomy: tax([]) });
     const dining = p.categories[0];
-    // weight 0.5: pace 20/day, history 10/day → 15/day × 15 days = 225.
-    expect(dining.projected).toBe(525);
+
+    // The assertions are relationships rather than one arithmetic result,
+    // because the previous version of this test asserted the old formula's
+    // output step by step ("weight 0.5: pace 20/day, history 10/day") and so
+    // could only ever confirm that the formula was still the formula. These
+    // hold for any sane blend.
+    expect(dining.paceProjection).toBeGreaterThan(dining.historyProjection);
+    expect(dining.projected).toBeGreaterThan(dining.historyProjection);
+    expect(dining.projected).toBeLessThan(dining.paceProjection);
+
+    // Running hot: $300 by the 15th against a history that profiles ~$135 by
+    // now, so the ratio is above 1 and the budget is in trouble.
+    expect(dining.ratio).toBeGreaterThan(1);
     expect(dining.status).toBe('over');
-    expect(dining.overBy).toBe(175);
+    expect(dining.overBy).toBeGreaterThan(0);
     expect(p.warnings).toHaveLength(1);
     expect(p.confidence).toBe('high');
+
+    // Half the month gone, so a little over half the weight on what it has
+    // actually done — see PRIOR_STRENGTH_DAYS.
+    expect(dining.paceWeight).toBeCloseTo(15 / 25, 6);
   });
 
   it('does not double-count recurring bills already posted', () => {

@@ -12,6 +12,10 @@
 
 import { addMonths, addDays, subMonths, format, getDaysInMonth, parseISO, differenceInCalendarMonths } from 'date-fns';
 import {
+  recencyWeights, weekdayProfile, forecastRemaining, datesIn, EMPTY_PROFILE,
+  type WeekdayProfile,
+} from './forecast/monthPace';
+import {
   getTransactionsForPeriod, getBudgetStatus, getConsistentlyOverBudget,
   getTotalIncome, getGoalProgress, toMonthlyAmount, type Taxonomy,
 } from './calculations';
@@ -223,14 +227,56 @@ function discretionaryHistory(
   const perMonth = months.map(({ month, year }) => {
     const all = getTransactionsForPeriod(transactions, month, year);
     const disc = all.filter(t => !isFixedTransaction(t, templates, fixedIds));
-    return { hasData: all.length > 0, byCategory: groupByCategory(disc), total: roundCents(sum(disc.map(t => t.amount))) };
+
+    // How many of each weekday this month held, so a month with five Fridays
+    // does not inflate the Friday average.
+    const dayCounts = new Array(7).fill(0);
+    const days = getDaysInMonth(new Date(year, month, 1));
+    for (let d = 1; d <= days; d++) dayCounts[new Date(year, month, d).getDay()]++;
+
+    // Spend per weekday, per category.
+    const byWeekday: Record<string, number[]> = {};
+    disc.forEach(t => {
+      const day = parseISO(t.date).getDay();
+      (byWeekday[t.category] ||= new Array(7).fill(0))[day] += t.amount;
+    });
+
+    return {
+      hasData: all.length > 0,
+      byCategory: groupByCategory(disc),
+      total: roundCents(sum(disc.map(t => t.amount))),
+      byWeekday,
+      dayCounts,
+    };
   });
+
+  // `months` arrives most recent first, and so does `active` — which is what
+  // the recency weighting below depends on.
   const active = perMonth.filter(m => m.hasData);
+  const weights = recencyWeights(active.length);
+
+  // Recency-weighted rather than a flat mean: a category trending down for two
+  // months was previously forecast from a number it had already left behind.
   const avgByCategory: Record<string, Money> = {};
-  active.forEach(m => Object.entries(m.byCategory).forEach(([c, v]) => {
-    avgByCategory[c] = (avgByCategory[c] || 0) + v / active.length;
+  active.forEach((m, i) => Object.entries(m.byCategory).forEach(([c, v]) => {
+    avgByCategory[c] = (avgByCategory[c] || 0) + v * weights[i];
   }));
-  return { months: active.length, avgByCategory, totals: active.map(m => m.total) };
+
+  const categories = new Set(active.flatMap(m => Object.keys(m.byCategory)));
+  const profileByCategory: Record<string, WeekdayProfile> = {};
+  categories.forEach(c => {
+    profileByCategory[c] = weekdayProfile(active.map(m => ({
+      byWeekday: m.byWeekday[c] || EMPTY_PROFILE,
+      dayCounts: m.dayCounts,
+    })));
+  });
+
+  return {
+    months: active.length,
+    avgByCategory,
+    profileByCategory,
+    totals: active.map(m => m.total),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -546,8 +592,6 @@ export function projectMonthEnd({
   const year = today.getFullYear();
   const { start, end, days } = monthBounds(month, year);
   const elapsed = today.getDate();
-  const remainingDays = days - elapsed;
-  const weight = elapsed / days;
 
   const irregular = detectIrregularExpenses(transactions, { recurringTemplates, today });
   const fixedIds = irregular.billTransactionIds;
@@ -572,12 +616,21 @@ export function projectMonthEnd({
   const statusByCat: Record<string, BudgetStatus> = {};
   getBudgetStatus(budgets, transactions, month, year, taxonomy).forEach(s => { statusByCat[s.category] = s; });
 
+  // The actual dates either side of today, so the forecast knows a month that
+  // opened Thu-Fri-Sat-Sun has already spent its expensive days.
+  const elapsedDates = datesIn(year, month, 1, elapsed);
+  const remainingDates = datesIn(year, month, elapsed + 1, days);
+
   const cats = new Set([...Object.keys(actual), ...Object.keys(recurring), ...Object.keys(hist.avgByCategory)]);
   const categories = [...cats].map(category => {
-    const paceDaily = (discActual[category] || 0) / elapsed;
-    const histDaily = (hist.avgByCategory[category] || 0) / days;
-    const daily = hist.months ? weight * paceDaily + (1 - weight) * histDaily : paceDaily;
-    const discretionaryRemaining = roundCents(daily * remainingDays);
+    const pace = forecastRemaining({
+      actual: discActual[category] || 0,
+      elapsedDates,
+      remainingDates,
+      profile: hist.profileByCategory[category] || EMPTY_PROFILE,
+      historyMonths: hist.months,
+    });
+    const discretionaryRemaining = roundCents(pace.remaining);
     const recurringRemaining = recurring[category] || 0;
     const act = actual[category] || 0;
     const projected = roundCents(act + recurringRemaining + discretionaryRemaining);
@@ -595,6 +648,15 @@ export function projectMonthEnd({
       budget, flexLimit: s ? s.flexLimit : null,
       overBy: budget ? roundCents(Math.max(0, projected - budget)) : 0,
       status,
+      // The two ends the forecast sits between, so a surprising number can be
+      // checked rather than taken on faith.
+      paceProjection: roundCents(act + recurringRemaining + pace.paceOnly),
+      historyProjection: roundCents(act + recurringRemaining + pace.historyOnly),
+      /** Spend so far against what this category usually costs by now. */
+      ratio: pace.observedRatio,
+      expectedSoFar: roundCents(pace.expectedSoFar),
+      /** How much of the forecast came from this month rather than history. */
+      paceWeight: pace.weight,
     };
   })
     .filter(c => c.projected > 0 || c.budget)
@@ -604,8 +666,10 @@ export function projectMonthEnd({
   if (hist.months >= 2) confidence = elapsed >= 10 ? 'high' : 'medium';
   else if (elapsed >= 15) confidence = 'medium';
 
-  const tot = (key: 'actual' | 'recurringRemaining' | 'discretionaryRemaining' | 'projected'): Money =>
-    roundCents(sum(categories.map(c => c[key])));
+  const tot = (
+    key: 'actual' | 'recurringRemaining' | 'discretionaryRemaining' | 'projected'
+      | 'paceProjection' | 'historyProjection',
+  ): Money => roundCents(sum(categories.map(c => c[key])));
   return {
     month, year,
     daysElapsed: elapsed,
@@ -617,6 +681,8 @@ export function projectMonthEnd({
       recurringRemaining: tot('recurringRemaining'),
       discretionaryRemaining: tot('discretionaryRemaining'),
       projected: tot('projected'),
+      paceProjection: tot('paceProjection'),
+      historyProjection: tot('historyProjection'),
       budget: roundCents(sum(categories.map(c => c.budget || 0))),
     },
     categories,

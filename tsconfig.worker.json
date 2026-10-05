@@ -57,6 +57,8 @@
     "src/utils/categoryTree.ts",
     "src/utils/stats/robust.ts",
     "src/utils/forecast/holtWinters.ts",
+    // Pure arithmetic over dates and category totals, no DOM.
+    "src/utils/forecast/monthPace.ts",
     "src/utils/periodicity.ts",
     "src/utils/merchants.ts",
     "src/utils/ml/features.ts",

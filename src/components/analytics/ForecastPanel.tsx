@@ -12,6 +12,35 @@ import { projectMonthEnd, forecastCashFlow } from '../../utils/insights';
 import IrregularExpensesPanel from './IrregularExpensesPanel';
 import { getIncomeSources } from '../../utils/accounts';
 
+
+/*
+ * A ratio needs a denominator worth dividing by.
+ *
+ * A lumpy category — one electronics purchase against a profile expecting two
+ * dollars by the fifth — produces a true but useless "61.84x". The number is
+ * arithmetically right and tells the reader nothing except that something
+ * unusual happened, which the Expected column already says. Below the floor
+ * there is no rate to compare against, and above the cap the exact multiple
+ * stops carrying information.
+ */
+const RATIO_FLOOR = 15;   // dollars the profile must expect by now
+const RATIO_CAP = 9.95;
+
+type ForecastRow = { ratio: number | null; expectedSoFar: number };
+
+function ratioText(c: ForecastRow): string {
+  if (c.ratio === null || c.expectedSoFar < RATIO_FLOOR) return '—';
+  return c.ratio >= RATIO_CAP ? '>10×' : `${c.ratio.toFixed(2)}×`;
+}
+
+function ratioTitle(c: ForecastRow): string {
+  if (c.ratio === null) return 'No history to compare against';
+  if (c.expectedSoFar < RATIO_FLOOR) {
+    return `Too little usually spent by now (${formatCurrency(c.expectedSoFar)}) for a rate to mean much`;
+  }
+  return `Usually ${formatCurrency(c.expectedSoFar)} by this point in the month`;
+}
+
 const CONFIDENCE = {
   high:   { label: 'High confidence',   cls: 'bg-positive-tint text-positive' },
   medium: { label: 'Medium confidence', cls: 'bg-caution-tint text-caution' },
@@ -97,7 +126,12 @@ export default function ForecastPanel() {
         <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
           <div>
             <h2 className="text-lg font-semibold text-ink">{monthLabel} Month-End Projection</h2>
-            <p className="text-caption text-ink-muted mt-0.5">Day {p.daysElapsed} of {p.daysInMonth} · based on your pace, scheduled bills, and {p.historyMonths ? `${p.historyMonths} month${p.historyMonths > 1 ? 's' : ''} of history` : 'no earlier history'}</p>
+            <p className="text-caption text-ink-muted mt-0.5">
+              Day {p.daysElapsed} of {p.daysInMonth} ·{' '}
+              {p.historyMonths
+                ? <>weighs this month against {p.historyMonths} month{p.historyMonths > 1 ? 's' : ''} of history, matched day-of-week for day-of-week</>
+                : <>no earlier history, so this is a straight line from what you have spent</>}
+            </p>
           </div>
           <span className={`text-caption font-medium px-2.5 py-1 rounded-full ${conf.cls}`}>{conf.label}</span>
         </div>
@@ -112,6 +146,28 @@ export default function ForecastPanel() {
             sub={t.budget ? (t.projected > t.budget ? `${formatCurrency(t.projected - t.budget)} over` : `${formatCurrency(t.budget - t.projected)} to spare`) : 'No budgets set'}
           />
         </div>
+
+        {/*
+          The two reference points the projection sits between.
+
+          Without them the number is unarguable: five days into a month the
+          forecast is mostly history, and a reader comparing it against their
+          own back-of-envelope pace has no way to see why the two differ. Each
+          end is a projection in its own right, so they are directly
+          comparable with the figure above.
+        */}
+        {p.historyMonths > 0 && (
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-1 mb-4 text-caption">
+            <span className="text-ink-muted">
+              If you keep this month&apos;s rate:{' '}
+              <span className="money text-ink-secondary">{formatCurrency(t.paceProjection)}</span>
+            </span>
+            <span className="text-ink-muted">
+              If you spend like your last {p.historyMonths} month{p.historyMonths > 1 ? 's' : ''}:{' '}
+              <span className="money text-ink-secondary">{formatCurrency(t.historyProjection)}</span>
+            </span>
+          </div>
+        )}
 
         {/* Stacked progress: spent | scheduled | expected, with budget marker */}
         <div className="mb-2">
@@ -159,6 +215,15 @@ export default function ForecastPanel() {
                 <tr className="text-caption text-ink-muted border-b border-line">
                   <th className="text-left font-medium py-2">Category</th>
                   <th className="text-right font-medium py-2">Spent</th>
+                  {/*
+                    Spend so far against what this category usually costs by
+                    this point, matched day for day. It is the number that
+                    explains a surprising projection: 0.36x means the month has
+                    run at a third of its usual rate *through the days that
+                    have actually passed*, which a flat "day 5 of 31" cannot
+                    tell you when those five days are the expensive ones.
+                  */}
+                  <th className="text-right font-medium py-2" title="Spent so far, against what this category usually costs by now">vs usual</th>
                   <th className="text-right font-medium py-2">+ Scheduled</th>
                   <th className="text-right font-medium py-2">+ Expected</th>
                   <th className="text-right font-medium py-2">Projected</th>
@@ -180,6 +245,9 @@ export default function ForecastPanel() {
                         </span>
                       </td>
                       <td className="py-2 text-right text-ink-secondary">{formatCurrency(c.actual)}</td>
+                      <td className="py-2 text-right text-ink-muted" title={ratioTitle(c)}>
+                        {ratioText(c)}
+                      </td>
                       <td className="py-2 text-right text-ink-muted">{c.recurringRemaining ? formatCurrency(c.recurringRemaining) : '—'}</td>
                       <td className="py-2 text-right text-ink-muted">{formatCurrency(c.discretionaryRemaining)}</td>
                       <td className="py-2 text-right font-semibold text-ink">{formatCurrency(c.projected)}</td>

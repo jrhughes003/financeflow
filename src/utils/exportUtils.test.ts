@@ -159,8 +159,20 @@ describe('importFromCSV — columns', () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({
       date: '2026-02-03', merchant: 'Tim Hortons', amount: 4,
-      notes: 'Imported · Visa Gold', tags: ['imported', 'visa-gold'],
+      // Capitalisation preserved from the file. This used to lowercase, which
+      // is where a split tag came from: the importer produced 'rbc' while the
+      // transaction form stored the 'RBC' the user had typed, and every
+      // filter, group and chart then treated one bank as two.
+      notes: 'Imported · Visa Gold', tags: ['imported', 'Visa-Gold'],
     });
+  });
+
+  it('adopts a tag spelling already in use rather than starting a second one', async () => {
+    const rows = await importFromCSV(
+      csvFile('Amount,Payee,Transaction Date,Account\n-$4.00,Tim Hortons,2026-02-03,rbc\n'),
+      ['RBC', 'TD'],
+    );
+    expect(rows[0].tags).toEqual(['imported', 'RBC']);
   });
 
   it('falls back to the plain defaults when the optional columns are missing', async () => {

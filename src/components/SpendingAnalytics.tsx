@@ -22,6 +22,7 @@ import HabitsPanel from './analytics/HabitsPanel';
 import PlanPanel from './analytics/PlanPanel';
 import TagsPanel from './analytics/TagsPanel';
 import { getSubcategoryBreakdown } from '../utils/habits';
+import { topCategoriesByTrend, withRestSlice, REST_SLICE_ID } from '../utils/categorySelection';
 
 const TABS = [
   { id: 'overview', label: 'Overview', icon: LayoutGrid },
@@ -56,16 +57,20 @@ export default function SpendingAnalytics() {
   // savings transfers, and nets out repaid amounts on fronted purchases.
   const dow = getSpendingByDayOfWeek(getTransactionsForPeriod(transactions, month, year));
 
-  // Pie data
-  const pieData = Object.entries(spending)
-    .map(([id, value]) => ({ name: getCategory(id).name, value: Math.round(value), id, color: getCategory(id).color }))
-    .sort((a, b) => b.value - a.value)
-    .slice(0, 9);
+  // The nine largest categories, with the remainder gathered into one slice.
+  // The rest-slice is not clickable: it stands for several categories, so
+  // there is no single one to drill into.
+  const pieData = withRestSlice(
+    Object.entries(spending)
+      .map(([id, value]) => ({ name: getCategory(id).name, value: Math.round(value), id, color: getCategory(id).color }))
+      .sort((a, b) => b.value - a.value),
+    9,
+    (count, total) => ({ name: `Other (${count})`, value: total, id: REST_SLICE_ID, color: 'var(--c-ink-muted)' }),
+  );
 
-  // Major categories for line chart
-  // A trend row carries `label` beside the category totals, so its index
-  // signature admits a string; a category key is always a number.
-  const majorCats = allCategories.filter(c => trend.some(m => (m[c.id] as number) > 0)).slice(0, 6);
+  // The six categories that actually account for the most spending, not the
+  // first six in the source file. See topCategoriesByTrend.
+  const majorCats = topCategoriesByTrend(allCategories, trend, 6);
 
   const changeMonth = (delta: number) => {
     const d = new Date(year, month + delta, 1);
@@ -146,7 +151,10 @@ export default function SpendingAnalytics() {
                     outerRadius={100}
                     paddingAngle={2}
                     dataKey="value"
-                    onClick={d => setDrillCat(d.id === drillCat ? null : d.id)}
+                    // The rest-slice stands for several categories at once, so
+                    // there is nothing to drill into; clicking it does nothing
+                    // rather than opening an empty breakdown.
+                    onClick={d => { if (d.id !== REST_SLICE_ID) setDrillCat(d.id === drillCat ? null : d.id); }}
                     cursor="pointer"
                   >
                     {pieData.map(entry => (

@@ -226,7 +226,7 @@ export default function ForecastPanel() {
                   <th className="text-right font-medium py-2" title="Spent so far, against what this category usually costs by now">vs usual</th>
                   <th className="text-right font-medium py-2">+ Scheduled</th>
                   <th className="text-right font-medium py-2">+ Expected</th>
-                  <th className="text-right font-medium py-2">Projected</th>
+                  <th className="text-right font-medium py-2" title="Blend of this month's pace and your usual months; the range below is those two ends">Projected</th>
                   <th className="text-right font-medium py-2">Budget</th>
                   <th className="text-right font-medium py-2">Status</th>
                 </tr>
@@ -250,7 +250,23 @@ export default function ForecastPanel() {
                       </td>
                       <td className="py-2 text-right text-ink-muted">{c.recurringRemaining ? formatCurrency(c.recurringRemaining) : '—'}</td>
                       <td className="py-2 text-right text-ink-muted">{formatCurrency(c.discretionaryRemaining)}</td>
-                      <td className="py-2 text-right font-semibold text-ink">{formatCurrency(c.projected)}</td>
+                      {/*
+                        The same two ends as the totals above, per category, so a
+                        projection that sits far from your own pace shows why:
+                        the low end is this month's rate carried forward, the
+                        high end is your usual months.
+                      */}
+                      <td className="py-2 text-right">
+                        <div className="font-semibold text-ink">{formatCurrency(c.projected)}</div>
+                        {p.historyMonths > 0 && c.paceProjection !== c.historyProjection && (
+                          <div
+                            className="text-caption text-ink-muted money"
+                            title={`At this month's rate: ${formatCurrency(c.paceProjection)} · Like your last ${p.historyMonths} month${p.historyMonths > 1 ? 's' : ''}: ${formatCurrency(c.historyProjection)}`}
+                          >
+                            {formatCurrency(Math.min(c.paceProjection, c.historyProjection))}–{formatCurrency(Math.max(c.paceProjection, c.historyProjection))}
+                          </div>
+                        )}
+                      </td>
                       <td className="py-2 text-right text-ink-muted">{c.budget ? formatCurrency(c.budget) : '—'}</td>
                       <td className="py-2 text-right">
                         {s

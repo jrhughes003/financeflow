@@ -150,9 +150,9 @@ describe('projectMonthEnd', () => {
     expect(p.warnings).toHaveLength(1);
     expect(p.confidence).toBe('high');
 
-    // Half the month gone, so a little over half the weight on what it has
+    // Half the month gone, so three quarters of the weight on what it has
     // actually done — see PRIOR_STRENGTH_DAYS.
-    expect(dining.paceWeight).toBeCloseTo(15 / 25, 6);
+    expect(dining.paceWeight).toBeCloseTo(15 / 20, 6);
   });
 
   it('does not double-count recurring bills already posted', () => {

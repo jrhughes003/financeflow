@@ -2,7 +2,6 @@ import * as chart from '../ui/chartTheme';
 import React, { useEffect, useMemo, useState } from 'react';
 import { format, parseISO } from 'date-fns';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { Landmark, AlertTriangle, Sparkles } from 'lucide-react';
 import { useFinancial, useTaxonomy } from '../../context/FinancialContext';
 import { formatCurrency } from '../../utils/calculations';
 import { compareDebtStrategies } from '../../utils/planning';
@@ -10,6 +9,7 @@ import { runOptimize } from '../../utils/runOptimize';
 import { getSavingsOpportunities } from '../../utils/insights';
 import { requiredPayment, isInRepayment } from '../../utils/accounts';
 import type { PayoffOptimization, RunningOptimize } from '../../types/worker';
+import { Panel, Badge } from '../ui';
 
 /** The three comparable strategies. `custom` is the optimiser's, not a card. */
 type StrategyKey = 'minimum' | 'avalanche' | 'snowball';
@@ -19,6 +19,7 @@ const STRATEGIES: { key: StrategyKey; label: string; color: string; blurb: strin
   { key: 'avalanche', label: 'Avalanche', color: 'var(--c-data-1)', blurb: 'Extra money to the highest interest rate first — least interest paid.' },
   { key: 'snowball', label: 'Snowball', color: 'var(--c-caution)', blurb: 'Extra money to the smallest balance first — quickest early wins.' },
 ];
+const TH = 'font-medium h-[22px] px-2.5 border-b border-line bg-surface-sunk whitespace-nowrap';
 const fmtMonth = (d: string | null): string => (d ? format(parseISO(d), 'MMM yyyy') : '—');
 const duration = (m: number | null): string => {
   if (m === null) return 'Never';
@@ -26,7 +27,7 @@ const duration = (m: number | null): string => {
   return [y && `${y} yr`, r && `${r} mo`].filter(Boolean).join(' ') || '0 mo';
 };
 
-export default function DebtStrategyPanel() {
+export default function DebtStrategyPanel({ className = 'col-span-12' }: { className?: string }) {
   const { state } = useFinancial();
   const taxonomy = useTaxonomy();
   const { debts = [], transactions, budgets, recurringTemplates = [] } = state;
@@ -74,13 +75,9 @@ export default function DebtStrategyPanel() {
 
   if (!owing.length) {
     return (
-      <div className="bg-surface rounded-container border border-line p-5">
-        <div className="flex items-center gap-2 mb-1">
-          <Landmark className="w-4 h-4 text-ink-muted" />
-          <h2 className="text-lg font-semibold text-ink">Debt Payoff Strategy</h2>
-        </div>
-        <p className="text-sm text-ink-muted">No debts with a balance are tracked — nothing to plan here.</p>
-      </div>
+      <Panel title="Debt Payoff Strategy" className={className}>
+        <p className="font-sans text-sm text-ink-muted p-3">No debts with a balance are tracked — nothing to plan here.</p>
+      </Panel>
     );
   }
 
@@ -98,130 +95,151 @@ export default function DebtStrategyPanel() {
   });
 
   return (
-    <div className="bg-surface rounded-container border border-line p-5">
-      <div className="flex items-start gap-2 mb-4">
-        <Landmark className="w-4 h-4 text-ink-muted mt-0.5" />
-        <div>
-          <h2 className="text-lg font-semibold text-ink">Debt Payoff Strategy</h2>
-          <p className="text-caption text-ink-muted mt-0.5">
-            {owing.length} debt{owing.length > 1 ? 's' : ''} · {formatCurrency(owing.reduce((s, d) => s + Number(d.balance), 0))} total · {formatCurrency(totalMin)}/mo in minimums.
-            When a debt is paid off, its minimum rolls into the next one.
-            {deferredDebts.length > 0 && ` ${deferredDebts.map(d => d.name).join(', ')} ${deferredDebts.length > 1 ? 'are' : 'is'} deferred — ${deferredDebts.length > 1 ? 'they join' : 'it joins'} the plan when repayment starts.`}
-          </p>
-        </div>
-      </div>
+    <Panel
+      title="Debt Payoff Strategy"
+      meta={`${owing.length} DEBT${owing.length > 1 ? 'S' : ''} · ${formatCurrency(totalMin)}/MO MIN`}
+      className={className}
+    >
+      <p className="font-sans text-caption text-ink-muted px-2.5 py-1.5 border-b border-line">
+        {owing.length} debt{owing.length > 1 ? 's' : ''} · {formatCurrency(owing.reduce((s, d) => s + Number(d.balance), 0))} total · {formatCurrency(totalMin)}/mo in minimums.
+        When a debt is paid off, its minimum rolls into the next one.
+        {deferredDebts.length > 0 && ` ${deferredDebts.map(d => d.name).join(', ')} ${deferredDebts.length > 1 ? 'are' : 'is'} deferred — ${deferredDebts.length > 1 ? 'they join' : 'it joins'} the plan when repayment starts.`}
+      </p>
 
       {/* Extra payment */}
-      <div className="bg-surface-sunk rounded-container p-3 mb-4">
-        <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
-          <span className="text-sm text-ink-secondary">Extra each month on top of minimums</span>
+      <div className="px-2.5 py-1.5 border-b border-line">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="text-caption uppercase tracking-[0.03em] text-ink-secondary">Extra each month on top of minimums</span>
           <span className="text-sm font-semibold text-ink">{formatCurrency(extra)}/mo</span>
         </div>
         <input
           type="range" min={0} max={sliderMax} step={10} value={extra}
           onChange={e => setExtra(Number(e.target.value))}
-          className="w-full accent-blue-600"
+          className="w-full h-4 accent-accent"
           aria-label="Extra monthly debt payment"
         />
         {potential > 0 && (
-          <button onClick={() => setExtra(Math.min(sliderMax, potential))} className="inline-flex items-center gap-1 text-caption text-accent hover:text-accent-ink font-medium mt-1">
-            <Sparkles className="w-3.5 h-3.5" />Use the ~{formatCurrency(potential)}/mo found in Save Money
+          <button onClick={() => setExtra(Math.min(sliderMax, potential))} className="text-micro uppercase tracking-[0.06em] text-accent-ink hover:underline font-medium">
+            Use the ~{formatCurrency(potential)}/mo found in Save Money
           </button>
         )}
       </div>
 
-      {/* Strategy cards */}
-      <div className="grid md:grid-cols-3 gap-3 mb-4">
-        {STRATEGIES.map(s => {
-          const r = cmp[s.key];
-          const recommended = cmp.recommended === s.key && extra > 0;
-          return (
-            <div key={s.key} className={`rounded-container p-3 border ${recommended ? 'border-accent bg-accent-tint/50' : 'border-line'}`}>
-              <div className="flex items-center justify-between mb-1">
-                <span className="flex items-center gap-1.5 text-sm font-semibold text-ink">
-                  <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: s.color }} />{s.label}
-                </span>
-                {recommended && <span className="text-micro font-medium uppercase tracking-[0.06em] text-accent-ink bg-accent-tint px-1.5 py-0.5 rounded-control">Recommended</span>}
-              </div>
-              <p className="text-caption text-ink-muted mb-2">{s.blurb}</p>
-              {r.feasible ? (
-                <>
-                  <p className="text-lg font-bold text-ink">{fmtMonth(r.debtFreeDate)}</p>
-                  <p className="text-caption text-ink-muted">Debt-free in {duration(r.months)} · {formatCurrency(r.totalInterest)} interest</p>
-                </>
-              ) : (
-                <p className="text-sm text-negative flex items-start gap-1"><AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />Payments don't cover the interest{r.unpayable?.length ? ` on ${r.unpayable.map((u: { name: string }) => u.name).join(', ')}` : ''}.</p>
-              )}
-            </div>
-          );
-        })}
+      {/* Strategy comparison */}
+      <div className="overflow-x-auto border-b border-line">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="label-micro">
+              <th scope="col" className={`${TH} text-left`}>Strategy</th>
+              <th scope="col" className={`${TH} text-right`}>Debt-free</th>
+              <th scope="col" className={`${TH} text-right`}>Time</th>
+              <th scope="col" className={`${TH} text-right`}>Interest</th>
+              <th scope="col" className={`${TH} w-28`}><span className="sr-only">Recommendation</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {STRATEGIES.map(s => {
+              const r = cmp[s.key];
+              const recommended = cmp.recommended === s.key && extra > 0;
+              return (
+                <tr key={s.key} className={recommended ? 'bg-accent-tint' : 'hover:bg-surface-hover'}>
+                  <td className="px-2.5 py-1 border-b border-line align-top">
+                    <span className="flex items-center gap-2 text-sm font-medium text-ink">
+                      <span className="w-[7px] h-[7px] shrink-0" style={{ backgroundColor: s.color }} aria-hidden="true" />{s.label}
+                    </span>
+                    <span className="block font-sans text-caption text-ink-muted mt-0.5">{s.blurb}</span>
+                  </td>
+                  {r.feasible ? (
+                    <>
+                      <td className="px-2.5 py-1 border-b border-line text-right align-top whitespace-nowrap font-medium text-ink">{fmtMonth(r.debtFreeDate)}</td>
+                      <td className="px-2.5 py-1 border-b border-line text-right align-top whitespace-nowrap text-ink-secondary" title={`Debt-free in ${duration(r.months)}`}>{duration(r.months)}</td>
+                      <td className="px-2.5 py-1 border-b border-line text-right align-top whitespace-nowrap text-ink-secondary" title={`${formatCurrency(r.totalInterest)} interest`}>{formatCurrency(r.totalInterest)}</td>
+                    </>
+                  ) : (
+                    <td colSpan={3} className="px-2.5 py-1 border-b border-line text-right align-top">
+                      <span className="inline-flex items-center gap-1.5 font-sans text-sm text-negative">
+                        <Badge tone="negative">Never</Badge>Payments don't cover the interest{r.unpayable?.length ? ` on ${r.unpayable.map((u: { name: string }) => u.name).join(', ')}` : ''}.
+                      </span>
+                    </td>
+                  )}
+                  <td className="px-2.5 py-1 border-b border-line text-right align-top">
+                    {recommended && <Badge tone="accent">Recommended</Badge>}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
 
       {extra === 0 ? (
-        <p className="text-sm text-ink-secondary mb-4">With no extra money, avalanche and snowball only differ by rolling paid-off minimums forward. Move the slider to see how much faster you could be debt-free.</p>
+        <p className="font-sans text-sm text-ink-secondary px-2.5 py-1.5 border-b border-line">With no extra money, avalanche and snowball only differ by rolling paid-off minimums forward. Move the slider to see how much faster you could be debt-free.</p>
       ) : best.feasible && cmp.interestSaved !== null && (
-        <p className="text-sm text-ink-secondary mb-4">
+        <p className="font-sans text-sm text-ink-secondary px-2.5 py-1.5 border-b border-line">
           Paying {formatCurrency(extra)}/mo extra with the <span className="font-semibold">{(STRATEGIES.find(s => s.key === cmp.recommended)?.label ?? '').toLowerCase()}</span> method
-          gets you debt-free <span className="font-semibold">{duration(cmp.monthsSaved)} sooner</span> and saves <span className="font-semibold">{formatCurrency(cmp.interestSaved)}</span> in interest.
+          gets you debt-free <span className="font-semibold">{duration(cmp.monthsSaved)} sooner</span> and saves <span className="font-semibold text-positive">{formatCurrency(cmp.interestSaved)}</span> in interest.
           {cmp.recommended === 'snowball' && ' It costs almost the same as avalanche but clears your first debt sooner.'}
         </p>
       )}
 
       {searching && !optimal && (
-        <p className="text-caption text-ink-muted mb-4" aria-busy="true">Checking payoff orders…</p>
+        <p className="text-caption uppercase tracking-[0.03em] text-ink-muted px-2.5 py-1.5 border-b border-line" aria-busy="true">Checking payoff orders…</p>
       )}
 
       {optimal?.feasible && optimal.savingVsAvalanche > 0.5 && (
-        <div className="bg-accent-tint rounded-container p-4 mb-4">
-          <p className="text-sm text-accent-ink">
-            <span className="font-medium">A cheaper order exists.</span> Paying{' '}
-            {(optimal.order ?? []).map(o => o.name).join(' → ')} costs{' '}
-            <span className="font-medium">{formatCurrency(optimal.savingVsAvalanche)}</span> less interest than
-            avalanche{optimal.exhaustive ? ', and no other order is cheaper' : ''}.
-          </p>
-          <p className="text-caption text-accent-ink/70 mt-1">
-            Avalanche sorts by today's rate, so it misses a promotional rate that is about to revert.
-            {optimal.exhaustive
-              ? ` All ${optimal.searched.toLocaleString()} possible orders were checked.`
-              : ` ${optimal.searched} orders were checked — too many debts to try every one.`}
-          </p>
+        <div className="flex items-start gap-2.5 px-2.5 py-1.5 border-b border-line">
+          <Badge tone="accent" className="shrink-0 w-12 justify-center mt-px">Order</Badge>
+          <div>
+            <p className="font-sans text-[12.5px] leading-snug text-ink">
+              <span className="font-medium">A cheaper order exists.</span> Paying{' '}
+              {(optimal.order ?? []).map(o => o.name).join(' → ')} costs{' '}
+              <span className="font-medium text-positive">{formatCurrency(optimal.savingVsAvalanche)}</span> less interest than
+              avalanche{optimal.exhaustive ? ', and no other order is cheaper' : ''}.
+            </p>
+            <p className="font-sans text-caption text-ink-muted mt-0.5">
+              Avalanche sorts by today's rate, so it misses a promotional rate that is about to revert.
+              {optimal.exhaustive
+                ? ` All ${optimal.searched.toLocaleString()} possible orders were checked.`
+                : ` ${optimal.searched} orders were checked — too many debts to try every one.`}
+            </p>
+          </div>
         </div>
       )}
 
       {optimal?.feasible && optimal.matchesAvalanche && extra > 0 && (
-        <p className="text-caption text-ink-muted mb-4">
+        <p className="font-sans text-caption text-ink-muted px-2.5 py-1.5 border-b border-line">
           {optimal.exhaustive
             ? `Checked all ${optimal.searched.toLocaleString()} payoff orders: avalanche is the cheapest.`
             : 'Avalanche is the cheapest order found.'}
         </p>
       )}
 
-      <div className="grid lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
+      <div className="grid lg:grid-cols-3 gap-px bg-line">
+        <div className="lg:col-span-2 bg-surface p-3">
           <ResponsiveContainer width="100%" height={240}>
             <LineChart data={series} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
               <CartesianGrid {...chart.grid} />
-              <XAxis dataKey="month" tick={{ fontSize: 11 }} tickFormatter={m => (m % 12 === 0 ? `${m / 12}y` : `${m}m`)} interval="preserveStartEnd" minTickGap={30} />
-              <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `$${Math.round(v / 1000)}k`} />
-              <Tooltip labelFormatter={m => `Month ${m}`} formatter={(v, name) => [formatCurrency(chart.asNumber(v)), name]} />
-              <Legend wrapperStyle={{ fontSize: 12 }} />
+              <XAxis dataKey="month" {...chart.xAxis} tickFormatter={m => (m % 12 === 0 ? `${m / 12}y` : `${m}m`)} interval="preserveStartEnd" minTickGap={30} />
+              <YAxis {...chart.yAxis} tickFormatter={v => `$${Math.round(v / 1000)}k`} />
+              <Tooltip {...chart.tooltip} labelFormatter={m => `Month ${m}`} formatter={(v, name) => [formatCurrency(chart.asNumber(v)), name]} />
+              <Legend iconType="plainline" iconSize={10} wrapperStyle={{ fontSize: 10.5, fontFamily: 'var(--font-numeric)', textTransform: 'uppercase', letterSpacing: '0.06em', paddingTop: 6 }} />
               {STRATEGIES.map(s => (
-                <Line key={s.key} dataKey={s.key} name={s.label} stroke={s.color} strokeWidth={2} dot={false} isAnimationActive={false} connectNulls={false} />
+                <Line key={s.key} dataKey={s.key} name={s.label} stroke={s.color} strokeWidth={1.5} dot={false} isAnimationActive={false} connectNulls={false} />
               ))}
             </LineChart>
           </ResponsiveContainer>
         </div>
-        <div>
-          <p className="text-sm font-semibold text-ink-secondary mb-2">Payoff order ({STRATEGIES.find(s => s.key === cmp.recommended)?.label})</p>
+        <div className="bg-surface">
+          <p className="label-micro px-2.5 h-[22px] leading-[22px] bg-surface-sunk border-b border-line">Payoff order ({STRATEGIES.find(s => s.key === cmp.recommended)?.label})</p>
           {best.payoffs.map((p, i) => (
-            <div key={p.id} className="flex justify-between py-1.5 border-b border-line-faint text-sm">
-              <span className="text-ink-secondary">{i + 1}. {p.name}</span>
-              <span className="text-ink-muted">month {p.month}</span>
+            <div key={p.id} className="flex items-center gap-2 h-row px-2.5 border-b border-line text-sm">
+              <span className="flex-1 min-w-0 truncate text-ink-secondary">{i + 1}. {p.name}</span>
+              <span className="text-ink-muted whitespace-nowrap">month {p.month}</span>
             </div>
           ))}
-          {!best.feasible && <p className="text-caption text-negative mt-2">Some debts never get paid off at this payment level.</p>}
+          {!best.feasible && <p className="font-sans text-caption text-negative px-2.5 py-1.5">Some debts never get paid off at this payment level.</p>}
         </div>
       </div>
-    </div>
+    </Panel>
   );
 }

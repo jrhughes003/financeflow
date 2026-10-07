@@ -1,6 +1,4 @@
 import React, { useMemo, useState } from 'react';
-import { SlidersHorizontal, Flag, LineChart as LineChartIcon, GitCompare, AlertTriangle, CheckCircle2, Info } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
 import { useFinancial } from '../../context/FinancialContext';
 import type { LifePlan } from '../../types/lifeplan';
 import { needsSetup } from '../../types/projection';
@@ -11,12 +9,13 @@ import PlanSetup from './PlanSetup';
 import PlanEvents from './PlanEvents';
 import PlanProjection from './PlanProjection';
 import PlanScenarios from './PlanScenarios';
+import { Note } from './ui';
 
 const TABS = [
-  { id: 'setup', label: 'Setup', icon: SlidersHorizontal },
-  { id: 'events', label: 'Life Events', icon: Flag },
-  { id: 'projection', label: 'Projection', icon: LineChartIcon },
-  { id: 'scenarios', label: 'Scenarios', icon: GitCompare },
+  { id: 'setup', label: 'Setup' },
+  { id: 'events', label: 'Life Events' },
+  { id: 'projection', label: 'Projection' },
+  { id: 'scenarios', label: 'Scenarios' },
 ];
 
 /** Plan + saver, stored inside settings (no database change needed). */
@@ -31,7 +30,8 @@ export function usePlan() {
 
 interface PlanStatus {
   tone: 'ok' | 'warn' | 'info';
-  icon: LucideIcon;
+  /** The outlined tag in front of the status sentence. */
+  tag: string;
   text: string;
 }
 
@@ -45,39 +45,37 @@ export default function LifePlanPage() {
   const me = plan.people.find(p => p.id === 'me');
   const retireYear = me?.birthYear ? Number(me.birthYear) + Number(me.retireAge || 65) : null;
   const status: PlanStatus = needsSetup(result)
-    ? { tone: 'info', icon: Info, text: 'Add your birth year below to start the projection.' }
+    ? { tone: 'info', tag: 'Setup', text: 'Add your birth year below to start the projection.' }
     : result.firstShortfall
       ? {
-        tone: 'warn', icon: AlertTriangle,
+        tone: 'warn', tag: 'Short',
         text: `Money runs out in ${result.firstShortfall.year} (age ${result.firstShortfall.year - Number(me?.birthYear)}). Adjust spending, income, or the timing of your plans below.`,
       }
       : {
-        tone: 'ok', icon: CheckCircle2,
+        tone: 'ok', tag: 'Holds',
         text: result.retirementRow
           // Quoted in today's dollars, like the Projection tab.
           ? `The plan holds to age ${plan.assumptions.endAge}. Net worth at retirement (${retireYear}): ${formatCurrency(result.retirementRow.netWorth / result.retirementRow.inflationIndex)} in today's dollars.`
           : `The plan holds to age ${plan.assumptions.endAge}.`,
       };
-  const toneCls = { ok: 'bg-positive-tint border-positive text-positive', warn: 'bg-caution-tint border-caution text-caution', info: 'bg-accent-tint border-accent text-accent-ink' }[status.tone];
-  const StatusIcon = status.icon;
+  const tone = ({ ok: 'positive', warn: 'caution', info: 'accent' } as const)[status.tone];
 
   return (
-    <div className="space-y-5 animate-fade-in">
-      <div className={`flex items-start gap-3 rounded-container border p-4 ${toneCls}`}>
-        <StatusIcon className="w-5 h-5 shrink-0 mt-0.5" />
-        <div>
-          <p className="text-sm font-medium">{status.text}</p>
-          <p className="text-caption opacity-75 mt-0.5">
+    <div className="space-y-2 animate-fade-in">
+      <div className="bg-surface border border-line px-2.5 py-1.5">
+        <Note tag={status.tag} tone={tone}>
+          <p className="text-sm font-medium text-ink">{status.text}</p>
+          <p className="text-caption text-ink-muted mt-0.5">
             Estimates for planning, using Ontario and federal tax rules and your own spending history — not financial or tax advice.
           </p>
-        </div>
+        </Note>
       </div>
 
-      <div className="flex flex-wrap bg-surface-hover rounded-container p-1 w-fit max-w-full">
-        {TABS.map(({ id, label, icon: Icon }) => (
-          <button key={id} onClick={() => setTab(id)}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-control text-sm font-medium transition-colors ${tab === id ? 'bg-surface  text-accent' : 'text-ink-muted hover:text-ink-secondary'}`}>
-            <Icon className="w-4 h-4" />{label}
+      <div className="flex flex-wrap border border-line-strong bg-surface w-fit max-w-full">
+        {TABS.map(({ id, label }) => (
+          <button key={id} onClick={() => setTab(id)} aria-pressed={tab === id}
+            className={`h-7 px-3 text-caption font-medium uppercase tracking-[0.06em] border-l border-line-strong first:border-l-0 transition-colors ${tab === id ? 'bg-accent-tint text-accent-ink' : 'text-ink-muted hover:text-ink hover:bg-surface-hover'}`}>
+            {label}
           </button>
         ))}
       </div>

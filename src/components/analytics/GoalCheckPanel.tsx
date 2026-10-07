@@ -1,17 +1,18 @@
 import React, { useMemo } from 'react';
 import { format, parseISO } from 'date-fns';
-import { Target, CheckCircle2, AlertTriangle, AlertCircle, PauseCircle, Clock } from 'lucide-react';
 import { useFinancial } from '../../context/FinancialContext';
 import { formatCurrency } from '../../utils/calculations';
 import { getGoalStatuses } from '../../utils/planning';
+import { Panel, KeyValue, Badge } from '../ui';
+import type { BadgeTone } from '../ui';
 
-const STATUS = {
-  on_track:  { label: 'On track',   icon: CheckCircle2,  cls: 'text-positive bg-positive-tint' },
-  behind:    { label: 'Behind',     icon: AlertTriangle, cls: 'text-caution bg-caution-tint' },
-  stalled:   { label: 'Stalled',    icon: PauseCircle,   cls: 'text-negative bg-negative-tint' },
-  past_due:  { label: 'Past target', icon: Clock,        cls: 'text-negative bg-negative-tint' },
-  no_target: { label: 'No target date', icon: AlertCircle, cls: 'text-ink-secondary bg-surface-hover' },
-  reached:   { label: 'Reached',    icon: CheckCircle2,  cls: 'text-positive bg-positive-tint' },
+const STATUS: Record<string, { label: string; tone: BadgeTone }> = {
+  on_track:  { label: 'On track',       tone: 'positive' },
+  behind:    { label: 'Behind',         tone: 'caution' },
+  stalled:   { label: 'Stalled',        tone: 'negative' },
+  past_due:  { label: 'Past target',    tone: 'negative' },
+  no_target: { label: 'No target date', tone: 'neutral' },
+  reached:   { label: 'Reached',        tone: 'positive' },
 };
 const ORDER = ['stalled', 'past_due', 'behind', 'no_target', 'on_track', 'reached'];
 const fmtMonth = (d: string): string => format(parseISO(d), 'MMM yyyy');
@@ -42,7 +43,7 @@ function summary(s: GoalStatus): string {
   }
 }
 
-export default function GoalCheckPanel() {
+export default function GoalCheckPanel({ className = 'col-span-12' }: { className?: string }) {
   const { state } = useFinancial();
   const { savings_goals = [], transactions } = state;
   const statuses = useMemo(
@@ -54,51 +55,43 @@ export default function GoalCheckPanel() {
     .reduce((t, s) => t + (s.shortfall ?? 0), 0);
 
   return (
-    <div className="bg-surface rounded-container border border-line p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
-        <div className="flex items-start gap-2">
-          <Target className="w-4 h-4 text-ink-muted mt-0.5" />
-          <div>
-            <h2 className="text-lg font-semibold text-ink">Goal Check</h2>
-            <p className="text-caption text-ink-muted mt-0.5">Your real savings pace vs. what each goal needs to hit its target date</p>
-          </div>
-        </div>
-        {shortfall > 0 && (
-          <div className="text-right">
-            <p className="text-caption text-ink-muted">Needed to get back on track</p>
-            <p className="text-xl font-bold text-caution">+{formatCurrency(shortfall)}<span className="text-sm font-medium text-ink-muted">/mo</span></p>
-          </div>
-        )}
-      </div>
+    <Panel
+      title="Goal Check"
+      meta={statuses.length ? `${statuses.length} GOAL${statuses.length > 1 ? 'S' : ''}` : undefined}
+      className={className}
+    >
+      <p className="font-sans text-caption text-ink-muted px-2.5 py-1.5 border-b border-line">Your real savings pace vs. what each goal needs to hit its target date</p>
+      {shortfall > 0 && (
+        <KeyValue label="Needed to get back on track" strong>
+          <span className="text-caution">+{formatCurrency(shortfall)}</span><span className="text-ink-muted">/mo</span>
+        </KeyValue>
+      )}
 
       {statuses.length === 0 ? (
-        <p className="text-sm text-ink-muted text-center py-6">No savings goals yet — add one on the Goals page to track it here.</p>
+        <p className="font-sans text-sm text-ink-muted p-3">No savings goals yet — add one on the Goals page to track it here.</p>
       ) : (
-        <div className="grid lg:grid-cols-2 gap-3">
+        <ul>
           {statuses.map(s => {
             const st = STATUS[s.status];
-            const Icon = st.icon;
             return (
-              <div key={s.goal.id} className="border border-line rounded-container p-3">
-                <div className="flex items-center justify-between gap-2 mb-2">
-                  <p className="text-sm font-semibold text-ink truncate">{s.goal.name}</p>
-                  <span className={`inline-flex items-center gap-1 text-caption font-medium px-2 py-0.5 rounded-full shrink-0 ${st.cls}`}>
-                    <Icon className="w-3.5 h-3.5" />{st.label}
-                  </span>
+              <li key={s.goal.id} className="px-2.5 py-1.5 border-b border-line last:border-b-0">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="flex-1 min-w-0 truncate text-caption uppercase tracking-[0.03em] text-ink">{s.goal.name}</p>
+                  <Badge tone={st.tone} className="shrink-0">{st.label}</Badge>
                 </div>
-                <div className="h-2 bg-surface-hover rounded-full overflow-hidden">
-                  <div className="h-full rounded-full" style={{ width: `${s.percent}%`, backgroundColor: s.goal.color || 'var(--c-data-1)' }} />
+                <div className="h-1.5 bg-line my-1" role="presentation">
+                  <div className="h-full" style={{ width: `${s.percent}%`, backgroundColor: s.goal.color || 'var(--c-data-1)' }} />
                 </div>
-                <div className="flex justify-between text-caption text-ink-muted mt-1 mb-2">
+                <div className="flex justify-between text-caption text-ink-muted">
                   <span>{formatCurrency(s.currentAmount)} of {formatCurrency(s.goal.targetAmount)}</span>
                   <span>{Math.round(s.percent)}%</span>
                 </div>
-                <p className="text-caption text-ink-secondary">{summary(s)}</p>
-              </div>
+                <p className="font-sans text-caption text-ink-secondary mt-0.5">{summary(s)}</p>
+              </li>
             );
           })}
-        </div>
+        </ul>
       )}
-    </div>
+    </Panel>
   );
 }

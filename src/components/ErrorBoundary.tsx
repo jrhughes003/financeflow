@@ -7,7 +7,8 @@
 // point and getting it to disk is the one thing worth doing before a reload.
 
 import React from 'react';
-import { AlertTriangle, RotateCcw, Download } from 'lucide-react';
+import { RotateCcw, Download } from 'lucide-react';
+import { Panel, Badge, Button } from './ui';
 
 interface ErrorBoundaryProps {
   children?: React.ReactNode;
@@ -50,43 +51,35 @@ export default class ErrorBoundary extends React.Component<ErrorBoundaryProps, E
     if (!error) return this.props.children;
 
     return (
-      <div className="max-w-lg mx-auto mt-12 bg-surface border border-line rounded-container p-5">
-        <div className="flex items-start gap-3">
-          <AlertTriangle className="w-5 h-5 text-caution shrink-0 mt-0.5" aria-hidden="true" />
-          <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-ink">This page hit an error</h2>
-            <p className="text-sm text-ink-secondary mt-1">
+      <div className="max-w-xl mx-auto mt-8">
+        <Panel bordered title="This page hit an error" actions={<Badge tone="caution">Render error</Badge>}>
+          <div className="p-3">
+            <p className="font-sans text-sm text-ink-secondary">
               Your data hasn't been touched — nothing is written while a page is failing to draw.
               Try another page from the sidebar, or reload.
             </p>
 
-            <div className="flex flex-wrap gap-2 mt-4">
-              <button
-                onClick={() => window.location.reload()}
-                className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors h-9 px-3.5 text-sm bg-accent hover:bg-accent-hover text-ink-inverse"
-              >
-                <RotateCcw className="w-3.5 h-3.5" /> Reload
-              </button>
+            <div className="flex flex-wrap gap-1.5 mt-2.5">
+              <Button variant="primary" icon={RotateCcw} onClick={() => window.location.reload()}>
+                Reload
+              </Button>
               {this.props.onExport && (
-                <button
-                  onClick={this.props.onExport}
-                  className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors h-9 px-3.5 text-sm border border-line-strong text-ink hover:bg-surface-hover"
-                >
-                  <Download className="w-3.5 h-3.5" /> Export a backup first
-                </button>
+                <Button icon={Download} onClick={this.props.onExport}>
+                  Export a backup first
+                </Button>
               )}
             </div>
-
-            <details className="mt-4">
-              <summary className="text-caption text-ink-muted cursor-pointer hover:text-ink-secondary">
-                Technical detail
-              </summary>
-              <pre className="mt-2 p-3 bg-surface-sunk border border-line rounded-control text-caption text-ink-secondary overflow-x-auto whitespace-pre-wrap">
-                {String(error?.stack || error?.message || error)}
-              </pre>
-            </details>
           </div>
-        </div>
+
+          <details className="border-t border-line">
+            <summary className="py-1.5 px-2.5 label-micro cursor-pointer hover:text-ink-secondary hover:bg-surface-hover">
+              Technical detail
+            </summary>
+            <pre className="px-2.5 py-1.5 bg-canvas border-t border-line text-caption text-ink-secondary overflow-x-auto whitespace-pre-wrap">
+              {String(error?.stack || error?.message || error)}
+            </pre>
+          </details>
+        </Panel>
       </div>
     );
   }

@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from 'react';
-import { HeartPulse, ChevronDown } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { useFinancial } from '../context/FinancialContext';
 import { getFinancialHealth, getHealthTrend, healthLabel } from '../utils/healthScore';
+import { Panel, Button } from './ui';
 
 type TrendPoint = ReturnType<typeof getHealthTrend>[number];
 /** A month that actually scored. The sparkline is only ever given these. */
@@ -12,7 +13,7 @@ type ScoredTrendPoint = TrendPoint & { score: number };
 // tooltip would have given.
 function Sparkline({ points }: { points: ScoredTrendPoint[] }) {
   const w = 152;
-  const h = 44;
+  const h = 36;
   const pad = 4;
   const step = points.length > 1 ? (w - pad * 2) / (points.length - 1) : 0;
   const y = (score: number) => h - pad - (Math.max(0, Math.min(100, score)) / 100) * (h - pad * 2);
@@ -22,37 +23,26 @@ function Sparkline({ points }: { points: ScoredTrendPoint[] }) {
   return (
     <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none"
       role="img" aria-label={`Health score over the last ${points.length} months`}>
-      <path d={path} fill="none" stroke="var(--c-data-1)" strokeWidth="1.75"
-        strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+      {/* The 50 line, so "above or below middling" reads without an axis. */}
+      <line x1={pad} x2={w - pad} y1={y(50)} y2={y(50)} stroke="var(--c-line)" strokeWidth="1"
+        strokeDasharray="2 2" vectorEffect="non-scaling-stroke" />
+      <path d={path} fill="none" stroke="var(--c-data-1)" strokeWidth="1.5"
+        strokeLinejoin="miter" vectorEffect="non-scaling-stroke" />
       {coords.map(([x, yy], i) => (
-        <circle key={points[i].label} cx={x} cy={yy} r="2" fill="var(--c-data-1)">
+        <rect key={points[i].label} x={x - 1.5} y={yy - 1.5} width="3" height="3" fill="var(--c-data-1)">
           <title>{`${points[i].label}: ${points[i].score} · ${healthLabel(points[i].score).label}`}</title>
-        </circle>
+        </rect>
       ))}
     </svg>
   );
 }
 
-// Score ring: stroke length encodes the 0–100 score; the number sits inside.
-function Ring({ score, color }: { score: number | null; color: string }) {
-  const r = 34;
-  const c = 2 * Math.PI * r;
-  const filled = score === null ? 0 : (score / 100) * c;
+// The score as a square rule: fill length is the 0–100 score, in its band colour.
+function ScoreBar({ score, color }: { score: number | null; color: string }) {
   return (
-    <svg width="88" height="88" viewBox="0 0 88 88" role="img" aria-label={score === null ? 'No score yet' : `Score ${score} of 100`}>
-      <circle cx="44" cy="44" r={r} fill="none" stroke="var(--c-line-faint)" strokeWidth="8" />
-      {filled > 0 && (
-        <circle
-          cx="44" cy="44" r={r} fill="none" stroke={color} strokeWidth="8" strokeLinecap="round"
-          strokeDasharray={`${filled} ${c}`} transform="rotate(-90 44 44)"
-        />
-      )}
-      {/* Was fill-gray-900 — a light-mode literal, so the score sat
-          near-black inside a near-black ring once dark mode landed. */}
-      <text x="44" y="50" textAnchor="middle" className="fill-ink" style={{ fontSize: 22, fontWeight: 800 }}>
-        {score === null ? '—' : score}
-      </text>
-    </svg>
+    <div className="relative h-1.5 bg-line" role="presentation">
+      {score !== null && <div className="h-full" style={{ width: `${Math.max(0, Math.min(100, score))}%`, backgroundColor: color }} />}
+    </div>
   );
 }
 
@@ -68,68 +58,85 @@ export default function FinancialHealthCard() {
   const weakest = health.components.filter(c => c.available && c.tip).sort((a, b) => a.score - b.score)[0];
 
   return (
-    <div className="bg-surface rounded-container border border-line p-5">
-      <div className="flex flex-wrap items-center gap-5">
-        <Ring score={health.score} color={health.color} />
-        <div className="flex-1 min-w-48">
-          <div className="flex items-center gap-2">
-            <HeartPulse className="w-4 h-4 text-ink-muted" />
-            <h2 className="text-lg font-semibold text-ink">Financial Health</h2>
-          </div>
-          <p className="text-lg font-bold mt-0.5" style={{ color: health.color }}>{health.label}</p>
-          {health.score === null ? (
-            <p className="text-caption text-ink-muted">Record at least one full month of spending to get a score.</p>
-          ) : weakest ? (
-            <p className="text-caption text-ink-muted">Biggest opportunity — {weakest.label.toLowerCase()}: {weakest.tip}</p>
-          ) : (
-            <p className="text-caption text-ink-muted">Every part of your score is in good shape.</p>
-          )}
+    <Panel
+      bordered
+      title="Financial Health"
+      meta={health.label}
+      actions={(
+        <Button size="sm" variant="ghost" onClick={() => setOpen(o => !o)} aria-expanded={open}>
+          {open ? 'Hide' : 'See'} breakdown <ChevronDown className={`w-3 h-3 transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden="true" />
+        </Button>
+      )}
+    >
+      <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_200px] gap-px bg-line border-b border-line">
+        <div className="bg-surface px-2.5 py-1.5">
+          <p className="label-micro">Score</p>
+          <p className="mt-0.5 flex items-baseline gap-2">
+            <span className="figure-display" style={{ color: health.color }}>{health.score === null ? '—' : health.score}</span>
+            <span className="text-caption text-ink-muted">/100</span>
+            <span className="text-caption uppercase tracking-[0.04em]" style={{ color: health.color }}>{health.label}</span>
+          </p>
+          <ScoreBar score={health.score} color={health.color} />
         </div>
-
         {scoredTrend.length >= 2 && (
-          <div className="w-40">
-            <p className="text-caption text-ink-muted text-right">
-              Last {scoredTrend.length} months{change !== null && change !== 0 && (
-                <span className={change > 0 ? 'text-positive font-medium' : 'text-negative font-medium'}> {change > 0 ? '+' : ''}{change}</span>
+          <div className="bg-surface px-2.5 py-1.5">
+            <p className="label-micro flex justify-between">
+              <span>Last {scoredTrend.length} months</span>
+              {change !== null && change !== 0 && (
+                <span className={change > 0 ? 'text-positive' : 'text-negative'}>{change > 0 ? '+' : ''}{change}</span>
               )}
             </p>
             <Sparkline points={scoredTrend} />
           </div>
         )}
-
-        <button onClick={() => setOpen(o => !o)} className="flex items-center gap-1 text-caption text-accent hover:text-accent-ink font-medium" aria-expanded={open}>
-          {open ? 'Hide' : 'See'} breakdown <ChevronDown className={`w-3.5 h-3.5 transition-transform ${open ? 'rotate-180' : ''}`} />
-        </button>
       </div>
 
+      <p className="font-sans text-sm text-ink-muted px-2.5 py-1.5">
+        {health.score === null
+          ? 'Record at least one full month of spending to get a score.'
+          : weakest
+            ? `Biggest opportunity — ${weakest.label.toLowerCase()}: ${weakest.tip}`
+            : 'Every part of your score is in good shape.'}
+      </p>
+
       {open && (
-        <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-3 mt-4 pt-4 border-t border-line">
-          {health.components.map(c => {
-            const lbl = healthLabel(c.available ? c.score : null);
-            return (
-              <div key={c.key} className="bg-surface-sunk rounded-container p-3">
-                <div className="flex items-baseline justify-between">
-                  <p className="text-caption font-medium text-ink-secondary">{c.label}</p>
-                  <p className="text-caption text-ink-muted">{c.weight}%</p>
-                </div>
-                {c.available ? (
-                  <>
-                    <p className="text-lg font-bold text-ink">{c.value}</p>
-                    <p className="text-caption text-ink-muted">{c.detail}</p>
-                    <div className="h-1.5 bg-surface-hover rounded-full overflow-hidden mt-2">
-                      <div className="h-full rounded-full" style={{ width: `${c.score}%`, backgroundColor: lbl.color }} />
-                    </div>
-                    <p className="text-caption mt-1" style={{ color: lbl.color }}>{c.score}/100 · {lbl.label}</p>
-                    {c.tip && <p className="text-caption text-ink-secondary mt-1.5">{c.tip}</p>}
-                  </>
-                ) : (
-                  <p className="text-caption text-ink-muted mt-1">{c.detail}</p>
-                )}
-              </div>
-            );
-          })}
+        <div className="overflow-x-auto border-t border-line">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="label-micro text-left">
+                <th scope="col" className="font-medium h-[22px] px-2.5 border-b border-line bg-surface-sunk">Component</th>
+                <th scope="col" className="font-medium px-2.5 border-b border-line bg-surface-sunk text-right">Wt</th>
+                <th scope="col" className="font-medium px-2.5 border-b border-line bg-surface-sunk text-right">Value</th>
+                <th scope="col" className="font-medium px-2.5 border-b border-line bg-surface-sunk w-[22%]">Score</th>
+                <th scope="col" className="font-medium px-2.5 border-b border-line bg-surface-sunk text-right">Pts</th>
+                <th scope="col" className="font-medium px-2.5 border-b border-line bg-surface-sunk">Detail</th>
+              </tr>
+            </thead>
+            <tbody>
+              {health.components.map(c => {
+                const lbl = healthLabel(c.available ? c.score : null);
+                return (
+                  <tr key={c.key} className="hover:bg-surface-hover align-top">
+                    <td className="h-row px-2.5 py-1 border-b border-line text-ink-secondary whitespace-nowrap">{c.label}</td>
+                    <td className="px-2.5 py-1 border-b border-line text-right text-ink-muted">{c.weight}%</td>
+                    <td className="px-2.5 py-1 border-b border-line text-right text-ink whitespace-nowrap">{c.available ? c.value : '—'}</td>
+                    <td className="px-2.5 py-1 border-b border-line">
+                      {c.available ? <div className="pt-1.5"><ScoreBar score={c.score} color={lbl.color} /></div> : <span className="text-ink-muted">—</span>}
+                    </td>
+                    <td className="px-2.5 py-1 border-b border-line text-right whitespace-nowrap" style={{ color: lbl.color }}>
+                      {c.available ? <>{c.score}/100 · <span className="uppercase text-caption">{lbl.label}</span></> : <span className="text-caption uppercase">{lbl.label}</span>}
+                    </td>
+                    <td className="px-2.5 py-1 border-b border-line">
+                      <p className="text-caption text-ink-muted">{c.detail}</p>
+                      {c.available && c.tip && <p className="font-sans text-caption text-ink-secondary mt-0.5">{c.tip}</p>}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
-    </div>
+    </Panel>
   );
 }

@@ -2,9 +2,11 @@ import React, { useState } from 'react';
 import { format } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import * as chart from './ui/chartTheme';
-import { Download, FileText, Sparkles } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, FileText } from 'lucide-react';
 import { useFinancial, useGetCategory, useTaxonomy } from '../context/FinancialContext';
-import { Card, PageLede, Stat, Money } from './ui';
+import {
+  Panel, PanelGrid, Button, IconButton, Money, CategoryMark,
+} from './ui';
 import {
   getTotalIncome, getTotalExpenses, getSpendingByCategory,
   getBudgetStatus, getSavingsRate, getNetWorth, getBudgetHealthScore,
@@ -35,6 +37,9 @@ const TOOL_LABELS: Record<string, string> = {
   get_budget_status: 'budget vs actual',
   get_financial_position: 'goals, debts & net worth',
 };
+
+const TH = 'font-medium h-[22px] px-2.5 border-b border-line bg-surface-sunk whitespace-nowrap';
+const TD = 'h-row px-2.5 border-b border-line';
 
 export default function Reports() {
   const { state } = useFinancial();
@@ -149,204 +154,205 @@ export default function Reports() {
     exportToJSON(state, 'financeflow_backup.json');
   };
 
+  const monthLabel = format(new Date(year, month, 1), 'MMMM yyyy');
+
   return (
-    <div className="space-y-5 animate-fade-in">
-      {/* Month selector + export */}
+    <div className="space-y-2 animate-fade-in">
+      {/* Period bar + export */}
       <div className="flex flex-wrap items-center gap-3">
-        <button onClick={() => changeMonth(-1)} className="p-2 rounded-control hover:bg-surface-hover text-ink-secondary">‹</button>
-        <span className="font-semibold text-ink-secondary min-w-32 text-center">{format(new Date(year, month, 1), 'MMMM yyyy')}</span>
-        <button onClick={() => changeMonth(1)} className="p-2 rounded-control hover:bg-surface-hover text-ink-secondary">›</button>
-        <div className="ml-auto flex gap-2">
-          <button onClick={handleExportCSV} className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-9 px-3.5 text-sm border border-line-strong text-ink hover:bg-surface-hover">
-            <Download className="w-4 h-4" /> Export CSV
-          </button>
-          <button onClick={handleExportJSON} className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-9 px-3.5 text-sm border border-line-strong text-ink hover:bg-surface-hover">
-            <FileText className="w-4 h-4" /> Backup JSON
-          </button>
+        <div className="flex items-center border border-line-strong bg-surface">
+          <IconButton icon={ChevronLeft} label="Previous month" onClick={() => changeMonth(-1)} className="rounded-none" />
+          <span className="px-2.5 h-6 leading-6 border-x border-line-strong text-sm font-medium text-ink uppercase tracking-[0.06em] min-w-[132px] text-center">{monthLabel}</span>
+          <IconButton icon={ChevronRight} label="Next month" onClick={() => changeMonth(1)} className="rounded-none" />
+        </div>
+        <div className="ml-auto flex gap-1.5">
+          <Button size="sm" variant="secondary" icon={Download} onClick={handleExportCSV}>Export CSV</Button>
+          <Button size="sm" variant="secondary" icon={FileText} onClick={handleExportJSON}>Backup JSON</Button>
         </div>
       </div>
 
-      {/* Monthly summary */}
-      <div className="bg-surface rounded-container border border-line p-5">
-        <h2 className="text-lg font-semibold text-ink mb-4">Monthly Report — {format(new Date(year, month, 1), 'MMMM yyyy')}</h2>
-        <PageLede
-          label={income - expenses >= 0 ? 'Saved this month' : 'Overspent this month'}
-          className="mb-5"
-          supporting={(
-            <>
-              <Stat label="Income"><Money value={income} /></Stat>
-              <Stat label="Spent"><Money value={expenses} /></Stat>
-              <Stat label="Savings rate">{savingsRate.toFixed(1)}%</Stat>
-            </>
+      <PanelGrid className="grid-flow-row-dense">
+        {/* Monthly summary */}
+        <Panel title={`Monthly Report — ${monthLabel}`} className={`col-span-12 ${biggestVariance.length > 0 ? 'xl:col-span-8' : ''}`}>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-line border-b border-line">
+            <div className="col-span-2 md:col-span-1 bg-surface px-2.5 py-1.5">
+              <p className="label-micro">{income - expenses >= 0 ? 'Saved this month' : 'Overspent this month'}</p>
+              <Money value={Math.abs(income - expenses)} size="display"
+                className={`block mt-1 ${income - expenses >= 0 ? 'text-positive' : 'text-negative'}`} />
+            </div>
+            <div className="bg-surface px-2.5 py-1.5">
+              <p className="label-micro">Income</p>
+              <Money value={income} size="lg" className="block mt-0.5" />
+            </div>
+            <div className="bg-surface px-2.5 py-1.5">
+              <p className="label-micro">Spent</p>
+              <Money value={expenses} size="lg" className="block mt-0.5" />
+            </div>
+            <div className="bg-surface px-2.5 py-1.5">
+              <p className="label-micro">Savings rate</p>
+              <p className="text-xl font-medium text-ink mt-0.5">{savingsRate.toFixed(1)}%</p>
+            </div>
+          </div>
+
+          {/* Budget health */}
+          <div className="flex items-center gap-2.5 h-row px-2.5 border-b border-line">
+            <span className="text-sm font-semibold w-5 text-center" style={{ color: health.color }}>{health.grade}</span>
+            <span className="text-caption uppercase tracking-[0.03em] text-ink">Budget Health: {health.percent}%</span>
+            <span className="ml-auto text-caption text-ink-muted">{budgetStatus.filter(s => s.status === 'good').length} of {budgetStatus.length} categories on track</span>
+          </div>
+
+          {/* Top spending chart */}
+          {topCats.length > 0 && (
+            <div>
+              <p className="label-micro px-2.5 h-[22px] leading-[22px] bg-surface-sunk border-b border-line">Top Spending Categories</p>
+              <div className="p-3">
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={topCats} layout="vertical" margin={{ top: 0, right: 20, left: 60, bottom: 0 }}>
+                    <CartesianGrid {...chart.grid} horizontal={false} vertical />
+                    <XAxis type="number" {...chart.xAxis} tickFormatter={chart.compactMoney} />
+                    <YAxis {...chart.yAxis} type="category" dataKey="name" width={60} />
+                    <Tooltip {...chart.tooltip} formatter={v => formatCurrency(chart.asNumber(v))} />
+                    <Bar dataKey="value" name="Amount" barSize={14}>
+                      {topCats.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
           )}
-        >
-          <Money value={Math.abs(income - expenses)} size="display"
-            className={income - expenses >= 0 ? 'text-positive' : 'text-negative'} />
-        </PageLede>
+        </Panel>
 
-        {/* Budget health */}
-        <div className="flex items-center gap-3 mb-5 bg-surface-sunk rounded-container p-3">
-          <div className="w-12 h-12 rounded-container flex items-center justify-center shrink-0" style={{ backgroundColor: health.color + '20' }}>
-            <span className="text-2xl font-black" style={{ color: health.color }}>{health.grade}</span>
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-ink">Budget Health: {health.percent}%</p>
-            <p className="text-caption text-ink-muted">{budgetStatus.filter(s => s.status === 'good').length} of {budgetStatus.length} categories on track</p>
-          </div>
-        </div>
+        {/* Biggest Variance */}
+        {biggestVariance.length > 0 && (
+          <Panel title="Biggest Budget Variances" meta={`TOP ${biggestVariance.length}`} className="col-span-12 xl:col-span-4">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="label-micro">
+                    <th scope="col" className={`${TH} text-left`}>Category</th>
+                    <th scope="col" className={`${TH} text-right`}>Variance</th>
+                    <th scope="col" className={`${TH} text-right`}>Used</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {biggestVariance.map(s => {
+                    const cat = getCategory(s.category);
+                    return (
+                      <tr key={s.category} className="hover:bg-surface-hover">
+                        <td className={`${TD} text-ink`}><CategoryMark color={cat.color} name={cat.name} /></td>
+                        <td className={`${TD} text-right whitespace-nowrap ${s.variance < 0 ? 'text-negative' : 'text-positive'}`}>
+                          {s.variance < 0 ? '-' : '+'}{formatCurrency(Math.abs(s.variance))}
+                        </td>
+                        <td className={`${TD} text-right text-caption text-ink-muted whitespace-nowrap`}>({s.percentUsed.toFixed(0)}% used)</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Panel>
+        )}
 
-        {/* Top spending chart */}
-        {topCats.length > 0 && (
-          <div>
-            <p className="text-sm font-semibold text-ink-secondary mb-3">Top Spending Categories</p>
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={topCats} layout="vertical" margin={{ top: 0, right: 20, left: 60, bottom: 0 }}>
-                <CartesianGrid {...chart.grid} horizontal={false} vertical />
-                <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={v => `$${v}`} />
-                <YAxis {...chart.yAxis} type="category" dataKey="name" tick={{ fontSize: 12 }} width={60} />
+        {/* AI insights & Q&A */}
+        {aiEnabled && (
+          <Panel
+            title="AI Insights"
+            actions={(
+              <Button size="sm" variant="primary" onClick={generateInsights} disabled={aiBusy}>
+                {aiBusy ? 'Thinking…' : 'Generate summary'}
+              </Button>
+            )}
+            className="col-span-12"
+          >
+            {narrative && <p className="font-sans text-sm text-ink-secondary whitespace-pre-line px-2.5 py-2 border-b border-line">{narrative}</p>}
+            <div className="flex gap-1.5 px-2.5 py-1.5 border-b border-line">
+              <input
+                type="text"
+                value={question}
+                onChange={e => setQuestion(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); askQuestion(); } }}
+                placeholder="Ask about this month's spending…"
+                className="flex-1 min-w-0 h-7 px-2 bg-canvas border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent"
+              />
+              <Button size="md" variant="secondary" onClick={askQuestion} disabled={aiBusy || !question.trim()}>Ask</Button>
+            </div>
+            {answer && (
+              <div className="px-2.5 py-2 border-b border-line">
+                <p className="font-sans text-sm text-ink-secondary">{answer}</p>
+                {consulted.length > 0 && (
+                  <p className="text-caption text-ink-muted mt-1.5">
+                    Looked up locally: {consulted.map(c => TOOL_LABELS[c.tool] || c.tool).join(' · ')}
+                  </p>
+                )}
+              </div>
+            )}
+            {aiErr && <p className="font-sans text-caption text-negative px-2.5 py-1.5 border-b border-line">{aiErr}</p>}
+            <p className="font-sans text-micro text-ink-muted px-2.5 py-1.5">Grounded only on aggregate totals for {monthLabel} — your raw transactions are not sent.</p>
+          </Panel>
+        )}
+
+        {/* YTD Summary */}
+        <Panel title={`Year-to-Date (${year})`} className="col-span-12 xl:col-span-6">
+          <div className="grid grid-cols-2 gap-px bg-line border-b border-line">
+            <div className="bg-surface px-2.5 py-1.5">
+              <p className="label-micro">YTD Expenses</p>
+              <p className="text-xl font-medium text-ink mt-0.5 money">{formatCurrency(ytdExpenses)}</p>
+            </div>
+            <div className="bg-surface px-2.5 py-1.5">
+              <p className="label-micro">Net Worth</p>
+              <p className={`text-xl font-medium mt-0.5 money ${netWorth >= 0 ? 'text-ink' : 'text-negative'}`}>{formatCurrency(netWorth)}</p>
+            </div>
+          </div>
+          <div className="p-3">
+            <ResponsiveContainer width="100%" height={180}>
+              <BarChart data={trend} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                <CartesianGrid {...chart.grid} />
+                <XAxis dataKey="label" {...chart.xAxis} />
+                <YAxis {...chart.yAxis} tickFormatter={chart.compactMoney} />
                 <Tooltip {...chart.tooltip} formatter={v => formatCurrency(chart.asNumber(v))} />
-                <Bar dataKey="value" radius={[0,4,4,0]} name="Amount">
-                  {topCats.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                </Bar>
+                <Bar dataKey="total" fill={chart.SERIES.primary} name="Monthly Spending" />
               </BarChart>
             </ResponsiveContainer>
           </div>
-        )}
-      </div>
+        </Panel>
 
-      {/* AI insights & Q&A */}
-      {aiEnabled && (
-        <div className="bg-surface rounded-container border border-line p-5">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-ink-muted" />
-              <h2 className="text-lg font-semibold text-ink">AI Insights</h2>
+        {/* Custom report */}
+        <Panel title="Custom Date Range Report" className="col-span-12 xl:col-span-6">
+          <div className="flex flex-wrap items-end gap-2 px-2.5 py-2 border-b border-line">
+            <div>
+              <label htmlFor="report-from" className="label-micro block mb-1">From</label>
+              <input id="report-from" type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} className="h-7 px-2 bg-canvas border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent" />
             </div>
-            <button onClick={generateInsights} disabled={aiBusy} className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-9 px-3.5 text-sm bg-accent hover:bg-accent-hover text-ink-inverse">
-              {aiBusy ? 'Thinking…' : 'Generate summary'}
-            </button>
-          </div>
-          {narrative && <p className="text-sm text-ink-secondary whitespace-pre-line bg-surface-sunk rounded-container p-3 mb-3">{narrative}</p>}
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={question}
-              onChange={e => setQuestion(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); askQuestion(); } }}
-              placeholder="Ask about this month's spending…"
-              className="flex-1 h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent"
-            />
-            <button onClick={askQuestion} disabled={aiBusy || !question.trim()} className="px-3 py-2 border border-line-strong text-ink-secondary hover:bg-surface-sunk disabled:opacity-50 text-sm rounded-control font-medium">Ask</button>
-          </div>
-          {answer && (
-            <div className="mt-3 bg-surface-sunk rounded-container p-3">
-              <p className="text-sm text-ink-secondary">{answer}</p>
-              {consulted.length > 0 && (
-                <p className="text-caption text-ink-muted mt-2">
-                  Looked up locally: {consulted.map(c => TOOL_LABELS[c.tool] || c.tool).join(' · ')}
-                </p>
-              )}
+            <div>
+              <label htmlFor="report-to" className="label-micro block mb-1">To</label>
+              <input id="report-to" type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} className="h-7 px-2 bg-canvas border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent" />
             </div>
-          )}
-          {aiErr && <p className="text-caption text-negative mt-2">{aiErr}</p>}
-          <p className="text-micro text-ink-muted mt-3">Grounded only on aggregate totals for {format(new Date(year, month, 1), 'MMMM yyyy')} — your raw transactions are not sent.</p>
-        </div>
-      )}
-
-      {/* Biggest Variance */}
-      {biggestVariance.length > 0 && (
-        <div className="bg-surface rounded-container border border-line p-5">
-          <h2 className="text-lg font-semibold text-ink mb-3">Biggest Budget Variances</h2>
-          <div className="space-y-2">
-            {biggestVariance.map(s => {
-              const cat = getCategory(s.category);
-              return (
-                <div key={s.category} className="flex items-center justify-between py-2 border-b border-line-faint last:border-0">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: cat.color }} />
-                    <span className="text-sm text-ink">{cat.name}</span>
-                  </div>
-                  <div className="text-right">
-                    <span className={`text-sm font-semibold ${s.variance < 0 ? 'text-negative' : 'text-positive'}`}>
-                      {s.variance < 0 ? '-' : '+'}{formatCurrency(Math.abs(s.variance))}
-                    </span>
-                    <span className="text-caption text-ink-muted ml-1">({s.percentUsed.toFixed(0)}% used)</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* YTD Summary */}
-      <div className="bg-surface rounded-container border border-line p-5">
-        <h2 className="text-lg font-semibold text-ink mb-4">Year-to-Date ({year})</h2>
-        <div className="grid grid-cols-2 gap-4 mb-4">
-          <div className="bg-caution-tint rounded-container p-3">
-            <p className="text-caption text-ink-muted mb-1">YTD Expenses</p>
-            <p className="text-lg font-bold text-caution">{formatCurrency(ytdExpenses)}</p>
-          </div>
-          <div className="bg-accent-tint rounded-container p-3">
-            <p className="text-caption text-ink-muted mb-1">Net Worth</p>
-            <p className={`text-lg font-bold ${netWorth >= 0 ? 'text-accent-ink' : 'text-negative'}`}>{formatCurrency(netWorth)}</p>
-          </div>
-        </div>
-        <ResponsiveContainer width="100%" height={180}>
-          <BarChart data={trend} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-            <CartesianGrid {...chart.grid} />
-            <XAxis dataKey="label" {...chart.xAxis} tick={{ fontSize: 11 }} />
-            <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `$${v}`} />
-            <Tooltip {...chart.tooltip} formatter={v => formatCurrency(chart.asNumber(v))} />
-            <Bar dataKey="total" fill={chart.SERIES.primary} radius={[4,4,0,0]} name="Monthly Spending" />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-
-      {/* Custom report */}
-      <div className="bg-surface rounded-container border border-line p-5">
-        <h2 className="text-lg font-semibold text-ink mb-3">Custom Date Range Report</h2>
-        <div className="flex flex-wrap gap-3 mb-4">
-          <div>
-            <label className="label-micro block mb-1.5">From</label>
-            <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} className="h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent" />
-          </div>
-          <div>
-            <label className="label-micro block mb-1.5">To</label>
-            <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} className="h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent" />
+            {customFrom && customTo && (
+              <Button size="md" variant="secondary" icon={Download} onClick={() => exportToCSV(customTx, `report_${customFrom}_to_${customTo}.csv`)}>Export</Button>
+            )}
           </div>
           {customFrom && customTo && (
-            <button onClick={() => exportToCSV(customTx, `report_${customFrom}_to_${customTo}.csv`)} className="flex items-center gap-2 self-end px-3 py-2 border border-line-strong rounded-control text-sm text-ink-secondary hover:bg-surface-sunk">
-              <Download className="w-3.5 h-3.5" /> Export
-            </button>
-          )}
-        </div>
-        {customFrom && customTo && (
-          <>
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              <div className="bg-caution-tint rounded-container p-3">
-                <p className="text-caption text-ink-muted">Total Spending</p>
-                <p className="text-lg font-bold text-caution">{formatCurrency(customTotal)}</p>
+            <>
+              <div className="grid grid-cols-2 gap-px bg-line border-b border-line">
+                <div className="bg-surface px-2.5 py-1.5">
+                  <p className="label-micro">Total Spending</p>
+                  <p className="text-xl font-medium text-ink mt-0.5 money">{formatCurrency(customTotal)}</p>
+                </div>
+                <div className="bg-surface px-2.5 py-1.5">
+                  <p className="label-micro">Transactions</p>
+                  <p className="text-xl font-medium text-ink mt-0.5">{customTx.length}</p>
+                </div>
               </div>
-              <div className="bg-surface-sunk rounded-container p-3">
-                <p className="text-caption text-ink-muted">Transactions</p>
-                <p className="text-lg font-bold text-ink">{customTx.length}</p>
-              </div>
-            </div>
-            <div className="space-y-2">
               {customTopCats.map(({ name, value, color }) => (
-                <div key={name} className="flex items-center justify-between py-1.5 border-b border-line-faint last:border-0">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
-                    <span className="text-sm text-ink-secondary">{name}</span>
-                  </div>
-                  <span className="text-sm font-semibold text-ink">{formatCurrency(value)}</span>
+                <div key={name} className="flex items-center justify-between gap-2 h-row px-2.5 border-b border-line last:border-b-0">
+                  <CategoryMark color={color} name={name} className="text-sm text-ink-secondary" />
+                  <span className="text-sm text-ink">{formatCurrency(value)}</span>
                 </div>
               ))}
-            </div>
-          </>
-        )}
-      </div>
+            </>
+          )}
+        </Panel>
+      </PanelGrid>
     </div>
   );
 }

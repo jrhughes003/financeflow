@@ -1,7 +1,7 @@
 import Modal from './ui/Modal';
 import MerchantCombobox from './ui/MerchantCombobox';
 import React, { useState, useEffect, useId, useRef, useMemo } from 'react';
-import { X, Zap, Plus, Sparkles, HandCoins } from 'lucide-react';
+import { X, Zap, Plus, Sparkles } from 'lucide-react';
 import { format } from 'date-fns';
 import { useFinancial, useTaxonomy } from '../context/FinancialContext';
 import { getAllCategories, autoCategorize } from '../utils/categorization';
@@ -11,6 +11,7 @@ import { train, classify } from '../utils/ml/categorizer';
 import { owedFromSplit, getOwedStatus, buildOwed } from '../utils/reimbursements';
 import { canonicaliseTags, tagCounts } from '../utils/tags';
 import { formatCurrency } from '../utils/calculations';
+import { Button, IconButton, Panel } from './ui';
 import type { MerchantEntry } from '../utils/merchants';
 import type { Category, IsoDate, Transaction, TransactionKind } from '../types/domain';
 
@@ -57,6 +58,12 @@ const EMPTY_FORM: EntryForm = {
   kind: 'expense',
   goalId: '',
 };
+
+// Form controls: square, 28px, a findable border. FIELD leaves the border
+// colour to the caller so a field can turn red on a validation error.
+const FIELD = 'h-7 px-2 bg-surface border rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent transition-colors';
+const INPUT = `${FIELD} border-line-strong`;
+const CHECKBOX = 'w-3.5 h-3.5 rounded-none accent-accent';
 
 const PRESET_COLORS = ['var(--c-data-2)','var(--c-positive)','var(--c-data-1)','var(--c-data-5)','var(--c-caution)','var(--c-data-7)','var(--c-data-6)','var(--c-data-3)','var(--c-negative)','var(--c-data-6)'];
 
@@ -312,40 +319,38 @@ export default function TransactionEntry({ isModal = false, onClose, onSaved, ed
   const selectedCat = allCategories.find(c => c.id === form.category);
 
   const content = (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-2.5">
       {/* Natural-language entry (AI) */}
       {aiEnabled && !editTransaction && (
-        <div className="bg-surface-sunk border border-line-strong rounded-container p-3">
-          <label className="flex items-center gap-1.5 text-caption font-semibold text-ink-secondary mb-1.5">
-            <Sparkles className="w-3.5 h-3.5" /> Describe it in words
-          </label>
-          <div className="flex gap-2">
+        <div className="border border-line bg-surface-sunk px-2 py-1.5">
+          <label className="label-micro block mb-1">Describe it in words</label>
+          <div className="flex gap-1.5">
             <input
               type="text"
               value={nlText}
               onChange={e => setNlText(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); parseNaturalLanguage(); } }}
               placeholder="e.g. spent $40 on gas at Esso yesterday"
-              className="flex-1 h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent"
+              className={`${INPUT} flex-1 min-w-0`}
             />
-            <button type="button" onClick={parseNaturalLanguage} disabled={nlBusy || !nlText.trim()}
-              className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-9 px-3.5 text-sm bg-accent hover:bg-accent-hover text-ink-inverse">
+            <Button type="button" variant="primary" icon={Sparkles} onClick={parseNaturalLanguage} disabled={nlBusy || !nlText.trim()}>
               {nlBusy ? '…' : 'Fill'}
-            </button>
+            </Button>
           </div>
-          {nlError && <p className="text-caption text-negative mt-1">{nlError}</p>}
+          {nlError && <p className="font-sans text-caption text-negative mt-1">{nlError}</p>}
         </div>
       )}
 
       {/* Type toggle: expense vs savings contribution */}
       {savingsGoals.length > 0 && (
-        <div className="flex gap-2 p-1 bg-surface-hover rounded-container">
+        <div className="flex border border-line-strong rounded-control overflow-hidden">
           {([['expense', 'Expense'], ['savings', 'Savings']] as const).map(([val, label]) => (
             <button
               key={val}
               type="button"
+              aria-pressed={form.kind === val}
               onClick={() => { setForm(f => ({ ...f, kind: val })); setErrors({}); }}
-              className={`flex-1 py-2 rounded-control text-sm font-medium transition-colors ${form.kind === val ? 'bg-surface  text-accent' : 'text-ink-muted hover:text-ink-secondary'}`}
+              className={`flex-1 h-7 text-caption font-medium uppercase tracking-[0.05em] transition-colors border-r border-line-strong last:border-r-0 ${form.kind === val ? 'bg-accent-tint text-accent-ink' : 'bg-surface text-ink-muted hover:text-ink hover:bg-surface-hover'}`}
             >
               {label}
             </button>
@@ -355,43 +360,42 @@ export default function TransactionEntry({ isModal = false, onClose, onSaved, ed
 
       {/* Amount */}
       <div>
-        <label className="label-micro block mb-1.5" htmlFor={`${uid}-amount`}>Amount</label>
+        <label className="label-micro block mb-1" htmlFor={`${uid}-amount`}>Amount</label>
         <div className="relative">
-          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl font-bold text-ink-muted">$</span>
+          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xl text-ink-muted" aria-hidden="true">$</span>
           <input
             ref={amountRef}
-              id={`${uid}-amount`}
+            id={`${uid}-amount`}
             type="number"
             step="0.01"
             min="0"
             placeholder="0.00"
             value={form.amount}
             onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
-            className={`w-full pl-10 pr-4 py-4 text-2xl font-bold border-2 rounded-container focus:outline-none focus:border-accent transition-colors ${errors.amount ? 'border-negative' : 'border-line-strong'}`}
+            className={`w-full h-10 pl-6 pr-2 bg-surface border rounded-control text-xl font-medium text-ink money placeholder:text-ink-muted focus:outline-none focus:border-accent transition-colors ${errors.amount ? 'border-negative' : 'border-line-strong'}`}
           />
         </div>
-        {errors.amount && <p className="text-caption text-negative mt-1">{errors.amount}</p>}
+        {errors.amount && <p className="font-sans text-caption text-negative mt-1">{errors.amount}</p>}
       </div>
 
       {/* Fronted for others */}
       {!isSavings && (
-        <div className={`rounded-container border-2 transition-colors ${owedEnabled ? 'border-positive bg-positive-tint/50' : 'border-line'}`}>
-          <label className="flex items-center gap-2 px-3 py-2.5 cursor-pointer select-none">
+        <div className={`border transition-colors ${owedEnabled ? 'border-positive' : 'border-line'}`}>
+          <label className="flex items-center gap-2 h-7 px-2 cursor-pointer select-none">
             <input
               type="checkbox"
               checked={owedEnabled}
               onChange={e => { setOwedEnabled(e.target.checked); setErrors(er => ({ ...er, owed: undefined })); }}
-              className="w-4 h-4 rounded-[3px] border-line-strong text-accent focus:ring-accent"
+              className={CHECKBOX}
             />
-            <HandCoins className="w-4 h-4 text-positive" />
-            <span className="text-sm text-ink-secondary font-medium">I paid for others — they owe me back</span>
+            <span className="text-sm text-ink-secondary">I paid for others — they owe me back</span>
           </label>
           {owedEnabled && (
-            <div className="px-3 pb-3 space-y-2">
-              <div className="flex gap-1 p-1 bg-surface rounded-control border border-line-strong text-caption font-medium">
+            <div className="px-2 pb-2 pt-1.5 space-y-1.5 border-t border-line">
+              <div className="flex border border-line-strong rounded-control overflow-hidden">
                 {([['split', 'Split evenly'], ['exact', 'Exact amount']] as const).map(([val, label]) => (
-                  <button key={val} type="button" onClick={() => setOwedMode(val)}
-                    className={`flex-1 py-1.5 rounded-control transition-colors ${owedMode === val ? 'bg-positive text-ink-inverse' : 'text-ink-muted hover:text-ink-secondary'}`}>
+                  <button key={val} type="button" onClick={() => setOwedMode(val)} aria-pressed={owedMode === val}
+                    className={`flex-1 h-6 text-micro font-medium uppercase tracking-[0.05em] transition-colors border-r border-line-strong last:border-r-0 ${owedMode === val ? 'bg-accent-tint text-accent-ink' : 'bg-surface text-ink-muted hover:text-ink hover:bg-surface-hover'}`}>
                     {label}
                   </button>
                 ))}
@@ -400,27 +404,27 @@ export default function TransactionEntry({ isModal = false, onClose, onSaved, ed
                 <div className="flex items-center gap-2 text-sm text-ink-secondary">
                   <span>Split between</span>
                   <input type="number" min="2" step="1" value={owedPeople} onChange={e => setOwedPeople(e.target.value)}
-                    className="w-16 h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent" />
+                    className={`${INPUT} w-14 text-right`} />
                   <span>people, including you</span>
                 </div>
               ) : (
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-ink-muted">$</span>
+                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-sm text-ink-muted" aria-hidden="true">$</span>
                   <input type="number" min="0" step="0.01" placeholder="Amount owed to you" value={owedExact} onChange={e => setOwedExact(e.target.value)}
-                    className="w-full h-9 pl-7 pr-3 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent" />
+                    className={`${INPUT} w-full pl-5`} />
                 </div>
               )}
               {owedValue > 0 && parseFloat(form.amount) > 0 && (
-                <p className="text-caption text-ink-secondary">
-                  You're owed <span className="font-semibold text-positive">{formatCurrency(owedValue)}</span>
-                  {' '}· your share {formatCurrency(Math.max(0, parseFloat(form.amount) - owedValue))}.
+                <p className="font-sans text-caption text-ink-secondary">
+                  You're owed <span className="font-mono font-semibold text-positive">{formatCurrency(owedValue)}</span>
+                  {' '}· your share <span className="font-mono">{formatCurrency(Math.max(0, parseFloat(form.amount) - owedValue))}</span>.
                   {' '}The full amount counts as spending until you're paid back.
                 </p>
               )}
               {existingStatus && existingStatus.repaid > 0 && (
-                <p className="text-caption text-ink-muted">{formatCurrency(existingStatus.repaid)} already paid back — record more on the Owed to Me page.</p>
+                <p className="font-sans text-caption text-ink-muted">{formatCurrency(existingStatus.repaid)} already paid back — record more on the Owed to Me page.</p>
               )}
-              {errors.owed && <p className="text-caption text-negative">{errors.owed}</p>}
+              {errors.owed && <p className="font-sans text-caption text-negative">{errors.owed}</p>}
             </div>
           )}
         </div>
@@ -429,25 +433,25 @@ export default function TransactionEntry({ isModal = false, onClose, onSaved, ed
       {/* Savings goal selector (savings mode only) */}
       {isSavings && (
         <div>
-          <label className="label-micro block mb-1.5" htmlFor={`${uid}-goal`}>Contribute to Goal</label>
+          <label className="label-micro block mb-1" htmlFor={`${uid}-goal`}>Contribute to Goal</label>
           <select
             id={`${uid}-goal`}
             value={form.goalId}
             onChange={e => setForm(f => ({ ...f, goalId: e.target.value }))}
-            className={`w-full px-3 py-3 border-2 rounded-container focus:outline-none focus:border-accent transition-colors bg-surface ${errors.goalId ? 'border-negative' : 'border-line-strong'}`}
+            className={`${FIELD} w-full ${errors.goalId ? 'border-negative' : 'border-line-strong'}`}
           >
             <option value="">Select a goal...</option>
             {savingsGoals.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
           </select>
-          {errors.goalId && <p className="text-caption text-negative mt-1">{errors.goalId}</p>}
-          <p className="text-micro text-ink-muted mt-1">Adds to the goal's progress; excluded from category spending.</p>
+          {errors.goalId && <p className="font-sans text-caption text-negative mt-1">{errors.goalId}</p>}
+          <p className="font-sans text-caption text-ink-muted mt-1">Adds to the goal's progress; excluded from category spending.</p>
         </div>
       )}
 
       {/* Merchant */}
       {!isSavings && (
       <div>
-        <label className="label-micro block mb-1.5" htmlFor={`${uid}-merchant`}>Merchant / Description</label>
+        <label className="label-micro block mb-1" htmlFor={`${uid}-merchant`}>Merchant / Description</label>
         <MerchantCombobox
           id={`${uid}-merchant`}
           placeholder="e.g. Uber Eats, Metro, Esso..."
@@ -455,12 +459,12 @@ export default function TransactionEntry({ isModal = false, onClose, onSaved, ed
           onChange={handleMerchantChange}
           onSelect={handleMerchantSelect}
           onBlur={categorizeOnBlur}
-          className={`w-full px-4 py-3 border-2 rounded-container focus:outline-none focus:border-accent transition-colors ${errors.merchant ? 'border-negative' : 'border-line-strong'}`}
+          className={`${FIELD} w-full ${errors.merchant ? 'border-negative' : 'border-line-strong'}`}
         />
-        {errors.merchant && <p className="text-caption text-negative mt-1">{errors.merchant}</p>}
+        {errors.merchant && <p className="font-sans text-caption text-negative mt-1">{errors.merchant}</p>}
         {suggestion && (
-          <button type="button" onClick={applySuggestion} className="mt-1.5 flex items-center gap-1.5 text-caption text-accent-ink hover:text-accent bg-accent-tint px-2.5 py-1.5 rounded-control">
-            <Zap className="w-3 h-3" />
+          <button type="button" onClick={applySuggestion} className="mt-1 inline-flex items-center gap-1.5 h-6 px-2 border border-accent rounded-control text-caption text-accent-ink hover:bg-accent-tint transition-colors">
+            <Zap className="w-3 h-3" aria-hidden="true" />
             Auto-categorize as "{allCategories.find(c => c.id === suggestion)?.name}"
           </button>
         )}
@@ -469,26 +473,26 @@ export default function TransactionEntry({ isModal = false, onClose, onSaved, ed
 
       {/* Date */}
       <div>
-        <label className="label-micro block mb-1.5" htmlFor={`${uid}-date`}>Date</label>
+        <label className="label-micro block mb-1" htmlFor={`${uid}-date`}>Date</label>
         <input
           id={`${uid}-date`}
           type="date"
           value={form.date}
           onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
-          className="w-full h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent"
+          className={`${INPUT} w-full`}
         />
       </div>
 
       {/* Category */}
       {!isSavings && (
       <div>
-        <label className="label-micro block mb-1.5" htmlFor={`${uid}-category`}>Category</label>
-        <div className="flex gap-2">
+        <label className="label-micro block mb-1" htmlFor={`${uid}-category`}>Category</label>
+        <div className="flex gap-1.5">
           <select
             id={`${uid}-category`}
             value={form.category}
             onChange={e => setForm(f => ({ ...f, category: e.target.value, subcategory: '' }))}
-            className={`flex-1 px-3 py-3 border-2 rounded-container focus:outline-none focus:border-accent transition-colors bg-surface ${errors.category ? 'border-negative' : 'border-line-strong'}`}
+            className={`${FIELD} flex-1 min-w-0 ${errors.category ? 'border-negative' : 'border-line-strong'}`}
           >
             <option value="">Select category...</option>
             {/*
@@ -521,36 +525,38 @@ export default function TransactionEntry({ isModal = false, onClose, onSaved, ed
             type="button"
             onClick={() => setShowNewCat(s => !s)}
             title="Create new category"
-            className="h-9 px-3 border border-dashed border-line-strong rounded-control text-sm text-ink-muted hover:border-accent hover:text-accent transition-colors"
+            aria-label="Create new category"
+            aria-expanded={showNewCat}
+            className={`inline-flex items-center justify-center w-7 h-7 border border-dashed rounded-control transition-colors ${showNewCat ? 'border-accent text-accent-ink bg-accent-tint' : 'border-line-strong text-ink-muted hover:border-accent hover:text-accent-ink'}`}
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-3.5 h-3.5" aria-hidden="true" />
           </button>
         </div>
-        {errors.category && <p className="text-caption text-negative mt-1">{errors.category}</p>}
+        {errors.category && <p className="font-sans text-caption text-negative mt-1">{errors.category}</p>}
 
         {/* Inline new category form */}
         {showNewCat && (
-          <div className="mt-2 p-3 bg-accent-tint border border-accent rounded-container space-y-2">
-            <p className="text-caption font-semibold text-accent-ink">New Category</p>
+          <div className="mt-1.5 border border-line bg-surface-sunk px-2 py-1.5 space-y-1.5">
+            <p className="label-micro">New Category</p>
             <input
               type="text"
               placeholder="Category name..."
               value={newCatName}
               onChange={e => setNewCatName(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleCreateCategory())}
-              className="w-full h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent"
+              className={`${INPUT} w-full`}
               autoFocus
             />
             <div className="flex flex-wrap gap-1.5">
               {PRESET_COLORS.map(c => (
-                <button key={c} type="button" onClick={() => setNewCatColor(c)}
-                  className={`w-6 h-6 rounded-full border-2 transition-all ${newCatColor === c ? 'border-line-strong scale-110' : 'border-transparent'}`}
+                <button key={c} type="button" onClick={() => setNewCatColor(c)} aria-pressed={newCatColor === c}
+                  className={`w-5 h-5 border transition-colors ${newCatColor === c ? 'border-ink outline outline-1 outline-offset-1 outline-ink' : 'border-transparent'}`}
                   style={{ backgroundColor: c }} />
               ))}
             </div>
-            <div className="flex gap-2">
-              <button type="button" onClick={handleCreateCategory} className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-7 px-2.5 text-caption bg-accent hover:bg-accent-hover text-ink-inverse">Create</button>
-              <button type="button" onClick={() => { setShowNewCat(false); setNewCatName(''); }} className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-7 px-2.5 text-caption border border-line-strong text-ink hover:bg-surface-hover">Cancel</button>
+            <div className="flex gap-1.5">
+              <Button type="button" size="sm" variant="primary" onClick={handleCreateCategory}>Create</Button>
+              <Button type="button" size="sm" onClick={() => { setShowNewCat(false); setNewCatName(''); }}>Cancel</Button>
             </div>
           </div>
         )}
@@ -560,12 +566,12 @@ export default function TransactionEntry({ isModal = false, onClose, onSaved, ed
       {/* Subcategory */}
       {!isSavings && selectedCat && selectedCat.subcategories?.length > 0 && (
         <div>
-          <label className="label-micro block mb-1.5" htmlFor={`${uid}-subcategory`}>Subcategory</label>
+          <label className="label-micro block mb-1" htmlFor={`${uid}-subcategory`}>Subcategory</label>
           <select
             id={`${uid}-subcategory`}
             value={form.subcategory}
             onChange={e => setForm(f => ({ ...f, subcategory: e.target.value }))}
-            className="w-full h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent"
+            className={`${INPUT} w-full`}
           >
             <option value="">None</option>
             {selectedCat.subcategories.map(s => <option key={s} value={s}>{s}</option>)}
@@ -575,20 +581,20 @@ export default function TransactionEntry({ isModal = false, onClose, onSaved, ed
 
       {/* Tags */}
       <div>
-        <label className="label-micro block mb-1.5" htmlFor={`${uid}-tags`}>Tags (comma-separated)</label>
+        <label className="label-micro block mb-1" htmlFor={`${uid}-tags`}>Tags (comma-separated)</label>
         <input
           id={`${uid}-tags`}
           type="text"
           placeholder="rbc, td, one-time..."
           value={form.tags}
           onChange={e => setForm(f => ({ ...f, tags: e.target.value }))}
-          className="w-full h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent"
+          className={`${INPUT} w-full`}
         />
       </div>
 
       {/* Notes */}
       <div>
-        <button type="button" onClick={() => setShowNotes(s => !s)} className="text-caption text-accent hover:text-accent-ink font-medium">
+        <button type="button" onClick={() => setShowNotes(s => !s)} className="text-caption uppercase tracking-[0.05em] text-accent-ink hover:underline font-medium">
           {showNotes ? '– Hide Notes' : '+ Add Notes'}
         </button>
         {showNotes && (
@@ -597,7 +603,7 @@ export default function TransactionEntry({ isModal = false, onClose, onSaved, ed
             placeholder="Optional notes..."
             value={form.notes}
             onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
-            className="mt-2 w-full px-2.5 py-2 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent resize-y"
+            className="mt-1 w-full px-2 py-1.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent resize-y"
           />
         )}
       </div>
@@ -608,31 +614,30 @@ export default function TransactionEntry({ isModal = false, onClose, onSaved, ed
           type="checkbox"
           checked={form.isException}
           onChange={e => setForm(f => ({ ...f, isException: e.target.checked }))}
-          className="w-4 h-4 rounded-[3px] border-line-strong text-accent focus:ring-accent"
+          className={CHECKBOX}
         />
         <span className="text-sm text-ink-secondary">Mark as exception (exclude from budget)</span>
       </label>
 
       {/* Actions */}
-      <div className="flex gap-3 pt-2">
+      <div className="flex gap-1.5 pt-2.5 border-t border-line">
         {isModal && (
-          <button type="button" onClick={onClose} className="flex-1 inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-10 px-4 text-sm border border-line-strong text-ink hover:bg-surface-hover">
+          <Button type="button" size="md" onClick={onClose} className="flex-1">
             Cancel
-          </button>
+          </Button>
         )}
-        <button type="submit" className="flex-1 inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-10 px-4 text-sm bg-accent hover:bg-accent-hover text-ink-inverse">
+        <Button type="submit" size="md" variant="primary" className="flex-1">
           {editTransaction ? 'Save Changes' : 'Add Transaction'}
-        </button>
+        </Button>
       </div>
     </form>
   );
 
   if (!isModal) {
     return (
-      <div className="max-w-lg mx-auto">
-        <h2 className="text-xl font-bold text-ink mb-6">Add Transaction</h2>
+      <Panel bordered title="Add Transaction" className="max-w-lg mx-auto" bodyClassName="p-3">
         {content}
-      </div>
+      </Panel>
     );
   }
 
@@ -645,12 +650,12 @@ export default function TransactionEntry({ isModal = false, onClose, onSaved, ed
       className="w-full sm:max-w-md"
       initialFocus={amountRef}
     >
-      <div className="bg-surface w-full sm:rounded-container rounded-t-2xl shadow-overlay max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-line">
-          <h2 className="text-lg font-bold text-ink">{title}</h2>
-          <button onClick={onClose} aria-label="Close" className="text-ink-muted hover:text-ink-secondary"><X className="w-5 h-5" /></button>
+      <div className="bg-surface w-full border border-line shadow-overlay max-h-[90vh] overflow-y-auto">
+        <div className="sticky top-0 z-10 h-bar flex items-center justify-between gap-2 pl-2.5 pr-0.5 bg-surface-sunk border-b border-line">
+          <h2 className="text-micro uppercase font-semibold text-ink">{title}</h2>
+          <IconButton icon={X} label="Close" onClick={onClose} />
         </div>
-        <div className="px-6 py-5">{content}</div>
+        <div className="p-3">{content}</div>
       </div>
     </Modal>
   );

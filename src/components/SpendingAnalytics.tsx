@@ -6,7 +6,9 @@ import {
 } from 'recharts';
 import * as chart from './ui/chartTheme';
 import { useFinancial } from '../context/FinancialContext';
-import { Stat, Money } from './ui';
+import {
+  Panel, PanelGrid, KeyValue, Button, IconButton, Money, Badge,
+} from './ui';
 import {
   getSpendingByCategory, getMonthlyTrend, detectAnomalies,
   getBudgetHealthScore, getSpendingByDayOfWeek,
@@ -14,7 +16,7 @@ import {
 } from '../utils/calculations';
 import { CATEGORIES, getAllCategories } from '../utils/categorization';
 import { useGetCategory, useTaxonomy } from '../context/FinancialContext';
-import { AlertTriangle, LayoutGrid, CalendarClock, PiggyBank, CalendarDays, ClipboardList } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import WhatChangedPanel from './analytics/WhatChangedPanel';
 import ForecastPanel from './analytics/ForecastPanel';
 import SavingsPanel from './analytics/SavingsPanel';
@@ -24,15 +26,21 @@ import TagsPanel from './analytics/TagsPanel';
 import { getSubcategoryBreakdown } from '../utils/habits';
 import { topCategoriesByTrend, withRestSlice, REST_SLICE_ID } from '../utils/categorySelection';
 
+// The section tabs read as a terminal's function-key row.
 const TABS = [
-  { id: 'overview', label: 'Overview', icon: LayoutGrid },
-  { id: 'habits', label: 'Habits', icon: CalendarDays },
-  { id: 'forecast', label: 'Forecast', icon: CalendarClock },
-  { id: 'save', label: 'Save Money', icon: PiggyBank },
-  { id: 'plan', label: 'Plan', icon: ClipboardList },
+  { id: 'overview', label: 'Overview' },
+  { id: 'habits', label: 'Habits' },
+  { id: 'forecast', label: 'Forecast' },
+  { id: 'save', label: 'Save Money' },
+  { id: 'plan', label: 'Plan' },
 ];
 
 const COLORS = CATEGORIES.map(c => c.color);
+
+/* A sub-table heading inside a panel: the same quiet bar a table header uses. */
+function SubHead({ children }: { children: React.ReactNode }) {
+  return <p className="label-micro px-2.5 h-[22px] leading-[22px] bg-surface-sunk border-b border-line">{children}</p>;
+}
 
 export default function SpendingAnalytics() {
   const { state } = useFinancial();
@@ -93,17 +101,21 @@ export default function SpendingAnalytics() {
     };
   })() : null;
 
+  const monthLabel = format(new Date(year, month, 1), 'MMMM yyyy');
+
   return (
-    <div className="space-y-5 animate-fade-in">
-      {/* Section tabs */}
-      <div className="flex flex-wrap bg-surface-hover rounded-container p-1 w-fit max-w-full">
-        {TABS.map(({ id, label, icon: Icon }) => (
+    <div className="space-y-2 animate-fade-in">
+      {/* Section tabs: a function-key row */}
+      <div className="flex flex-wrap border border-line bg-surface-sunk w-fit max-w-full">
+        {TABS.map(({ id, label }, i) => (
           <button
             key={id}
             onClick={() => setTab(id)}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-control text-sm font-medium transition-colors ${tab === id ? 'bg-surface  text-accent' : 'text-ink-muted hover:text-ink-secondary'}`}
+            aria-pressed={tab === id}
+            className={`flex items-center gap-1.5 h-7 px-3 border-r border-line last:border-r-0 border-b-2 text-caption font-medium uppercase tracking-[0.06em] transition-colors ${tab === id ? 'bg-accent-tint text-accent-ink border-b-accent' : 'border-b-transparent text-ink-muted hover:bg-surface-hover hover:text-ink'}`}
           >
-            <Icon className="w-4 h-4" />{label}
+            <span aria-hidden="true" className="text-micro opacity-60">F{i + 1}</span>
+            <span>{label}</span>
           </button>
         ))}
       </div>
@@ -114,33 +126,42 @@ export default function SpendingAnalytics() {
       {tab === 'plan' && <PlanPanel />}
 
       {tab === 'overview' && <>
-      {/* Month selector */}
+      {/* Period bar */}
       <div className="flex items-center gap-3">
-        <button onClick={() => changeMonth(-1)} className="p-2 rounded-control hover:bg-surface-hover text-ink-secondary">‹</button>
-        <span className="font-semibold text-ink-secondary min-w-32 text-center">{format(new Date(year, month, 1), 'MMMM yyyy')}</span>
-        <button onClick={() => changeMonth(1)} className="p-2 rounded-control hover:bg-surface-hover text-ink-secondary">›</button>
+        <div className="flex items-center border border-line-strong bg-surface">
+          <IconButton icon={ChevronLeft} label="Previous month" onClick={() => changeMonth(-1)} className="rounded-none" />
+          <span className="px-2.5 h-6 leading-6 border-x border-line-strong text-sm font-medium text-ink uppercase tracking-[0.06em] min-w-[132px] text-center">{monthLabel}</span>
+          <IconButton icon={ChevronRight} label="Next month" onClick={() => changeMonth(1)} className="rounded-none" />
+        </div>
       </div>
 
-      {/* Anomaly alerts */}
-      {anomalies.length > 0 && (
-        <div className="space-y-2">
-          {anomalies.map((a, i) => (
-            <div key={i} className="flex items-start gap-3 bg-caution-tint border border-caution rounded-container p-3">
-              <AlertTriangle className="w-4 h-4 text-caution shrink-0 mt-0.5" />
-              <p className="text-sm text-caution">{a.message}</p>
-            </div>
-          ))}
-        </div>
-      )}
+      <PanelGrid className="grid-flow-row-dense">
+        {/* Anomaly alerts */}
+        {anomalies.length > 0 && (
+          <Panel title="Anomalies" meta={`${anomalies.length} ACTIVE`} className="col-span-12">
+            <ul>
+              {anomalies.map((a, i) => (
+                <li key={i} className="flex items-start gap-2.5 px-2.5 py-1.5 border-b border-line last:border-b-0">
+                  <Badge tone="caution" className="shrink-0 w-12 justify-center mt-px">Spike</Badge>
+                  <p className="font-sans text-[12.5px] leading-snug text-ink">{a.message}</p>
+                </li>
+              ))}
+            </ul>
+          </Panel>
+        )}
 
-      <WhatChangedPanel transactions={transactions} month={month} year={year} />
+        <WhatChangedPanel transactions={transactions} month={month} year={year} />
 
-      <div className="grid lg:grid-cols-2 gap-6">
         {/* Pie chart */}
-        <div className="bg-surface rounded-container border border-line p-5">
-          <h2 className="text-lg font-semibold text-ink mb-4">Spending by Category</h2>
+        <Panel
+          title="Spending by Category"
+          meta={monthLabel}
+          actions={drillCat && <Button size="sm" variant="ghost" onClick={() => setDrillCat(null)}>Click slice to deselect</Button>}
+          className="col-span-12 lg:col-span-6"
+          bodyClassName="p-3"
+        >
           {pieData.length === 0
-            ? <p className="text-sm text-ink-muted text-center py-8">No spending data for this month.</p>
+            ? <p className="font-sans text-sm text-ink-muted text-center py-8">No spending data for this month.</p>
             : (
               <ResponsiveContainer width="100%" height={280}>
                 <PieChart>
@@ -150,7 +171,8 @@ export default function SpendingAnalytics() {
                     cy="50%"
                     innerRadius={60}
                     outerRadius={100}
-                    paddingAngle={2}
+                    paddingAngle={1}
+                    stroke="var(--c-surface)"
                     dataKey="value"
                     // The rest-slice stands for several categories at once, so
                     // there is nothing to drill into; clicking it does nothing
@@ -163,145 +185,149 @@ export default function SpendingAnalytics() {
                     ))}
                   </Pie>
                   <Tooltip {...chart.tooltip} formatter={v => formatCurrency(chart.asNumber(v))} />
-                  <Legend formatter={(value, entry) => `${value}: ${formatCurrency(chart.asNumber(entry?.payload?.value))}`} />
+                  <Legend
+                    iconType="square"
+                    iconSize={7}
+                    wrapperStyle={{ fontSize: 10.5, fontFamily: 'var(--font-numeric)', textTransform: 'uppercase', letterSpacing: '0.04em' }}
+                    formatter={(value, entry) => `${value}: ${formatCurrency(chart.asNumber(entry?.payload?.value))}`}
+                  />
                 </PieChart>
               </ResponsiveContainer>
             )
           }
-          {drillCat && <p className="text-caption text-center text-accent mt-1 cursor-pointer" onClick={() => setDrillCat(null)}>Click slice to deselect</p>}
-        </div>
+        </Panel>
 
         {/* Spending by day of week */}
-        <div className="bg-surface rounded-container border border-line p-5">
-          <h2 className="text-lg font-semibold text-ink mb-4">Spending by Day of Week</h2>
+        <Panel title="Spending by Day of Week" meta={monthLabel} className="col-span-12 lg:col-span-6" bodyClassName="p-3">
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={dow} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
               <CartesianGrid {...chart.grid} />
-              <XAxis dataKey="name" {...chart.xAxis} tick={{ fontSize: 12 }} />
-              <YAxis tick={{ fontSize: 12 }} tickFormatter={v => `$${v}`} />
+              <XAxis dataKey="name" {...chart.xAxis} />
+              <YAxis {...chart.yAxis} tickFormatter={chart.compactMoney} />
               <Tooltip {...chart.tooltip} formatter={v => formatCurrency(chart.asNumber(v))} />
-              <Bar dataKey="total" fill={chart.SERIES.primary} radius={[4,4,0,0]} name="Total Spent" />
+              <Bar dataKey="total" fill={chart.SERIES.primary} name="Total Spent" />
             </BarChart>
           </ResponsiveContainer>
-        </div>
-      </div>
+        </Panel>
 
-      {/* Category drill-down */}
-      {drillCat && drillData && (
-        <div className="bg-surface rounded-container border border-line p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-ink">{getCategory(drillCat).name} — Deep Dive</h2>
-            <button onClick={() => setDrillCat(null)} className="text-caption text-ink-muted hover:text-ink-secondary">✕ Close</button>
-          </div>
-          <div className="flex flex-wrap gap-8 mb-5 pb-4 border-b border-line-faint">
-            <Stat label="Total spent"><Money value={drillData.total} /></Stat>
-            <Stat label="Transactions">{drillData.transactions.length}</Stat>
-            <Stat label="Average"><Money value={drillData.avg} /></Stat>
-          </div>
-          {/* Only worth showing when at least one transaction has a subcategory. */}
-          {drillData.subcategories.some(sc => sc.name !== 'Unspecified') && (
-            <div className="mb-4">
-              <p className="text-sm font-semibold text-ink-secondary mb-2">By Subcategory</p>
-              <div className="space-y-2">
+        {/* Category drill-down */}
+        {drillCat && drillData && (
+          <Panel
+            title={`${getCategory(drillCat).name} — Deep Dive`}
+            actions={<Button size="sm" variant="ghost" onClick={() => setDrillCat(null)}>✕ Close</Button>}
+            className="col-span-12"
+          >
+            <div className="grid grid-cols-3 gap-px bg-line border-b border-line">
+              <div className="bg-surface px-2.5 py-1.5">
+                <p className="label-micro">Total spent</p>
+                <Money value={drillData.total} size="lg" className="block mt-0.5" />
+              </div>
+              <div className="bg-surface px-2.5 py-1.5">
+                <p className="label-micro">Transactions</p>
+                <p className="text-xl font-medium text-ink mt-0.5">{drillData.transactions.length}</p>
+              </div>
+              <div className="bg-surface px-2.5 py-1.5">
+                <p className="label-micro">Average</p>
+                <Money value={drillData.avg} size="lg" className="block mt-0.5" />
+              </div>
+            </div>
+            {/* Only worth showing when at least one transaction has a subcategory. */}
+            {drillData.subcategories.some(sc => sc.name !== 'Unspecified') && (
+              <div className="border-b border-line">
+                <SubHead>By Subcategory</SubHead>
                 {drillData.subcategories.map(sc => (
-                  <div key={sc.name} className="flex items-center gap-3">
+                  <div key={sc.name} className="flex items-center gap-3 h-row px-2.5 border-b border-line last:border-b-0">
                     <span className={`text-sm w-36 shrink-0 truncate ${sc.name === 'Unspecified' ? 'text-ink-muted italic' : 'text-ink-secondary'}`}>{sc.name}</span>
-                    <div className="flex-1 h-2 bg-surface-hover rounded-full overflow-hidden">
-                      <div className="h-full rounded-full" style={{ width: `${sc.pct}%`, backgroundColor: getCategory(drillCat).color }} />
+                    <div className="flex-1 h-1.5 bg-line">
+                      <div className="h-full" style={{ width: `${sc.pct}%`, backgroundColor: getCategory(drillCat).color }} />
                     </div>
-                    <span className="text-sm font-semibold text-ink w-24 text-right">{formatCurrency(sc.total)}</span>
-                    <span className="text-caption text-ink-muted w-20 text-right">{sc.count} tx · {sc.pct}%</span>
+                    <span className="text-sm text-ink w-24 text-right">{formatCurrency(sc.total)}</span>
+                    <span className="text-caption text-ink-muted w-24 text-right">{sc.count} tx · {sc.pct}%</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="grid lg:grid-cols-2 gap-px bg-line">
+              <div className="bg-surface">
+                <SubHead>Top Merchants</SubHead>
+                {drillData.merchants.map(([merchant, amt]) => (
+                  <div key={merchant} className="flex justify-between items-center gap-2 h-row px-2.5 border-b border-line last:border-b-0">
+                    <span className="text-sm text-ink-secondary truncate">{merchant}</span>
+                    <span className="text-sm text-ink">{formatCurrency(amt)}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="bg-surface">
+                <SubHead>Recent Transactions</SubHead>
+                {drillData.transactions.slice(0, 6).map(t => (
+                  <div key={t.id} className="flex items-center gap-2 h-row px-2.5 border-b border-line last:border-b-0">
+                    <span className="text-caption text-ink-muted w-14 shrink-0">{format(new Date(t.date), 'MMM d')}</span>
+                    <span className="flex-1 min-w-0 text-sm text-ink-secondary truncate">{t.merchant}</span>
+                    <span className="text-sm text-ink">{formatCurrency(t.amount)}</span>
                   </div>
                 ))}
               </div>
             </div>
-          )}
-          <div className="grid lg:grid-cols-2 gap-4">
-            <div>
-              <p className="text-sm font-semibold text-ink-secondary mb-2">Top Merchants</p>
-              {drillData.merchants.map(([merchant, amt]) => (
-                <div key={merchant} className="flex justify-between py-1.5 border-b border-line-faint">
-                  <span className="text-sm text-ink-secondary">{merchant}</span>
-                  <span className="text-sm font-semibold text-ink">{formatCurrency(amt)}</span>
-                </div>
-              ))}
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-ink-secondary mb-2">Recent Transactions</p>
-              {drillData.transactions.slice(0, 6).map(t => (
-                <div key={t.id} className="flex justify-between py-1.5 border-b border-line-faint">
-                  <div>
-                    <p className="text-sm text-ink-secondary">{t.merchant}</p>
-                    <p className="text-caption text-ink-muted">{format(new Date(t.date), 'MMM d')}</p>
-                  </div>
-                  <span className="text-sm font-semibold text-ink">{formatCurrency(t.amount)}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+          </Panel>
+        )}
 
-      <TagsPanel transactions={transactions} month={month} year={year} />
+        <TagsPanel transactions={transactions} month={month} year={year} />
 
-      {/* Monthly trend line chart */}
-      <div className="bg-surface rounded-container border border-line p-5">
-        <h2 className="text-lg font-semibold text-ink mb-4">Spending Trends (6 months)</h2>
-        <div className="flex flex-wrap gap-2 mb-3">
-          {majorCats.map(cat => (
-            <button
-              key={cat.id}
-              onClick={() => setHiddenLines(h => ({ ...h, [cat.id]: !h[cat.id] }))}
-              // The category colour stays, as the border and a swatch; the
-              // label takes --c-ink. Painting the label in the category colour
-              // on an 8% wash of that same colour put every one of these
-              // between 2.1:1 and 3.8:1 — unreadable by construction, since a
-              // hue cannot contrast with itself.
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-caption font-medium border text-ink transition-colors ${hiddenLines[cat.id] ? 'opacity-40' : ''}`}
-              style={{ borderColor: cat.color, backgroundColor: cat.color + '15' }}
-            >
-              <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: cat.color }} aria-hidden="true" />
-              {cat.name}
-            </button>
-          ))}
-        </div>
-        <ResponsiveContainer width="100%" height={280}>
-          <LineChart data={trend} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
-            <CartesianGrid {...chart.grid} />
-            <XAxis dataKey="label" {...chart.xAxis} tick={{ fontSize: 11 }} />
-            <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `$${v}`} />
-            <Tooltip {...chart.tooltip} formatter={v => formatCurrency(chart.asNumber(v))} />
+        {/* Monthly trend line chart */}
+        <Panel title="Spending Trends (6 months)" className="col-span-12 xl:col-span-8">
+          <div className="flex flex-wrap gap-1 px-2.5 py-1.5 border-b border-line">
             {majorCats.map(cat => (
-              !hiddenLines[cat.id] && (
-                <Line
-                  key={cat.id}
-                  type="monotone"
-                  dataKey={cat.id}
-                  name={cat.name}
-                  stroke={cat.color}
-                  strokeWidth={2}
-                  dot={{ r: 3 }}
-                  activeDot={{ r: 5 }}
-                />
-              )
+              <button
+                key={cat.id}
+                onClick={() => setHiddenLines(h => ({ ...h, [cat.id]: !h[cat.id] }))}
+                aria-pressed={!hiddenLines[cat.id]}
+                // The category colour stays, as a swatch; the label takes
+                // --c-ink. Painting the label in the category colour on a wash
+                // of that same colour put every one of these between 2.1:1 and
+                // 3.8:1 — unreadable by construction, since a hue cannot
+                // contrast with itself.
+                className={`flex items-center gap-1.5 h-6 px-2 rounded-control text-micro uppercase tracking-[0.04em] font-medium border border-line-strong text-ink hover:bg-surface-hover transition-colors ${hiddenLines[cat.id] ? 'opacity-40' : ''}`}
+              >
+                <span className="w-[7px] h-[7px] shrink-0" style={{ backgroundColor: cat.color }} aria-hidden="true" />
+                {cat.name}
+              </button>
             ))}
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
+          </div>
+          <div className="p-3">
+            <ResponsiveContainer width="100%" height={280}>
+              <LineChart data={trend} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                <CartesianGrid {...chart.grid} />
+                <XAxis dataKey="label" {...chart.xAxis} />
+                <YAxis {...chart.yAxis} tickFormatter={chart.compactMoney} />
+                <Tooltip {...chart.tooltip} formatter={v => formatCurrency(chart.asNumber(v))} />
+                {majorCats.map(cat => (
+                  !hiddenLines[cat.id] && (
+                    <Line
+                      key={cat.id}
+                      type="monotone"
+                      dataKey={cat.id}
+                      name={cat.name}
+                      stroke={cat.color}
+                      strokeWidth={1.5}
+                      dot={{ r: 2 }}
+                      activeDot={{ r: 4 }}
+                    />
+                  )
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </Panel>
 
-      {/* Budget health trend */}
-      <div className="bg-surface rounded-container border border-line p-5">
-        <h2 className="text-lg font-semibold text-ink mb-4">Budget adherence — current month</h2>
-        <div className="flex items-center gap-6">
-          <div className="w-20 h-20 rounded-container flex items-center justify-center shrink-0" style={{ backgroundColor: health.color + '20' }}>
-            <span className="text-4xl font-black" style={{ color: health.color }}>{health.grade}</span>
-          </div>
-          <div>
-            <p className="text-2xl font-bold text-ink">{health.percent}%</p>
-            <p className="text-sm text-ink-muted">of budget categories are on track this month</p>
-          </div>
-        </div>
-      </div>
+        {/* Budget health */}
+        <Panel title="Budget adherence — current month" className="col-span-12 xl:col-span-4">
+          <KeyValue label="Grade" strong>
+            <span className="text-xl font-semibold" style={{ color: health.color }}>{health.grade}</span>
+          </KeyValue>
+          <KeyValue label="On track" strong>{health.percent}%</KeyValue>
+          <p className="font-sans text-sm text-ink-muted px-2.5 py-2">of budget categories are on track this month</p>
+        </Panel>
+      </PanelGrid>
       </>}
     </div>
   );

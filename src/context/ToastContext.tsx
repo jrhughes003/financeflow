@@ -71,27 +71,34 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           <div
             key={t.id}
             className={`
-              flex items-center gap-3 pl-4 pr-2 py-3 rounded-container shadow-overlay text-sm font-medium
-              pointer-events-auto min-w-[260px]
-              ${t.type === 'error' ? 'bg-negative text-ink-inverse' : t.type === 'neutral' ? 'bg-ink text-ink-inverse' : 'bg-positive text-ink-inverse'}
+              flex items-center gap-2.5 min-h-8 py-1 pl-2.5 pr-1 bg-surface border border-line-strong border-l-2 shadow-overlay text-sm
+              pointer-events-auto min-w-[280px] max-w-[440px]
+              ${t.type === 'error' ? 'border-l-negative' : t.type === 'neutral' ? 'border-l-accent' : 'border-l-positive'}
             `}
           >
-            <span className="flex-1">{t.message}</span>
+            <span
+              aria-hidden="true"
+              className={`shrink-0 w-9 text-center border border-current text-[10px] leading-[14px] uppercase tracking-[0.06em]
+                ${t.type === 'error' ? 'text-negative' : t.type === 'neutral' ? 'text-accent-ink' : 'text-positive'}`}
+            >
+              {t.type === 'error' ? 'ERR' : t.type === 'neutral' ? 'INFO' : 'OK'}
+            </span>
+            <span className="flex-1 min-w-0 text-ink">{t.message}</span>
             {t.action && (
               <button
                 onClick={() => { t.action?.onClick(); dismiss(t.id); }}
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded-control bg-surface/20 hover:bg-surface/30 transition-colors"
+                className="shrink-0 inline-flex items-center gap-1.5 h-6 px-2 rounded-control border border-line-strong text-micro font-medium uppercase tracking-[0.05em] text-accent-ink hover:bg-surface-hover transition-colors"
               >
-                <Undo2 className="w-3.5 h-3.5" />
+                <Undo2 className="w-3 h-3" aria-hidden="true" />
                 {t.action.label}
               </button>
             )}
             <button
               onClick={() => dismiss(t.id)}
               aria-label="Dismiss notification"
-              className="p-1 opacity-70 hover:opacity-100"
+              className="shrink-0 inline-flex items-center justify-center w-6 h-6 rounded-control text-ink-muted hover:text-ink hover:bg-surface-hover"
             >
-              <X className="w-3.5 h-3.5" />
+              <X className="w-3.5 h-3.5" aria-hidden="true" />
             </button>
           </div>
         ))}

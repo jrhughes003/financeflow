@@ -26,7 +26,7 @@ salary growth and RRSP contributions, a car in 2027, a wedding in 2028 and a fir
 
 **Monte Carlo.** The same plan, run a few hundred times with a random return each year
 instead of the same return every year, to see how often it holds up.
-![Monte Carlo: 67% of 300 runs hold up, with a median outcome and a middle-80% band to 2094](screenshots/plan-montecarlo.png)
+![Monte Carlo: 68% of 300 runs hold up, with a median outcome and a middle-80% band to 2094](screenshots/plan-montecarlo.png)
 
 **Analytics.** What changed this month, measured against your own baseline rather than a
 fixed budget.
@@ -40,7 +40,7 @@ an overage carries as a deduction (`-$135.63 carried`). The percentages track th
 **Owed to Me.** A dinner split four ways, with two repayments logged. The full amount
 counts as your spending until it comes back, and each repayment lowers that purchase's
 month.
-![Owed to Me: partly repaid split expense with payment chips](screenshots/owed-to-me.png)
+![Owed to Me: partly repaid split expense with its repayments](screenshots/owed-to-me.png)
 
 **Debts.** An interest-free OSAP loan still in deferment: nothing is due until repayment
 starts, and no interest accrues meanwhile.

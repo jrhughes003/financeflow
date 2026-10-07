@@ -1,12 +1,14 @@
 import React, { useMemo } from 'react';
-import { RefreshCw, Plus, Trash2, Check, Power } from 'lucide-react';
+import { Plus, Trash2, Check, Power } from 'lucide-react';
 import { format } from 'date-fns';
 import { useFinancial, useGetCategory } from '../context/FinancialContext';
 import { useUndoableDelete } from '../hooks/useUndoableDelete';
 import { detectRecurringCandidates, isTemplateDue, postTemplate } from '../utils/recurring';
 import type { RecurringCandidate } from '../utils/recurring';
-import { formatCurrency, toMonthlyAmount } from '../utils/calculations';
-import { Card, PageLede, Stat, Money } from './ui';
+import { toMonthlyAmount } from '../utils/calculations';
+import {
+  Panel, PanelGrid, KeyValue, Money, Button, IconButton, Badge, CategoryMark, Table, Th, Td, Tr,
+} from './ui';
 import type { RecurringTemplate } from '../types/domain';
 
 const FREQ_LABELS = { weekly: 'Weekly', biweekly: 'Every 2 weeks', monthly: 'Monthly', annual: 'Yearly' };
@@ -62,108 +64,129 @@ export default function RecurringManager() {
     dispatch({ type: 'UPDATE_RECURRING_TEMPLATE', payload: { ...t, active: t.active === false ? true : false } });
 
   return (
-    <div className="space-y-5 animate-fade-in">
-      {/* Due banner */}
+    <div className="space-y-2 animate-fade-in">
+      {/* Due: one signal row, like the dashboard's */}
       {dueTemplates.length > 0 && (
-        <div className="bg-accent-tint border border-accent rounded-container p-4 flex items-center justify-between">
-          <p className="text-sm text-accent-ink">
+        <div className="flex flex-wrap items-center gap-2.5 px-2.5 py-1 bg-surface border border-line">
+          <span className="shrink-0 w-12 text-center border border-current text-[10px] leading-[14px] tracking-[0.06em] text-caution">DUE</span>
+          <p className="font-sans text-[12.5px] text-ink flex-1 min-w-0">
             <strong>{dueTemplates.length}</strong> recurring {dueTemplates.length === 1 ? 'transaction is' : 'transactions are'} due to be posted.
           </p>
-          <button onClick={postAllDue} className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-9 px-3.5 text-sm bg-accent hover:bg-accent-hover text-ink-inverse">
-            Post all due
-          </button>
+          <Button size="sm" variant="primary" onClick={postAllDue}>Post all due</Button>
         </div>
       )}
 
-      <Card>
-        <PageLede
-          label="Recurring, per month"
-          supporting={(
-            <>
-              <Stat label="Templates">{recurringTemplates.length}</Stat>
-              <Stat label="Due now">{dueTemplates.length}</Stat>
-              <Stat label="Detected, not yet tracked">{candidates.length}</Stat>
-            </>
-          )}
+      <PanelGrid className="grid-flow-row-dense">
+        {/* The figure the page is about */}
+        <Panel title="Recurring, per month" meta="ACTIVE" className="col-span-12 md:col-span-4 xl:col-span-3">
+          <div className="px-2.5 py-2 border-b border-line">
+            <Money value={monthlyRecurring} size="display" />
+            <p className="text-caption text-ink-muted mt-1">
+              <Money value={monthlyRecurring * 12} size="caption" className="text-ink-secondary" /> a year
+            </p>
+          </div>
+          <KeyValue label="Templates">{recurringTemplates.length}</KeyValue>
+          <KeyValue label="Due now">
+            <span className={dueTemplates.length ? 'text-caution' : ''}>{dueTemplates.length}</span>
+          </KeyValue>
+          <KeyValue label="Detected, not yet tracked">{candidates.length}</KeyValue>
+        </Panel>
+
+        {/* Active templates */}
+        <Panel
+          title="Recurring Templates"
+          meta={recurringTemplates.length ? `${recurringTemplates.filter(t => t.active !== false).length} / ${recurringTemplates.length} ACTIVE` : undefined}
+          className="col-span-12 md:col-span-8 xl:col-span-9"
         >
-          <Money value={monthlyRecurring} size="display" />
-          <p className="text-caption text-ink-muted mt-2">
-            <Money value={monthlyRecurring * 12} size="caption" className="text-ink-secondary" /> a year
-          </p>
-        </PageLede>
-      </Card>
+          {recurringTemplates.length === 0 ? (
+            <p className="font-sans text-sm text-ink-muted p-3">No recurring templates yet. Add one from the detected charges below.</p>
+          ) : (
+            <Table>
+              <thead>
+                <tr>
+                  <Th>Merchant</Th>
+                  <Th numeric>Amount</Th>
+                  <Th className="hidden sm:table-cell">Frequency</Th>
+                  <Th>Next</Th>
+                  <Th className="w-[1%]"><span className="sr-only">Actions</span></Th>
+                </tr>
+              </thead>
+              <tbody>
+                {recurringTemplates.map(t => {
+                  const due = isTemplateDue(t, today);
+                  const inactive = t.active === false;
+                  return (
+                    <Tr key={t.id} className={inactive ? 'opacity-60' : ''}>
+                      <Td className="max-w-0 w-full min-w-[9rem]">
+                        <span className="flex items-center gap-2 min-w-0">
+                          <CategoryMark color={getCategory(t.category).color} name={t.merchant} className="text-ink" />
+                          {inactive && <Badge>Paused</Badge>}
+                          {due && !inactive && <Badge tone="caution">Due</Badge>}
+                        </span>
+                      </Td>
+                      <Td numeric><Money value={t.amount} size="sm" /></Td>
+                      <Td className="hidden sm:table-cell text-ink-secondary whitespace-nowrap">{FREQ_LABELS[t.frequency] || t.frequency}</Td>
+                      <Td className="text-ink-muted whitespace-nowrap">next {t.nextDate}</Td>
+                      <Td className="pr-1.5">
+                        <div className="flex items-center justify-end gap-px whitespace-nowrap">
+                          {due && !inactive && (
+                            <Button size="sm" variant="primary" icon={Check} onClick={() => post(t)} className="mr-1">Post</Button>
+                          )}
+                          <IconButton icon={Power} label={inactive ? 'Resume' : 'Pause'} onClick={() => toggleActive(t)} />
+                          <button onClick={() => removeItem({ type: 'recurring', item: t })} aria-label={`Delete recurring charge ${t.merchant}`} title={`Delete ${t.merchant}`}
+                            className="inline-flex items-center justify-center w-6 h-6 rounded-control text-ink-muted hover:text-negative hover:bg-negative-tint transition-colors">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </Td>
+                    </Tr>
+                  );
+                })}
+              </tbody>
+            </Table>
+          )}
+        </Panel>
 
-      {/* Active templates */}
-      <div className="bg-surface rounded-container border border-line p-5">
-        <div className="flex items-center gap-2 mb-4">
-          <RefreshCw className="w-4 h-4 text-ink-muted" />
-          <h2 className="text-lg font-semibold text-ink">Recurring Templates</h2>
-        </div>
-        {recurringTemplates.length === 0 ? (
-          <p className="text-sm text-ink-muted text-center py-4">No recurring templates yet. Add one from the detected charges below.</p>
-        ) : (
-          <div className="space-y-2">
-            {recurringTemplates.map(t => {
-              const due = isTemplateDue(t, today);
-              const inactive = t.active === false;
-              return (
-                <div key={t.id} className={`flex items-center justify-between border rounded-container p-3 ${inactive ? 'border-line opacity-60' : 'border-line'}`}>
-                  <div className="flex items-center gap-3">
-                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: getCategory(t.category).color }} />
-                    <div>
-                      <p className="font-medium text-ink text-sm">{t.merchant}</p>
-                      <p className="text-caption text-ink-muted">
-                        {formatCurrency(t.amount)} · {FREQ_LABELS[t.frequency] || t.frequency} · next {t.nextDate}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    {due && !inactive && (
-                      <button onClick={() => post(t)} className="flex items-center gap-1 px-2.5 py-1.5 bg-accent hover:bg-accent-hover text-ink-inverse text-caption rounded-control font-medium">
-                        <Check className="w-3 h-3" /> Post
-                      </button>
-                    )}
-                    <button onClick={() => toggleActive(t)} title={inactive ? 'Resume' : 'Pause'} className="p-1.5 text-ink-muted hover:text-ink-secondary hover:bg-surface-hover rounded-control">
-                      <Power className="w-3.5 h-3.5" />
-                    </button>
-                    <button onClick={() => removeItem({ type: 'recurring', item: t })} aria-label={`Delete recurring charge ${t.merchant}`} title={`Delete ${t.merchant}`} className="p-1.5 text-ink-muted hover:text-negative hover:bg-negative-tint rounded-control">
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* Detected candidates */}
-      <div className="bg-surface rounded-container border border-line p-5">
-        <h2 className="text-lg font-semibold text-ink mb-1">Detected Recurring Charges</h2>
-        <p className="text-sm text-ink-muted mb-4">Found in your transaction history. Add any as a template to track and auto-post.</p>
-        {candidates.length === 0 ? (
-          <p className="text-sm text-ink-muted text-center py-4">No new recurring patterns detected.</p>
-        ) : (
-          <div className="space-y-2">
-            {candidates.map((c, i) => (
-              <div key={`${c.merchant}-${i}`} className="flex items-center justify-between border border-line rounded-container p-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: getCategory(c.category).color }} />
-                  <div>
-                    <p className="font-medium text-ink text-sm">{c.merchant}</p>
-                    <p className="text-caption text-ink-muted">
-                      ~{formatCurrency(c.amount)} · {FREQ_LABELS[c.frequency] || c.frequency} · seen {c.occurrences}×
-                    </p>
-                  </div>
-                </div>
-                <button onClick={() => addTemplate(c)} className="flex items-center gap-1 px-2.5 py-1.5 border border-accent text-accent hover:bg-accent-tint text-caption rounded-control font-medium">
-                  <Plus className="w-3 h-3" /> Add template
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+        {/* Detected candidates */}
+        <Panel
+          title="Detected Recurring Charges"
+          meta={candidates.length ? `${candidates.length} FOUND` : undefined}
+          className="col-span-12"
+        >
+          <p className="font-sans text-caption text-ink-muted px-2.5 py-1.5 border-b border-line">Found in your transaction history. Add any as a template to track and auto-post.</p>
+          {candidates.length === 0 ? (
+            <p className="font-sans text-sm text-ink-muted p-3">No new recurring patterns detected.</p>
+          ) : (
+            <Table>
+              <thead>
+                <tr>
+                  <Th>Merchant</Th>
+                  <Th numeric>Amount</Th>
+                  <Th className="hidden sm:table-cell">Frequency</Th>
+                  <Th numeric>Seen</Th>
+                  <Th className="w-[1%]"><span className="sr-only">Actions</span></Th>
+                </tr>
+              </thead>
+              <tbody>
+                {candidates.map((c, i) => (
+                  <Tr key={`${c.merchant}-${i}`}>
+                    <Td className="max-w-0 w-full min-w-[9rem]">
+                      <CategoryMark color={getCategory(c.category).color} name={c.merchant} className="text-ink" />
+                    </Td>
+                    <Td numeric><span className="text-ink-muted">~</span><Money value={c.amount} size="sm" /></Td>
+                    <Td className="hidden sm:table-cell text-ink-secondary whitespace-nowrap">{FREQ_LABELS[c.frequency] || c.frequency}</Td>
+                    <Td numeric className="text-ink-secondary">{c.occurrences}×</Td>
+                    <Td className="pr-1.5 text-right">
+                      <Button size="sm" icon={Plus} onClick={() => addTemplate(c)}>Add template</Button>
+                    </Td>
+                  </Tr>
+                ))}
+              </tbody>
+            </Table>
+          )}
+        </Panel>
+      </PanelGrid>
     </div>
   );
 }
+

@@ -6,22 +6,17 @@
 // to type into.
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Search, CornerDownLeft, LayoutDashboard, CreditCard, HandCoins, Wallet, BarChart3,
-  PieChart, Target, DollarSign, TrendingUp, Landmark, RefreshCw, Milestone, FileText,
-  Settings as SettingsIcon, Plus, Download, Receipt,
-} from 'lucide-react';
 import { useFinancial } from '../context/FinancialContext';
 import { formatCurrency } from '../utils/calculations';
 import { exportToCSV } from '../utils/exportUtils';
-import type { LucideIcon } from 'lucide-react';
 import type { PageId } from '../types/navigation';
 
 /** One row of the list: a page, an action, or a merchant hit. */
 interface PaletteItem {
   id: string;
   label: string;
-  icon: LucideIcon;
+  /** The page's terminal code (DSH, TXN…), shown in the left column. */
+  code?: string;
   kind: string;
   /** A shortcut for an action, a total for a merchant. */
   hint?: string;
@@ -36,22 +31,26 @@ interface CommandPaletteProps {
   onQuickAdd: () => void;
 }
 
-const PAGES: { id: PageId; label: string; icon: LucideIcon; keywords: string }[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, keywords: 'home overview summary' },
-  { id: 'transactions', label: 'Transactions', icon: CreditCard, keywords: 'ledger history spending list' },
-  { id: 'owed', label: 'Owed to Me', icon: HandCoins, keywords: 'split repayment friends borrowed' },
-  { id: 'budget', label: 'Budget', icon: Wallet, keywords: 'limits categories rollover' },
-  { id: 'comparison', label: 'Comparison', icon: BarChart3, keywords: 'budget vs actual variance' },
-  { id: 'analytics', label: 'Analytics', icon: PieChart, keywords: 'insights trends forecast habits savings' },
-  { id: 'goals', label: 'Goals', icon: Target, keywords: 'savings targets progress' },
-  { id: 'income', label: 'Income', icon: DollarSign, keywords: 'salary earnings pay' },
-  { id: 'investments', label: 'Investments', icon: TrendingUp, keywords: 'portfolio accounts advisor tfsa rrsp' },
-  { id: 'debts', label: 'Debts', icon: Landmark, keywords: 'loans credit card payoff avalanche snowball' },
-  { id: 'recurring', label: 'Recurring', icon: RefreshCw, keywords: 'subscriptions bills templates due' },
-  { id: 'plan', label: 'Plan Ahead', icon: Milestone, keywords: 'retirement projection monte carlo house mortgage' },
-  { id: 'reports', label: 'Reports', icon: FileText, keywords: 'export summary ytd ai insights' },
-  { id: 'settings', label: 'Settings', icon: SettingsIcon, keywords: 'api key backup restore demo data' },
+// Codes match the nav rail in Layout.tsx, so a page reads the same everywhere.
+const PAGES: { id: PageId; label: string; code: string; keywords: string }[] = [
+  { id: 'dashboard', label: 'Dashboard', code: 'DSH', keywords: 'home overview summary' },
+  { id: 'transactions', label: 'Transactions', code: 'TXN', keywords: 'ledger history spending list' },
+  { id: 'owed', label: 'Owed to Me', code: 'OWE', keywords: 'split repayment friends borrowed' },
+  { id: 'budget', label: 'Budget', code: 'BGT', keywords: 'limits categories rollover' },
+  { id: 'comparison', label: 'Comparison', code: 'CMP', keywords: 'budget vs actual variance' },
+  { id: 'analytics', label: 'Analytics', code: 'ANL', keywords: 'insights trends forecast habits savings' },
+  { id: 'goals', label: 'Goals', code: 'GOL', keywords: 'savings targets progress' },
+  { id: 'income', label: 'Income', code: 'INC', keywords: 'salary earnings pay' },
+  { id: 'investments', label: 'Investments', code: 'INV', keywords: 'portfolio accounts advisor tfsa rrsp' },
+  { id: 'debts', label: 'Debts', code: 'DBT', keywords: 'loans credit card payoff avalanche snowball' },
+  { id: 'recurring', label: 'Recurring', code: 'REC', keywords: 'subscriptions bills templates due' },
+  { id: 'plan', label: 'Plan Ahead', code: 'PLN', keywords: 'retirement projection monte carlo house mortgage' },
+  { id: 'reports', label: 'Reports', code: 'RPT', keywords: 'export summary ytd ai insights' },
+  { id: 'settings', label: 'Settings', code: 'SET', keywords: 'api key backup restore demo data' },
 ];
+
+// The right-hand column: what choosing the row does.
+const KIND_LABELS: Record<string, string> = { page: 'GO', action: 'RUN', merchant: 'TXN' };
 
 // Subsequence match, so "plah" finds "Plan Ahead" and "trans" finds
 // Transactions. Cheap, predictable, and good enough for a list this size.
@@ -95,11 +94,11 @@ export default function CommandPalette({ open, onClose, onNavigate, onQuickAdd }
     // No `kind` yet: these are tagged as actions where they join the scored list.
     const actions: Omit<PaletteItem, 'kind'>[] = [
       {
-        id: 'action-add', label: 'Add a transaction', hint: 'Ctrl+N', icon: Plus,
+        id: 'action-add', label: 'Add a transaction', hint: 'Ctrl+N', code: 'ADD',
         keywords: 'new expense record entry', run: () => onQuickAdd(),
       },
       {
-        id: 'action-export', label: 'Export transactions to CSV', icon: Download,
+        id: 'action-export', label: 'Export transactions to CSV', code: 'CSV',
         keywords: 'download backup spreadsheet',
         run: () => exportToCSV(state.transactions || []),
       },
@@ -129,7 +128,7 @@ export default function CommandPalette({ open, onClose, onNavigate, onQuickAdd }
           kind: 'merchant',
           label: merchant,
           hint: `${count} transaction${count > 1 ? 's' : ''} · ${formatCurrency(total)}`,
-          icon: Receipt,
+          code: 'MCH',
           run: () => onNavigate('transactions'),
         }));
     }
@@ -162,10 +161,14 @@ export default function CommandPalette({ open, onClose, onNavigate, onQuickAdd }
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-[12vh] px-4" role="dialog" aria-modal="true" aria-label="Command palette">
-      <div className="fixed inset-0 bg-ink/25" onClick={onClose} />
-      <div className="relative w-full max-w-lg bg-surface rounded-container shadow-overlay overflow-hidden">
-        <div className="flex items-center gap-3 px-4 border-b border-line">
-          <Search className="w-4 h-4 text-ink-muted shrink-0" />
+      <div className="fixed inset-0 bg-[color-mix(in_srgb,var(--c-canvas)_72%,transparent)]" onClick={onClose} />
+      <div className="relative w-full max-w-xl bg-surface border border-line-strong shadow-overlay overflow-hidden font-mono">
+        <div className="h-bar flex items-center gap-2.5 px-2.5 bg-surface-sunk border-b border-line">
+          <span className="text-micro uppercase font-semibold text-ink">Command</span>
+          <span className="ml-auto text-micro uppercase text-ink-muted">{results.length} {results.length === 1 ? 'MATCH' : 'MATCHES'}</span>
+        </div>
+        <div className="flex items-center gap-2 h-9 px-2.5 border-b border-line-strong bg-canvas">
+          <span aria-hidden="true" className="text-accent font-semibold text-base leading-none">&gt;</span>
           <input
             ref={inputRef}
             value={query}
@@ -173,37 +176,48 @@ export default function CommandPalette({ open, onClose, onNavigate, onQuickAdd }
             onKeyDown={onKeyDown}
             placeholder="Go to a page, search a merchant, or run an action…"
             aria-label="Search pages, merchants and actions"
-            className="flex-1 py-3.5 text-sm outline-none placeholder:text-ink-muted"
+            spellCheck={false}
+            autoComplete="off"
+            className="flex-1 min-w-0 h-full bg-transparent text-base text-ink caret-accent outline-none placeholder:text-ink-muted"
           />
-          <kbd className="text-micro text-ink-muted border border-line rounded-control px-1.5 py-0.5">esc</kbd>
+          <kbd className="text-[10px] leading-[14px] uppercase tracking-[0.06em] text-ink-muted border border-line-strong rounded-control px-1">esc</kbd>
         </div>
 
-        <ul ref={listRef} className="max-h-80 overflow-y-auto py-2">
+        <ul ref={listRef} className="max-h-80 overflow-y-auto">
           {results.length === 0 && (
-            <li className="px-4 py-6 text-center text-sm text-ink-muted">Nothing matches “{query}”.</li>
+            <li className="px-2.5 py-3 font-sans text-sm text-ink-muted">Nothing matches “{query}”.</li>
           )}
           {results.map((item, index) => {
-            const Icon = item.icon;
+            const isActive = index === active;
             return (
-              <li key={item.id}>
+              <li key={item.id} className="border-b border-line-faint last:border-b-0">
                 <button
                   onMouseEnter={() => setActive(index)}
                   onClick={() => choose(item)}
-                  className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left transition-colors
-                    ${index === active ? 'bg-accent-tint text-accent-ink' : 'text-ink-secondary hover:bg-surface-sunk'}`}
+                  className={`w-full flex items-center gap-2.5 h-[26px] px-2.5 text-sm text-left border-l-2
+                    ${isActive ? 'bg-accent-tint text-accent-ink border-accent' : 'text-ink-secondary border-transparent hover:bg-surface-hover'}`}
                 >
-                  {Icon && <Icon className="w-4 h-4 shrink-0 opacity-70" />}
-                  <span className="flex-1">{item.label}</span>
-                  {item.kind === 'merchant' && <span className="text-caption text-ink-muted">{item.hint}</span>}
+                  <span aria-hidden="true" className={`w-8 shrink-0 text-micro tracking-[0.04em] ${isActive ? 'text-accent-ink' : 'text-ink-muted'}`}>{item.code}</span>
+                  <span className={`flex-1 min-w-0 truncate ${isActive ? '' : 'text-ink'}`}>{item.label}</span>
+                  {item.kind === 'merchant' && <span className="text-caption text-ink-muted whitespace-nowrap">{item.hint}</span>}
                   {item.kind !== 'merchant' && item.hint && (
-                    <kbd className="text-micro text-ink-muted border border-line rounded-control px-1.5 py-0.5">{item.hint}</kbd>
+                    <kbd className="text-[10px] leading-[14px] uppercase tracking-[0.06em] text-ink-muted border border-line-strong rounded-control px-1">{item.hint}</kbd>
                   )}
-                  {index === active && <CornerDownLeft className="w-3.5 h-3.5 text-accent shrink-0" />}
+                  <span aria-hidden="true" className={`w-8 shrink-0 text-right text-micro tracking-[0.06em] ${isActive ? 'text-accent' : 'text-ink-muted'}`}>
+                    {isActive ? '↵' : KIND_LABELS[item.kind]}
+                  </span>
                 </button>
               </li>
             );
           })}
         </ul>
+
+        <div aria-hidden="true" className="h-[22px] flex items-center gap-3 px-2.5 border-t border-line bg-surface-sunk text-micro uppercase tracking-[0.06em] text-ink-muted">
+          <span>↑↓ Move</span>
+          <span>↵ Open</span>
+          <span>Esc Close</span>
+          <span className="ml-auto">Ctrl+K</span>
+        </div>
       </div>
     </div>
   );

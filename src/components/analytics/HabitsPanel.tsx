@@ -1,13 +1,13 @@
-import type { LucideIcon } from 'lucide-react';
 import React, { useMemo, useState } from 'react';
 import { format, parseISO } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import * as chart from '../ui/chartTheme';
-import { Flame, Check } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useFinancial } from '../../context/FinancialContext';
 import { formatCurrency } from '../../utils/calculations';
 import { getSpendingCalendar, getMonthRhythm, getPurchaseSizeBreakdown } from '../../utils/habits';
 import { percentile } from '../../utils/planning';
+import { Panel, PanelGrid, IconButton } from '../ui';
 
 // Sequential single-hue ramp (light → dark) for daily spend.
 const RAMP = ['var(--c-ramp-1)', 'var(--c-ramp-2)', 'var(--c-ramp-3)', 'var(--c-ramp-4)', 'var(--c-ramp-5)'];
@@ -15,18 +15,16 @@ const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const COUNT_COLOR = 'var(--c-ink-muted)';
 const SPEND_COLOR = 'var(--c-data-1)';
 
-function Stat({
-  label, value, sub, icon: Icon,
-}: {
-  label: React.ReactNode;
-  value: React.ReactNode;
-  sub?: React.ReactNode;
-  icon?: LucideIcon;
-}) {
+/* A labelled figure as a ruled row, with its context on a second line. */
+function StatRow({
+  label, value, sub,
+}: { label: React.ReactNode; value: React.ReactNode; sub?: React.ReactNode }) {
   return (
-    <div className="bg-surface-sunk rounded-container p-3">
-      <p className="text-caption text-ink-muted flex items-center gap-1">{Icon && <Icon className="w-3.5 h-3.5" />}{label}</p>
-      <p className="text-lg font-bold text-ink">{value}</p>
+    <div className="px-2.5 py-1.5 border-b border-line">
+      <div className="flex items-baseline gap-2">
+        <span className="flex-1 min-w-0 truncate text-caption uppercase tracking-[0.03em] text-ink-secondary">{label}</span>
+        <span className="text-sm font-medium text-ink whitespace-nowrap">{value}</span>
+      </div>
       {sub && <p className="text-caption text-ink-muted mt-0.5">{sub}</p>}
     </div>
   );
@@ -67,34 +65,36 @@ export default function HabitsPanel() {
 
   const early = rhythm.segments[0].perDay;
   const late = rhythm.segments[2].perDay;
+  const streak = isCurrentMonth ? cal.currentStreak : cal.longestStreak;
 
   return (
-    <div className="space-y-5">
+    <PanelGrid className="grid-flow-row-dense">
       {/* Calendar */}
-      <div className="bg-surface rounded-container border border-line p-5">
-        <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
-          <div>
-            <h2 className="text-lg font-semibold text-ink">Spending Calendar</h2>
-            <p className="text-caption text-ink-muted mt-0.5">Everyday spending per day — scheduled bills and periodic charges aren't counted</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button onClick={() => changeMonth(-1)} className="p-1.5 rounded-control hover:bg-surface-hover text-ink-secondary">‹</button>
-            <span className="font-semibold text-ink-secondary text-sm min-w-28 text-center">{format(new Date(year, month, 1), 'MMMM yyyy')}</span>
-            <button onClick={() => changeMonth(1)} className="p-1.5 rounded-control hover:bg-surface-hover text-ink-secondary">›</button>
-          </div>
-        </div>
-
+      <Panel
+        title="Spending Calendar"
+        meta="Everyday spending per day — scheduled bills and periodic charges aren't counted"
+        className="col-span-12"
+        actions={(
+          <span className="flex items-center border border-line-strong bg-surface">
+            <IconButton icon={ChevronLeft} label="Previous month" onClick={() => changeMonth(-1)} className="rounded-none !w-5 !h-[18px]" />
+            <span className="px-1.5 h-[18px] leading-[18px] border-x border-line-strong text-micro uppercase tracking-[0.06em] text-ink min-w-[104px] text-center">{format(new Date(year, month, 1), 'MMMM yyyy')}</span>
+            <IconButton icon={ChevronRight} label="Next month" onClick={() => changeMonth(1)} className="rounded-none !w-5 !h-[18px]" />
+          </span>
+        )}
+      >
         {!cal.hasData ? (
-          <p className="text-sm text-ink-muted text-center py-10">No transactions recorded in {format(new Date(year, month, 1), 'MMMM yyyy')}.</p>
+          <p className="font-sans text-sm text-ink-muted p-3">No transactions recorded in {format(new Date(year, month, 1), 'MMMM yyyy')}.</p>
         ) : (
-        <div className="grid lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-            <div className="grid grid-cols-7 gap-1.5 text-center">
-              {WEEKDAYS.map(w => <div key={w} className="text-caption text-ink-muted pb-1">{w}</div>)}
+        <div className="grid lg:grid-cols-3 gap-px bg-line">
+          <div className="lg:col-span-2 bg-surface p-3">
+            <div className="grid grid-cols-7 gap-px text-center">
+              {WEEKDAYS.map(w => <div key={w} className="label-micro pb-1">{w}</div>)}
               {Array.from({ length: leading }, (_, i) => <div key={`pad${i}`} />)}
               {cal.days.map(d => {
                 const noSpend = !d.future && d.total === 0;
                 const bg = d.future ? 'var(--c-surface-sunk)' : noSpend ? 'var(--c-surface)' : step(d.total);
+                // Steps 1–3 carry --c-ink, 4–5 --c-ink-inverse (see tokens.css
+                // and contrast.test.ts). Keep this flip at index 3.
                 const dark = !d.future && !noSpend && RAMP.indexOf(bg) >= 3;
                 const tip = d.future
                   ? format(parseISO(d.date), 'EEE MMM d')
@@ -103,7 +103,7 @@ export default function HabitsPanel() {
                   <div
                     key={d.date}
                     title={tip}
-                    className={`rounded-control h-14 flex flex-col items-center justify-center border ${noSpend ? 'border-positive' : 'border-transparent'} ${d.future ? 'border-dashed border-line-strong' : ''}`}
+                    className={`h-11 flex flex-col items-center justify-center border ${noSpend ? 'border-positive' : 'border-transparent'} ${d.future ? 'border-dashed border-line-strong' : ''}`}
                     style={{ backgroundColor: bg }}
                   >
                     {/*
@@ -115,30 +115,29 @@ export default function HabitsPanel() {
                       good colour on a surface and a useless one on a fill.
                       ink-muted still applies on the uncoloured cells.
                     */}
-                    <span className={`text-caption ${d.future || noSpend ? 'text-ink-muted' : dark ? 'text-ink-inverse font-light' : 'text-ink font-light'}`}>{d.day}</span>
+                    <span className={`text-micro ${d.future || noSpend ? 'text-ink-muted' : dark ? 'text-ink-inverse font-light' : 'text-ink font-light'}`}>{d.day}</span>
                     {noSpend
-                      ? <Check className="w-3.5 h-3.5 text-positive" />
+                      ? <Check className="w-3 h-3 text-positive" />
                       : !d.future && <span className={`text-caption font-semibold ${dark ? 'text-ink-inverse' : 'text-ink'}`}>${Math.round(d.total)}</span>}
                   </div>
                 );
               })}
             </div>
-            <div className="flex flex-wrap items-center gap-4 text-caption text-ink-muted mt-3">
-              <span className="flex items-center gap-1">Less {RAMP.map(c => <span key={c} className="w-3 h-3 rounded-sm" style={{ backgroundColor: c }} />)} More</span>
-              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm border border-positive bg-surface flex items-center justify-center"><Check className="w-2.5 h-2.5 text-positive" /></span>No-spend day</span>
+            <div className="flex flex-wrap items-center gap-4 text-micro uppercase tracking-[0.06em] text-ink-muted mt-2">
+              <span className="flex items-center gap-1">Less {RAMP.map(c => <span key={c} className="w-2.5 h-2.5" style={{ backgroundColor: c }} />)} More</span>
+              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 border border-positive bg-surface flex items-center justify-center"><Check className="w-2 h-2 text-positive" /></span>No-spend day</span>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 lg:grid-cols-1 gap-3 content-start">
-            <Stat label="No-spend days" value={`${cal.noSpendDays} of ${cal.elapsedDays}`} sub={isCurrentMonth ? 'so far this month' : null} />
-            <Stat
-              icon={Flame}
+          <div className="bg-surface">
+            <StatRow label="No-spend days" value={`${cal.noSpendDays} of ${cal.elapsedDays}`} sub={isCurrentMonth ? 'so far this month' : null} />
+            <StatRow
               label={isCurrentMonth ? 'Current streak' : 'Longest streak'}
-              value={`${isCurrentMonth ? cal.currentStreak : cal.longestStreak} day${(isCurrentMonth ? cal.currentStreak : cal.longestStreak) === 1 ? '' : 's'}`}
+              value={`${streak} day${streak === 1 ? '' : 's'}`}
               sub={isCurrentMonth ? `Longest this month: ${cal.longestStreak}` : null}
             />
-            <Stat label="Average spending day" value={formatCurrency(cal.avgPerSpendDay)} sub={`${cal.spendDays} days with purchases`} />
-            <Stat
+            <StatRow label="Average spending day" value={formatCurrency(cal.avgPerSpendDay)} sub={`${cal.spendDays} days with purchases`} />
+            <StatRow
               label="Biggest day"
               value={cal.biggestDay ? formatCurrency(cal.biggestDay.total) : '—'}
               sub={cal.biggestDay ? format(parseISO(cal.biggestDay.date), 'EEEE, MMM d') : null}
@@ -146,76 +145,82 @@ export default function HabitsPanel() {
           </div>
         </div>
         )}
-      </div>
+      </Panel>
 
-      <div className="grid lg:grid-cols-2 gap-6">
-        {/* Month rhythm */}
-        <div className="bg-surface rounded-container border border-line p-5">
-          <h2 className="text-lg font-semibold text-ink">Month Rhythm</h2>
-          <p className="text-caption text-ink-muted mt-0.5 mb-3">Average everyday spending per day{rhythm.months ? `, last ${rhythm.months} month${rhythm.months > 1 ? 's' : ''}` : ''}</p>
-          {rhythm.months === 0 ? (
-            <p className="text-sm text-ink-muted text-center py-8">Needs at least one full month of history.</p>
-          ) : (
-            <>
-              <p className="text-sm text-ink-secondary mb-3">
-                {rhythm.earlyVsLatePct === null || Math.abs(rhythm.earlyVsLatePct) < 15
-                  ? 'Your spending is fairly even across the month.'
-                  : rhythm.earlyVsLatePct > 0
-                    ? <>You spend <span className="font-semibold">{rhythm.earlyVsLatePct}% more per day</span> in the first 10 days than at the end of the month — a common "just got paid" pattern.</>
-                    : <>You spend <span className="font-semibold">{Math.abs(rhythm.earlyVsLatePct)}% more per day</span> at the end of the month than in the first 10 days.</>}
-              </p>
+      {/* Month rhythm */}
+      <Panel
+        title="Month Rhythm"
+        meta={`Average everyday spending per day${rhythm.months ? `, last ${rhythm.months} month${rhythm.months > 1 ? 's' : ''}` : ''}`}
+        className="col-span-12 lg:col-span-6"
+      >
+        {rhythm.months === 0 ? (
+          <p className="font-sans text-sm text-ink-muted p-3">Needs at least one full month of history.</p>
+        ) : (
+          <>
+            <p className="font-sans text-sm text-ink-secondary px-2.5 py-1.5 border-b border-line">
+              {rhythm.earlyVsLatePct === null || Math.abs(rhythm.earlyVsLatePct) < 15
+                ? 'Your spending is fairly even across the month.'
+                : rhythm.earlyVsLatePct > 0
+                  ? <>You spend <span className="font-semibold">{rhythm.earlyVsLatePct}% more per day</span> in the first 10 days than at the end of the month — a common "just got paid" pattern.</>
+                  : <>You spend <span className="font-semibold">{Math.abs(rhythm.earlyVsLatePct)}% more per day</span> at the end of the month than in the first 10 days.</>}
+            </p>
+            <div className="p-3">
               <ResponsiveContainer width="100%" height={200}>
                 <BarChart data={rhythm.segments} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
                   <CartesianGrid {...chart.grid} />
-                  <XAxis dataKey="label" {...chart.xAxis} tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `$${v}`} />
-                  <Tooltip cursor={{ fill: 'var(--c-surface-hover)' }} formatter={v => [`${formatCurrency(chart.asNumber(v))}/day`, 'Average']} />
-                  <Bar dataKey="perDay" fill={SPEND_COLOR} radius={[4, 4, 0, 0]} barSize={48} isAnimationActive={false} />
+                  <XAxis dataKey="label" {...chart.xAxis} />
+                  <YAxis {...chart.yAxis} tickFormatter={chart.compactMoney} />
+                  <Tooltip {...chart.tooltip} formatter={v => [`${formatCurrency(chart.asNumber(v))}/day`, 'Average']} />
+                  <Bar dataKey="perDay" fill={SPEND_COLOR} barSize={48} isAnimationActive={false} />
                 </BarChart>
               </ResponsiveContainer>
-              {early > 0 && late > 0 && (rhythm.earlyVsLatePct ?? 0) > 15 && (
-                <p className="text-caption text-ink-muted mt-2">
-                  If the first 10 days matched your late-month pace, you'd spend about {formatCurrency((early - late) * 10)} less a month.
-                </p>
-              )}
-            </>
-          )}
-        </div>
-
-        {/* Purchase sizes */}
-        <div className="bg-surface rounded-container border border-line p-5">
-          <h2 className="text-lg font-semibold text-ink">Purchase Sizes</h2>
-          <p className="text-caption text-ink-muted mt-0.5 mb-3">Last {sizes.days} days · {sizes.count} purchases · {formatCurrency(sizes.total)}</p>
-          {sizes.count === 0 ? (
-            <p className="text-sm text-ink-muted text-center py-8">No purchases in the last {sizes.days} days.</p>
-          ) : (
-            <>
-              <p className="text-sm text-ink-secondary mb-3">
-                {bigSpendPct >= 40
-                  ? <>Big purchases ($100+) are only <span className="font-semibold">{bigCountPct}%</span> of transactions but <span className="font-semibold">{bigSpendPct}%</span> of spending — pausing before large buys matters most.</>
-                  : <>Purchases under $25 add up: <span className="font-semibold">{smallCount}</span> of them totalled <span className="font-semibold">{formatCurrency(smallSpend)}</span>.</>}
+            </div>
+            {early > 0 && late > 0 && (rhythm.earlyVsLatePct ?? 0) > 15 && (
+              <p className="font-sans text-caption text-ink-muted px-2.5 py-1.5 border-t border-line">
+                If the first 10 days matched your late-month pace, you'd spend about {formatCurrency((early - late) * 10)} less a month.
               </p>
+            )}
+          </>
+        )}
+      </Panel>
+
+      {/* Purchase sizes */}
+      <Panel
+        title="Purchase Sizes"
+        meta={`Last ${sizes.days} days · ${sizes.count} purchases · ${formatCurrency(sizes.total)}`}
+        className="col-span-12 lg:col-span-6"
+      >
+        {sizes.count === 0 ? (
+          <p className="font-sans text-sm text-ink-muted p-3">No purchases in the last {sizes.days} days.</p>
+        ) : (
+          <>
+            <p className="font-sans text-sm text-ink-secondary px-2.5 py-1.5 border-b border-line">
+              {bigSpendPct >= 40
+                ? <>Big purchases ($100+) are only <span className="font-semibold">{bigCountPct}%</span> of transactions but <span className="font-semibold">{bigSpendPct}%</span> of spending — pausing before large buys matters most.</>
+                : <>Purchases under $25 add up: <span className="font-semibold">{smallCount}</span> of them totalled <span className="font-semibold">{formatCurrency(smallSpend)}</span>.</>}
+            </p>
+            <div className="p-3">
               <ResponsiveContainer width="100%" height={200}>
                 <BarChart data={sizes.buckets} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
                   <CartesianGrid {...chart.grid} />
-                  <XAxis dataKey="label" {...chart.xAxis} tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `${v}%`} />
+                  <XAxis dataKey="label" {...chart.xAxis} />
+                  <YAxis {...chart.yAxis} tickFormatter={v => `${v}%`} />
                   <Tooltip
-                    cursor={{ fill: 'var(--c-surface-hover)' }}
+                    {...chart.tooltip}
                     formatter={(v, name, { payload }) => [
                       name === 'Share of purchases' ? `${v}% (${payload.count})` : `${v}% (${formatCurrency(payload.total)})`,
                       name,
                     ]}
                   />
-                  <Legend wrapperStyle={{ fontSize: 12 }} />
-                  <Bar dataKey="countPct" name="Share of purchases" fill={COUNT_COLOR} radius={[4, 4, 0, 0]} isAnimationActive={false} />
-                  <Bar dataKey="totalPct" name="Share of spending" fill={SPEND_COLOR} radius={[4, 4, 0, 0]} isAnimationActive={false} />
+                  <Legend iconType="square" iconSize={7} wrapperStyle={{ fontSize: 10.5, fontFamily: 'var(--font-numeric)', textTransform: 'uppercase', letterSpacing: '0.06em', paddingTop: 6 }} />
+                  <Bar dataKey="countPct" name="Share of purchases" fill={COUNT_COLOR} isAnimationActive={false} />
+                  <Bar dataKey="totalPct" name="Share of spending" fill={SPEND_COLOR} isAnimationActive={false} />
                 </BarChart>
               </ResponsiveContainer>
-            </>
-          )}
-        </div>
-      </div>
-    </div>
+            </div>
+          </>
+        )}
+      </Panel>
+    </PanelGrid>
   );
 }

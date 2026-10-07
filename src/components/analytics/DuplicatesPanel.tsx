@@ -1,9 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import { format, parseISO } from 'date-fns';
-import { CopyX } from 'lucide-react';
 import { useFinancial, useGetCategory } from '../../context/FinancialContext';
 import { formatCurrency } from '../../utils/calculations';
 import { detectDuplicateCharges } from '../../utils/insights';
+import { Panel, Badge, Button } from '../ui';
 
 // Stable empty array — see BudgetTuneUpPanel.
 const NONE: string[] = [];
@@ -12,7 +12,7 @@ const fmtDate = (d: string): string => format(parseISO(d.slice(0, 10)), 'MMM d')
 type Duplicate = ReturnType<typeof detectDuplicateCharges>[number];
 
 // Possible double charges, with "keep both" (remembered) and a two-step delete.
-export default function DuplicatesPanel() {
+export default function DuplicatesPanel({ className = 'col-span-12' }: { className?: string }) {
   const { state, dispatch } = useFinancial();
   const getCategory = useGetCategory();
   const dismissed = state.settings?.dismissedDuplicates || NONE;
@@ -35,51 +35,41 @@ export default function DuplicatesPanel() {
   const total = duplicates.reduce((s, d) => s + d.amount, 0);
 
   return (
-    <div className="bg-surface rounded-container border border-negative p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
-        <div className="flex items-start gap-3">
-          <div className="w-8 h-8 rounded-control bg-negative-tint flex items-center justify-center shrink-0">
-            <CopyX className="w-4 h-4 text-negative" />
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold text-ink">Possible Double Charges</h2>
-            <p className="text-caption text-ink-muted mt-0.5">Same merchant and exact amount within a couple of days (last 90 days). Check your statement, then dispute or remove the extra entry.</p>
-          </div>
-        </div>
-        <div className="text-right">
-          <p className="text-xl font-bold text-negative">{formatCurrency(total)}</p>
-          <p className="text-caption text-ink-muted">{duplicates.length} to review</p>
-        </div>
-      </div>
-
-      <div className="space-y-2">
+    <Panel
+      title="Possible Double Charges"
+      meta={<span className="text-negative">{duplicates.length} to review · {formatCurrency(total)}</span>}
+      className={className}
+    >
+      <p className="font-sans text-caption text-ink-muted px-2.5 py-1.5 border-b border-line">Same merchant and exact amount within a couple of days (last 90 days). Check your statement, then dispute or remove the extra entry.</p>
+      <ul>
         {duplicates.map(d => {
           const cat = getCategory(d.category);
           return (
-            <div key={d.key} className="flex flex-wrap items-center gap-3 border border-line rounded-container p-3">
+            <li key={d.key} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-2.5 py-1 border-b border-line last:border-b-0 hover:bg-surface-hover">
+              <Badge tone="negative" className="shrink-0 w-12 justify-center">Dup?</Badge>
               <div className="flex-1 min-w-48">
-                <p className="text-sm font-semibold text-ink">{d.merchant} · {formatCurrency(d.amount)}</p>
+                <p className="text-sm text-ink">{d.merchant} · <span className="text-negative">{formatCurrency(d.amount)}</span></p>
                 <p className="text-caption text-ink-muted">
                   {cat.name} · charged {fmtDate(d.first.date)}
                   {d.daysApart === 0 ? ' twice' : ` and ${fmtDate(d.second.date)}`}
                 </p>
               </div>
               {confirming === d.key ? (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
                   <span className="text-caption text-ink-muted">Delete the {fmtDate(d.second.date)} entry?</span>
-                  <button onClick={() => removeSecond(d)} className="px-3 py-1.5 bg-negative hover:bg-negative text-ink-inverse text-caption font-medium rounded-control">Delete</button>
-                  <button onClick={() => setConfirming(null)} className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-7 px-2.5 text-caption border border-line-strong text-ink hover:bg-surface-hover">Cancel</button>
+                  <Button size="sm" variant="danger" className="border-current" onClick={() => removeSecond(d)}>Delete</Button>
+                  <Button size="sm" variant="secondary" onClick={() => setConfirming(null)}>Cancel</Button>
                 </div>
               ) : (
-                <div className="flex items-center gap-2">
-                  <button onClick={() => keepBoth(d.key)} className="px-3 py-1.5 border border-line-strong text-ink-secondary text-caption font-medium rounded-control hover:bg-surface-sunk">Keep both</button>
-                  <button onClick={() => setConfirming(d.key)} className="px-3 py-1.5 border border-negative text-negative text-caption font-medium rounded-control hover:bg-negative-tint">Remove duplicate</button>
+                <div className="flex items-center gap-1.5">
+                  <Button size="sm" variant="secondary" onClick={() => keepBoth(d.key)}>Keep both</Button>
+                  <Button size="sm" variant="danger" onClick={() => setConfirming(d.key)}>Remove duplicate</Button>
                 </div>
               )}
-            </div>
+            </li>
           );
         })}
-      </div>
-    </div>
+      </ul>
+    </Panel>
   );
 }

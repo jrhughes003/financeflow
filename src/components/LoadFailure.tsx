@@ -7,7 +7,8 @@
 // what guarantees nothing is written while the real rows are still on disk.
 
 import React from 'react';
-import { AlertTriangle, RotateCcw } from 'lucide-react';
+import { RotateCcw } from 'lucide-react';
+import { Badge, Button } from './ui';
 
 /** Whatever was thrown, rendered as something a person can paste into a report. */
 function describeError(error: unknown): string {
@@ -19,44 +20,43 @@ const DB_PATH = String.raw`C:\Users\<you>\AppData\Roaming\FinanceFlow\financeflo
 
 export default function LoadFailure({ error }: { error: unknown }) {
   return (
-    <div className="min-h-screen bg-canvas flex items-start justify-center p-6">
-      <div className="max-w-lg w-full mt-16 bg-surface border border-line rounded-container p-5">
-        <div className="flex items-start gap-3">
-          <AlertTriangle className="w-5 h-5 text-negative shrink-0 mt-0.5" aria-hidden="true" />
-          <div className="min-w-0">
-            <h1 className="text-lg font-semibold text-ink">Couldn't open your data</h1>
+    <div className="min-h-screen bg-canvas flex items-start justify-center p-4">
+      <section aria-labelledby="load-failure-title" className="max-w-xl w-full mt-16 bg-surface border border-line-strong">
+        <div className="h-bar flex items-center gap-2.5 px-2.5 bg-surface-sunk border-b border-line">
+          <h1 id="load-failure-title" className="text-micro uppercase font-semibold text-ink">Couldn't open your data</h1>
+          <span className="ml-auto"><Badge tone="negative">Load failed</Badge></span>
+        </div>
 
-            <p className="text-sm text-ink-secondary mt-1">
-              The database exists but couldn't be read, so the app has stopped before doing
-              anything else. <strong className="font-medium text-ink">Nothing has been
-              written</strong> — your records are still on disk exactly as they were.
-            </p>
+        <div className="p-3 space-y-2.5">
+          <p className="font-sans text-sm text-ink-secondary">
+            The database exists but couldn't be read, so the app has stopped before doing
+            anything else. <strong className="font-medium text-ink">Nothing has been
+            written</strong> — your records are still on disk exactly as they were.
+          </p>
 
-            <p className="text-sm text-ink-secondary mt-3">
+          <div>
+            <p className="font-sans text-sm text-ink-secondary">
               Copy this file somewhere safe before trying anything, then reload:
             </p>
-            <pre className="mt-2 p-3 bg-surface-sunk border border-line rounded-control text-caption text-ink-secondary overflow-x-auto">
+            <pre className="mt-1.5 px-2.5 py-1.5 bg-canvas border border-line text-caption text-ink overflow-x-auto">
               {DB_PATH}
             </pre>
-
-            <button
-              onClick={() => window.location.reload()}
-              className="mt-4 inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors h-9 px-3.5 text-sm bg-accent hover:bg-accent-hover text-ink-inverse"
-            >
-              <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" /> Reload
-            </button>
-
-            <details className="mt-4">
-              <summary className="text-caption text-ink-muted cursor-pointer hover:text-ink-secondary">
-                Technical detail
-              </summary>
-              <pre className="mt-2 p-3 bg-surface-sunk border border-line rounded-control text-caption text-ink-secondary overflow-x-auto whitespace-pre-wrap">
-                {describeError(error)}
-              </pre>
-            </details>
           </div>
+
+          <Button variant="primary" icon={RotateCcw} onClick={() => window.location.reload()}>
+            Reload
+          </Button>
         </div>
-      </div>
+
+        <details className="border-t border-line">
+          <summary className="py-1.5 px-2.5 label-micro cursor-pointer hover:text-ink-secondary hover:bg-surface-hover">
+            Technical detail
+          </summary>
+          <pre className="px-2.5 py-1.5 bg-canvas border-t border-line text-caption text-ink-secondary overflow-x-auto whitespace-pre-wrap">
+            {describeError(error)}
+          </pre>
+        </details>
+      </section>
     </div>
   );
 }

@@ -3,12 +3,12 @@ import {
   ComposedChart, Area, Line, Bar, BarChart, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine,
 } from 'recharts';
 import * as chart from '../ui/chartTheme';
-import { PageLede, Stat as UiStat } from '../ui';
+import { Button, PanelGrid } from '../ui';
 import { formatCurrency } from '../../utils/calculations';
 import type { LifePlan } from '../../types/lifeplan';
 import type { PlanOutcome, PlanRow } from '../../types/projection';
 import { needsSetup } from '../../types/projection';
-import { Card, Stat } from './ui';
+import { Card, Segmented } from './ui';
 
 const COLORS = { liquid: 'var(--c-data-1)', home: 'var(--c-data-5)', debt: 'var(--c-negative)', net: 'var(--c-ink)', spend: 'var(--c-caution)', tax: 'var(--c-ink-muted)', income: 'var(--c-positive)' };
 const money = (v: number): string => formatCurrency(Math.round(v));
@@ -29,8 +29,8 @@ function ChartTooltip({ active, payload, label, rows, todayDollars }: ChartToolt
   if (!row) return null;
   const d = (v: number) => (todayDollars ? v / row.inflationIndex : v);
   return (
-    <div className="bg-surface border border-line-strong rounded-control p-3 text-caption space-y-0.5">
-      <p className="font-semibold text-ink mb-1">{row.year} · age {row.ages.me}{row.ages.partner !== undefined && ` / ${row.ages.partner}`}</p>
+    <div className="bg-surface border border-line shadow-overlay px-2 py-1.5 text-caption space-y-0.5">
+      <p className="label-micro mb-1">{row.year} · age {row.ages.me}{row.ages.partner !== undefined && ` / ${row.ages.partner}`}</p>
       <p className="text-ink-secondary">Income: {money(d(row.income))}</p>
       <p className="text-ink-secondary">Tax: −{money(d(row.tax))} ({Math.round(row.averageTaxRate * 100)}%)</p>
       <p className="text-ink-secondary">Spending: −{money(d(row.spending.total))}</p>
@@ -43,6 +43,8 @@ function ChartTooltip({ active, payload, label, rows, todayDollars }: ChartToolt
     </div>
   );
 }
+
+const TABLE_HEADS = ['Year', 'Age', 'Income', 'Tax', 'Spending', 'Saved / drawn', 'Savings', 'Home', 'Debt', 'Net worth'];
 
 export default function PlanProjection({ plan, result }: { plan: LifePlan; result: PlanOutcome }) {
   const [todayDollars, setTodayDollars] = useState(true);
@@ -70,7 +72,7 @@ export default function PlanProjection({ plan, result }: { plan: LifePlan; resul
   }), [rows, todayDollars]);
 
   if (needsSetup(result)) {
-    return <Card><p className="text-sm text-ink-muted text-center py-8">Add your birth year in Setup to see the projection.</p></Card>;
+    return <Card><p className="font-sans text-sm text-ink-muted">Add your birth year in Setup to see the projection.</p></Card>;
   }
 
   const me = plan.people.find(p => p.id === 'me');
@@ -82,129 +84,142 @@ export default function PlanProjection({ plan, result }: { plan: LifePlan; resul
   const eventYears = rows.filter(r => r.events.length);
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex bg-surface-hover rounded-control p-0.5 text-caption font-medium">
-          {([[true, "Today's dollars"], [false, 'Future dollars']] as const).map(([val, label]) => (
-            <button key={label} onClick={() => setTodayDollars(val)}
-              className={`px-3 py-1.5 rounded-control transition-colors ${todayDollars === val ? 'bg-surface  text-accent' : 'text-ink-muted hover:text-ink-secondary'}`}>
-              {label}
-            </button>
-          ))}
-        </div>
-        <p className="text-caption text-ink-muted">
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-3">
+        <Segmented
+          options={[[true, "Today's dollars"], [false, 'Future dollars']] as const}
+          value={todayDollars}
+          onChange={setTodayDollars}
+        />
+        <p className="font-sans text-caption text-ink-muted">
           {todayDollars ? 'Adjusted for inflation, so amounts are comparable with money today.' : 'Actual dollar amounts in each future year.'}
         </p>
       </div>
 
-      <Card>
-        <PageLede
-          label={`Net worth at retirement (${retireYear})`}
-          supporting={(
-            <>
-              <UiStat label={`At age ${plan.assumptions.endAge}`}
-                hint={fin ? `${money(dv(fin, fin.balances.liquid))} in savings` : null}>
-                {fin ? money(dv(fin, fin.netWorth)) : '—'}
-              </UiStat>
-              <UiStat label="Lifetime tax" hint="Income tax + CPP/EI">
-                {money(lifetimeTax)}
-              </UiStat>
-              <UiStat label="Status"
-                hint={result.firstShortfall ? `age ${result.firstShortfall.year - Number(me?.birthYear)}` : `through age ${plan.assumptions.endAge}`}>
-                <span className={result.firstShortfall ? 'text-caution' : 'text-positive'}>
-                  {result.firstShortfall ? `Runs short ${result.firstShortfall.year}` : 'Holds up'}
-                </span>
-              </UiStat>
-            </>
-          )}
-        >
-          <span className="figure-display">{ret ? money(dv(ret, ret.netWorth)) : '—'}</span>
-          <p className="text-caption text-ink-muted mt-2">
+      {/* The figures: retirement, the end of the plan, tax, and whether it holds. */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-line border border-line">
+        <div className="bg-surface px-2.5 py-1.5 col-span-2 lg:col-span-1">
+          <p className="label-micro">Net worth at retirement ({retireYear})</p>
+          <p className="figure-display mt-1">{ret ? money(dv(ret, ret.netWorth)) : '—'}</p>
+          <p className="text-caption text-ink-muted mt-0.5">
             {ret ? `${money(dv(ret, ret.balances.liquid))} of it in savings` : 'Beyond the plan window'}
           </p>
-        </PageLede>
-      </Card>
-
-      <Card title="Net worth over time" subtitle="Savings and investments, plus home equity, less debts.">
-        <ResponsiveContainer width="100%" height={300}>
-          <ComposedChart data={data} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
-            <CartesianGrid {...chart.grid} />
-            <XAxis dataKey="year" {...chart.xAxis} tick={{ fontSize: 11 }} interval="preserveStartEnd" minTickGap={40} />
-            <YAxis {...chart.yAxis} tick={{ fontSize: 11 }} tickFormatter={compact} width={55} />
-            <ReferenceLine y={0} stroke="var(--c-ink-muted)" />
-            {retireYear && <ReferenceLine x={retireYear} stroke="var(--c-ink-muted)" strokeDasharray="4 4" label={{ value: 'retirement', fontSize: 10, fill: 'var(--c-ink-muted)', position: 'insideTopRight' }} />}
-            <Tooltip content={<ChartTooltip rows={rows} todayDollars={todayDollars} />} />
-            <Legend wrapperStyle={{ fontSize: 12 }} />
-            <Area dataKey="liquid" name="Savings & investments" stackId="a" stroke="none" fill={COLORS.liquid} fillOpacity={0.6} isAnimationActive={false} />
-            <Area dataKey="homeEquity" name="Home equity" stackId="a" stroke="none" fill={COLORS.home} fillOpacity={0.6} isAnimationActive={false} />
-            <Area dataKey="debt" name="Other debt" stroke="none" fill={COLORS.debt} fillOpacity={0.5} isAnimationActive={false} />
-            <Line dataKey="netWorth" name="Net worth" stroke={COLORS.net} strokeWidth={2} dot={false} isAnimationActive={false} />
-          </ComposedChart>
-        </ResponsiveContainer>
-        {eventYears.length > 0 && (
-          <p className="text-caption text-ink-muted mt-2">
-            Planned: {eventYears.slice(0, 6).map(r => `${r.events.map(e => e.name).join(', ')} (${r.year})`).join(' · ')}{eventYears.length > 6 ? ' …' : ''}
+        </div>
+        <div className="bg-surface px-2.5 py-1.5">
+          <p className="label-micro">At age {plan.assumptions.endAge}</p>
+          <p className="text-xl font-medium text-ink mt-1">{fin ? money(dv(fin, fin.netWorth)) : '—'}</p>
+          {fin && <p className="text-caption text-ink-muted mt-0.5">{money(dv(fin, fin.balances.liquid))} in savings</p>}
+        </div>
+        <div className="bg-surface px-2.5 py-1.5">
+          <p className="label-micro">Lifetime tax</p>
+          <p className="text-xl font-medium text-ink mt-1">{money(lifetimeTax)}</p>
+          <p className="text-caption text-ink-muted mt-0.5">Income tax + CPP/EI</p>
+        </div>
+        <div className="bg-surface px-2.5 py-1.5 col-span-2 lg:col-span-1">
+          <p className="label-micro">Status</p>
+          <p className={`text-xl font-medium mt-1 ${result.firstShortfall ? 'text-caution' : 'text-positive'}`}>
+            {result.firstShortfall ? `Runs short ${result.firstShortfall.year}` : 'Holds up'}
           </p>
-        )}
-      </Card>
+          <p className="text-caption text-ink-muted mt-0.5">
+            {result.firstShortfall ? `age ${result.firstShortfall.year - Number(me?.birthYear)}` : `through age ${plan.assumptions.endAge}`}
+          </p>
+        </div>
+      </div>
 
-      <Card title="Money in and out each year" subtitle="Income, what tax takes, and what you spend.">
-        <ResponsiveContainer width="100%" height={260}>
-          <BarChart data={data} margin={{ top: 5, right: 10, left: 10, bottom: 5 }} stackOffset="sign">
-            <CartesianGrid {...chart.grid} />
-            <XAxis dataKey="year" {...chart.xAxis} tick={{ fontSize: 11 }} interval="preserveStartEnd" minTickGap={40} />
-            <YAxis {...chart.yAxis} tick={{ fontSize: 11 }} tickFormatter={compact} width={55} />
-            <ReferenceLine y={0} stroke="var(--c-ink-muted)" />
-            <Tooltip content={<ChartTooltip rows={rows} todayDollars={todayDollars} />} />
-            <Legend wrapperStyle={{ fontSize: 12 }} />
-            <Bar dataKey="income" name="Income" fill={COLORS.income} stackId="b" isAnimationActive={false} />
-            <Bar dataKey="tax" name="Tax" fill={COLORS.tax} stackId="c" isAnimationActive={false} />
-            <Bar dataKey="spending" name="Spending" fill={COLORS.spend} stackId="c" isAnimationActive={false} />
-          </BarChart>
-        </ResponsiveContainer>
-      </Card>
-
-      <Card
-        title="Year by year"
-        subtitle={`${rows.length} years, starting ${result.startYm}. ${todayDollars ? "In today's dollars." : 'In future dollars.'}`}
-        actions={<button onClick={() => setShowTable(s => !s)} className="text-caption text-accent hover:text-accent-ink font-medium">{showTable ? 'Hide table' : 'Show table'}</button>}
-      >
-        {showTable && (
-          <div className="overflow-auto max-h-[28rem]">
-            <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-surface">
-                <tr className="text-caption text-ink-muted border-b border-line">
-                  {['Year', 'Age', 'Income', 'Tax', 'Spending', 'Saved / drawn', 'Savings', 'Home', 'Debt', 'Net worth'].map(h => (
-                    <th key={h} className={`py-2 font-medium ${h === 'Year' || h === 'Age' ? 'text-left' : 'text-right'}`}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map(r => {
-                  const d = (v: number) => (todayDollars ? v / r.inflationIndex : v);
-                  // Money set aside out of your own pocket (investments +
-                  // RRSP/FHSA contributions, less the employer's match) minus what was drawn.
-                  const netSaved = r.invested + r.contributions - r.employerMatch - r.withdrawals;
-                  return (
-                    <tr key={r.year} className={`border-b border-line-faint ${r.shortfall > 0 ? 'bg-negative-tint/50' : ''}`}>
-                      <td className="py-1.5 text-ink-secondary">{r.year}{r.events.length > 0 && <span className="ml-1 text-caption text-accent" title={r.events.map(e => e.name).join(', ')}>●</span>}</td>
-                      <td className="py-1.5 text-ink-muted">{r.ages.me}</td>
-                      <td className="py-1.5 text-right text-ink-secondary">{money(d(r.income))}</td>
-                      <td className="py-1.5 text-right text-ink-muted">{money(d(r.tax))}</td>
-                      <td className="py-1.5 text-right text-ink-muted">{money(d(r.spending.total))}</td>
-                      <td className={`py-1.5 text-right ${netSaved >= 0 ? 'text-positive' : 'text-caution'}`}>{netSaved >= 0 ? '+' : '−'}{money(Math.abs(d(netSaved)))}</td>
-                      <td className="py-1.5 text-right text-ink-secondary">{money(d(r.balances.liquid))}</td>
-                      <td className="py-1.5 text-right text-ink-muted">{r.homeValue ? money(d(r.homeValue)) : '—'}</td>
-                      <td className="py-1.5 text-right text-ink-muted">{r.mortgage + r.otherDebt ? money(d(r.mortgage + r.otherDebt)) : '—'}</td>
-                      <td className="py-1.5 text-right font-semibold text-ink">{money(d(r.netWorth))}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+      <PanelGrid className="grid-flow-row-dense">
+        <Card title="Net worth over time" subtitle="Savings and investments, plus home equity, less debts." bordered={false} className="col-span-12 xl:col-span-7" flush>
+          <div className="p-2">
+            <ResponsiveContainer width="100%" height={280}>
+              <ComposedChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+                <CartesianGrid {...chart.grid} />
+                <XAxis dataKey="year" {...chart.xAxis} interval="preserveStartEnd" minTickGap={40} />
+                <YAxis {...chart.yAxis} tickFormatter={compact} />
+                <ReferenceLine y={0} stroke="var(--c-line-strong)" />
+                {retireYear && <ReferenceLine x={retireYear} stroke="var(--c-ink-muted)" strokeDasharray="4 4" label={{ value: 'retirement', fontSize: 10, fill: 'var(--c-ink-muted)', position: 'insideTopRight' }} />}
+                <Tooltip content={<ChartTooltip rows={rows} todayDollars={todayDollars} />} />
+                <Legend wrapperStyle={chart.legend.wrapperStyle} iconSize={chart.legend.iconSize} />
+                <Area dataKey="liquid" name="Savings & investments" stackId="a" stroke="none" fill={COLORS.liquid} fillOpacity={0.6} isAnimationActive={false} />
+                <Area dataKey="homeEquity" name="Home equity" stackId="a" stroke="none" fill={COLORS.home} fillOpacity={0.6} isAnimationActive={false} />
+                <Area dataKey="debt" name="Other debt" stroke="none" fill={COLORS.debt} fillOpacity={0.5} isAnimationActive={false} />
+                <Line dataKey="netWorth" name="Net worth" stroke={COLORS.net} strokeWidth={2} dot={false} isAnimationActive={false} />
+              </ComposedChart>
+            </ResponsiveContainer>
           </div>
-        )}
-      </Card>
+          {eventYears.length > 0 && (
+            <p className="text-caption text-ink-muted px-2.5 py-1.5 border-t border-line">
+              <span className="label-micro mr-2">Planned</span>
+              {eventYears.slice(0, 6).map(r => `${r.events.map(e => e.name).join(', ')} (${r.year})`).join(' · ')}{eventYears.length > 6 ? ' …' : ''}
+            </p>
+          )}
+        </Card>
+
+        <Card title="Money in and out each year" subtitle="Income, what tax takes, and what you spend." bordered={false} className="col-span-12 xl:col-span-5" flush>
+          <div className="p-2">
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 0 }} stackOffset="sign">
+                <CartesianGrid {...chart.grid} />
+                <XAxis dataKey="year" {...chart.xAxis} interval="preserveStartEnd" minTickGap={40} />
+                <YAxis {...chart.yAxis} tickFormatter={compact} />
+                <ReferenceLine y={0} stroke="var(--c-line-strong)" />
+                <Tooltip content={<ChartTooltip rows={rows} todayDollars={todayDollars} />} cursor={chart.tooltip.cursor} />
+                <Legend wrapperStyle={chart.legend.wrapperStyle} iconSize={chart.legend.iconSize} />
+                <Bar dataKey="income" name="Income" fill={COLORS.income} stackId="b" isAnimationActive={false} />
+                <Bar dataKey="tax" name="Tax" fill={COLORS.tax} stackId="c" isAnimationActive={false} />
+                <Bar dataKey="spending" name="Spending" fill={COLORS.spend} stackId="c" isAnimationActive={false} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
+
+        <Card
+          title="Year by year"
+          subtitle={`${rows.length} years, starting ${result.startYm}. ${todayDollars ? "In today's dollars." : 'In future dollars.'}`}
+          actions={<Button size="sm" variant="ghost" onClick={() => setShowTable(s => !s)}>{showTable ? 'Hide table' : 'Show table'}</Button>}
+          bordered={false}
+          className="col-span-12"
+          flush
+        >
+          {showTable && (
+            <div className="overflow-auto max-h-[28rem]">
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 z-10">
+                  <tr>
+                    {TABLE_HEADS.map(h => (
+                      <th key={h} scope="col" className={`label-micro font-medium h-[22px] px-2.5 border-b border-line bg-surface-sunk whitespace-nowrap ${h === 'Year' || h === 'Age' ? 'text-left' : 'text-right'}`}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map(r => {
+                    const d = (v: number) => (todayDollars ? v / r.inflationIndex : v);
+                    // Money set aside out of your own pocket (investments +
+                    // RRSP/FHSA contributions, less the employer's match) minus what was drawn.
+                    const netSaved = r.invested + r.contributions - r.employerMatch - r.withdrawals;
+                    const cell = 'h-row px-2.5 border-b border-line whitespace-nowrap';
+                    return (
+                      <tr key={r.year} className={`hover:bg-surface-hover ${r.shortfall > 0 ? 'shadow-[inset_2px_0_0_var(--c-negative)]' : ''}`}>
+                        <td className={`${cell} ${r.shortfall > 0 ? 'text-negative' : 'text-ink-secondary'}`}>
+                          {r.year}
+                          {r.events.length > 0 && <span className="inline-block w-[5px] h-[5px] ml-1.5 align-middle bg-accent" title={r.events.map(e => e.name).join(', ')} />}
+                        </td>
+                        <td className={`${cell} text-ink-muted`}>{r.ages.me}</td>
+                        <td className={`${cell} text-right text-ink-secondary`}>{money(d(r.income))}</td>
+                        <td className={`${cell} text-right text-ink-muted`}>{money(d(r.tax))}</td>
+                        <td className={`${cell} text-right text-ink-muted`}>{money(d(r.spending.total))}</td>
+                        <td className={`${cell} text-right ${netSaved >= 0 ? 'text-positive' : 'text-caution'}`}>{netSaved >= 0 ? '+' : '−'}{money(Math.abs(d(netSaved)))}</td>
+                        <td className={`${cell} text-right text-ink-secondary`}>{money(d(r.balances.liquid))}</td>
+                        <td className={`${cell} text-right text-ink-muted`}>{r.homeValue ? money(d(r.homeValue)) : '—'}</td>
+                        <td className={`${cell} text-right text-ink-muted`}>{r.mortgage + r.otherDebt ? money(d(r.mortgage + r.otherDebt)) : '—'}</td>
+                        <td className={`${cell} text-right font-semibold text-ink`}>{money(d(r.netWorth))}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+      </PanelGrid>
     </div>
   );
 }

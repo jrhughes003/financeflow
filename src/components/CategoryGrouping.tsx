@@ -15,11 +15,12 @@
  */
 
 import React from 'react';
-import { Layers, RotateCcw } from 'lucide-react';
+import { RotateCcw } from 'lucide-react';
 import { useFinancial, useTaxonomy } from '../context/FinancialContext';
 import { groups as groupsOf, childrenOf, selectable, groupOf } from '../utils/categoryTree';
 import { formatCurrency } from '../utils/calculations';
 import { getSpendingByCategory } from '../utils/calculations';
+import { Panel, Button, Badge, CategoryMark } from './ui';
 
 export default function CategoryGrouping() {
   const { state, dispatch } = useFinancial();
@@ -53,87 +54,79 @@ export default function CategoryGrouping() {
   const reset = () => dispatch({ type: 'UPDATE_SETTINGS', payload: { categoryParents: {} } });
 
   return (
-    <div className="bg-surface rounded-container border border-line p-5">
-      <div className="flex items-start justify-between gap-4 mb-1">
-        <h2 className="text-lg font-semibold text-ink flex items-center gap-2">
-          <Layers className="w-4 h-4 text-ink-muted" />Categories &amp; budget groups
-        </h2>
-        {Object.keys(overrides).length > 0 && (
-          <button
-            onClick={reset}
-            className="inline-flex items-center gap-1 text-caption text-accent hover:text-accent-ink font-medium shrink-0"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />Reset to default
-          </button>
-        )}
-      </div>
-      <p className="text-caption text-ink-muted mb-4">
+    <Panel
+      title="Categories & budget groups"
+      meta={`${groupList.length} GROUPS · SPEND 12M`}
+      actions={Object.keys(overrides).length > 0 && (
+        <Button size="sm" variant="ghost" icon={RotateCcw} onClick={reset}>Reset to default</Button>
+      )}
+      bordered
+    >
+      <p className="font-sans text-caption text-ink-muted px-2.5 py-1.5 border-b border-line">
         You record transactions against any category, but budget against the groups below.
         Move a category to change which budget its spending counts toward. Spending shown is the last 12 months.
       </p>
 
-      <div className="space-y-3">
-        {groupList.map(group => {
-          const children = childrenOf(group.id, visible, taxonomy.parentOverrides);
-          const groupTotal = [group, ...children].reduce((s, c) => s + (spent[c.id] || 0), 0);
-          return (
-            <div key={group.id} className="border border-line rounded-container overflow-hidden">
-              <div className="flex items-center gap-2 px-3 h-9 bg-surface-sunk border-b border-line">
-                <span className="w-2 h-2 rounded-[2px] shrink-0" style={{ background: group.color }} aria-hidden="true" />
-                <span className="text-sm font-medium text-ink flex-1">{group.name}</span>
-                {budgetedIds.has(group.id)
-                  ? <span className="text-micro uppercase tracking-[0.07em] text-accent-ink bg-accent-tint px-1.5 py-0.5 rounded-control">Budgeted</span>
-                  : <span className="text-micro uppercase tracking-[0.07em] text-ink-muted">No budget</span>}
-                <span className="money text-sm text-ink-secondary tabular-nums">{formatCurrency(groupTotal)}</span>
-              </div>
-
-              <ul>
-                {[group, ...children].map(c => (
-                  <li key={c.id} className="flex items-center gap-2 px-3 h-row border-b border-line-faint last:border-0">
-                    <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: c.color }} aria-hidden="true" />
-                    <span className="text-sm text-ink flex-1">
-                      {c.name}
-                      {c.id === group.id && <span className="text-caption text-ink-muted"> · the group itself</span>}
-                    </span>
-                    <span className="money text-caption text-ink-muted tabular-nums w-24 text-right">
-                      {spent[c.id] ? formatCurrency(spent[c.id]) : '—'}
-                    </span>
-                    {/*
-                      A budgeted category is pinned as its own group — moving it
-                      would orphan the budget — so the control says so rather
-                      than silently refusing.
-                    */}
-                    {budgetedIds.has(c.id) && c.id !== group.id ? (
-                      <span className="text-caption text-ink-muted w-40 text-right">budgeted separately</span>
-                    ) : (
-                      <select
-                        aria-label={`Budget group for ${c.name}`}
-                        value={groupOf(c.id, visible, taxonomy.parentOverrides)}
-                        onChange={e => move(c.id, e.target.value)}
-                        disabled={budgetedIds.has(c.id)}
-                        className="w-40 h-7 px-2 bg-surface border border-line-strong rounded-control text-caption text-ink focus:outline-none focus:border-accent disabled:text-ink-muted"
-                      >
-                        {/* Its own id first: choosing that makes it a group. */}
-                        <option value={c.id}>{c.name} (own group)</option>
-                        {visible
-                          .filter(g => g.id !== c.id && groupOf(g.id, visible, taxonomy.parentOverrides) === g.id)
-                          .map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-                      </select>
-                    )}
-                  </li>
-                ))}
-              </ul>
+      {groupList.map(group => {
+        const children = childrenOf(group.id, visible, taxonomy.parentOverrides);
+        const groupTotal = [group, ...children].reduce((s, c) => s + (spent[c.id] || 0), 0);
+        return (
+          <div key={group.id} className="border-b border-line">
+            <div className="flex items-center gap-2 px-2.5 h-row bg-surface-sunk border-b border-line">
+              <CategoryMark color={group.color} name={group.name} className="flex-1 text-sm font-medium text-ink" />
+              {budgetedIds.has(group.id)
+                ? <Badge tone="accent">Budgeted</Badge>
+                : <span className="text-micro uppercase tracking-[0.07em] text-ink-muted">No budget</span>}
+              <span className="money text-sm text-ink-secondary tabular-nums w-24 text-right">{formatCurrency(groupTotal)}</span>
+              {/* Lines the total up over the column of selects below. */}
+              <span className="w-40 hidden sm:block" aria-hidden="true" />
             </div>
-          );
-        })}
-      </div>
 
-      <p className="text-caption text-ink-muted mt-3">
+            <ul>
+              {[group, ...children].map(c => (
+                <li key={c.id} className="flex items-center gap-2 pl-5 pr-2.5 h-row border-b border-line-faint last:border-0 hover:bg-surface-hover">
+                  <span className="text-sm text-ink flex-1 min-w-0 truncate">
+                    <CategoryMark color={c.color} name={c.name} className="align-middle" />
+                    {c.id === group.id && <span className="text-caption text-ink-muted"> · the group itself</span>}
+                  </span>
+                  <span className="money text-caption text-ink-muted tabular-nums w-24 text-right">
+                    {spent[c.id] ? formatCurrency(spent[c.id]) : '—'}
+                  </span>
+                  {/*
+                    A budgeted category is pinned as its own group — moving it
+                    would orphan the budget — so the control says so rather
+                    than silently refusing.
+                  */}
+                  {budgetedIds.has(c.id) && c.id !== group.id ? (
+                    <span className="text-caption text-ink-muted w-40 text-right">budgeted separately</span>
+                  ) : (
+                    <select
+                      aria-label={`Budget group for ${c.name}`}
+                      value={groupOf(c.id, visible, taxonomy.parentOverrides)}
+                      onChange={e => move(c.id, e.target.value)}
+                      disabled={budgetedIds.has(c.id)}
+                      className="w-40 h-[22px] px-1.5 bg-surface border border-line-strong rounded-control text-caption text-ink focus:outline-none focus:border-accent disabled:text-ink-muted disabled:border-line"
+                    >
+                      {/* Its own id first: choosing that makes it a group. */}
+                      <option value={c.id}>{c.name} (own group)</option>
+                      {visible
+                        .filter(g => g.id !== c.id && groupOf(g.id, visible, taxonomy.parentOverrides) === g.id)
+                        .map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                    </select>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })}
+
+      <p className="font-sans text-caption text-ink-muted px-2.5 py-1.5">
         Five categories — Health &amp; Personal Care, Insurance, Education, Pets and Home &amp; Garden — are retired.
         They no longer appear when you add a transaction, but anything already recorded against them still reads
         correctly, and merchants like pharmacies and hardware stores are still recognised and filed under the group
         shown above.
       </p>
-    </div>
+    </Panel>
   );
 }

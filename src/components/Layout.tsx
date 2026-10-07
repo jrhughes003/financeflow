@@ -143,7 +143,7 @@ export default function Layout({
       <div className="flex flex-1 min-h-0">
         {/* Mobile overlay */}
         {navOpen && (
-          <div className="fixed inset-0 bg-black/50 z-20 lg:hidden" onClick={() => setNavOpen(false)} />
+          <div className="fixed inset-0 bg-[color-mix(in_srgb,var(--c-canvas)_72%,transparent)] z-20 lg:hidden" onClick={() => setNavOpen(false)} />
         )}
 
         {/* Navigation */}

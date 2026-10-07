@@ -1,19 +1,20 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Sparkles, ShieldCheck, Download, Upload, Trash2, KeyRound, AlertTriangle, Wand2, Sun, Moon, Monitor } from 'lucide-react';
+import { Download, Upload, Trash2, KeyRound, Wand2 } from 'lucide-react';
 import { useFinancial } from '../context/FinancialContext';
 import { aiSupported, getAiStatus, setAiKey, clearAiKey } from '../ai/ai';
 import { exportToJSON, importFromJSON } from '../utils/exportUtils';
 import generateDemoData from '../utils/demoData';
 import AiAuditPanel from './AiAuditPanel';
 import CategoryGrouping from './CategoryGrouping';
+import { Panel, Button, Badge } from './ui';
 import { SUPPORTED_CURRENCIES, formatCurrency } from '../utils/calculations';
 import { resolveTheme, DEFAULT_THEME } from '../utils/theme';
 import type { ThemePreference } from '../types/state';
 
-const THEME_OPTIONS: { value: ThemePreference; label: string; icon: typeof Sun }[] = [
-  { value: 'light', label: 'Light', icon: Sun },
-  { value: 'dark', label: 'Dark', icon: Moon },
-  { value: 'system', label: 'System', icon: Monitor },
+const THEME_OPTIONS: { value: ThemePreference; label: string }[] = [
+  { value: 'light', label: 'Light' },
+  { value: 'dark', label: 'Dark' },
+  { value: 'system', label: 'System' },
 ];
 
 export default function Settings() {
@@ -73,174 +74,182 @@ export default function Settings() {
       .finally(() => { if (fileRef.current) fileRef.current.value = ''; });
   };
 
+  const theme = settings.theme ?? DEFAULT_THEME;
+  const inputClass = 'w-full h-7 px-2 bg-canvas border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent';
+
   return (
-    <div className="space-y-5 animate-fade-in max-w-2xl">
+    <div className="space-y-2 animate-fade-in max-w-3xl">
       {msg && (
-        <div className={`rounded-container p-3 text-sm ${msg.type === 'ok' ? 'bg-positive-tint text-positive border border-positive' : 'bg-negative-tint text-negative border border-negative'}`}>
-          {msg.text}
+        <div className="flex items-start gap-2.5 px-2.5 py-1.5 bg-surface border border-line">
+          <Badge tone={msg.type === 'ok' ? 'positive' : 'negative'} className="shrink-0 mt-px">{msg.type === 'ok' ? 'OK' : 'ERR'}</Badge>
+          <span className={`font-sans text-sm ${msg.type === 'ok' ? 'text-ink' : 'text-negative'}`}>{msg.text}</span>
         </div>
       )}
 
       {/* AI features */}
-      <div className="bg-surface rounded-container border border-line p-5">
-        <div className="flex items-center gap-2 mb-1">
-          <Sparkles className="w-4 h-4 text-ink-muted" />
-          <h2 className="text-lg font-semibold text-ink">AI Features</h2>
-        </div>
-        <p className="text-sm text-ink-muted mb-4">
+      <Panel
+        bordered
+        title="AI Features"
+        meta={aiSupported ? (status.hasKey ? (aiEnabled ? 'KEY SAVED · ON' : 'KEY SAVED · OFF') : 'NO KEY') : 'DESKTOP ONLY'}
+      >
+        <p className="font-sans text-sm text-ink-muted px-2.5 py-2 border-b border-line">
           Optional. Uses your own Anthropic API key for smart categorization, natural-language
           entry, insights, and receipt parsing. Off by default.
         </p>
 
         {!aiSupported ? (
-          <div className="bg-surface-sunk border border-line-strong rounded-container p-3 text-sm text-ink-muted">
-            AI features require the desktop app (they keep your key in OS-secured storage). The web
-            version stays fully local with no AI.
+          <div className="flex items-start gap-2.5 px-2.5 py-1.5">
+            <Badge className="shrink-0 mt-px">Web</Badge>
+            <span className="font-sans text-sm text-ink-muted">
+              AI features require the desktop app (they keep your key in OS-secured storage). The web
+              version stays fully local with no AI.
+            </span>
           </div>
         ) : (
           <>
-            <div className="bg-accent-tint border border-accent rounded-container p-3 mb-4 text-caption text-accent-ink flex gap-2">
-              <ShieldCheck className="w-4 h-4 shrink-0 mt-0.5" />
-              <span>
+            <div className="flex items-start gap-2.5 px-2.5 py-1.5 border-b border-line">
+              <Badge tone="accent" className="shrink-0 mt-px">Privacy</Badge>
+              <span className="font-sans text-sm text-ink-secondary">
                 When enabled, only the minimum data per feature is sent to Anthropic (e.g. a merchant
                 name, or aggregate totals — never your full transaction list). Everything else stays
                 on your device. See the README for specifics.
               </span>
             </div>
 
-            <label className="label-micro block mb-1.5">Anthropic API Key</label>
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <KeyRound className="w-4 h-4 text-ink-muted absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="password"
-                  value={keyInput}
-                  onChange={e => setKeyInput(e.target.value)}
-                  placeholder={status.hasKey ? '•••••••• (a key is saved)' : 'sk-ant-...'}
-                  className="w-full h-9 pl-8 pr-3 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent"
-                />
+            <div className="px-2.5 py-2 border-b border-line">
+              <label htmlFor="settings-ai-key" className="label-micro block mb-1">Anthropic API Key</label>
+              <div className="flex gap-1.5">
+                <div className="relative flex-1">
+                  <KeyRound className="w-3.5 h-3.5 text-ink-muted absolute left-2 top-1/2 -translate-y-1/2" aria-hidden="true" />
+                  <input
+                    id="settings-ai-key"
+                    type="password"
+                    value={keyInput}
+                    onChange={e => setKeyInput(e.target.value)}
+                    placeholder={status.hasKey ? '•••••••• (a key is saved)' : 'sk-ant-...'}
+                    className={`${inputClass} pl-7`}
+                  />
+                </div>
+                <Button variant="primary" onClick={saveKey} disabled={busy || !keyInput.trim()}>
+                  {status.hasKey ? 'Replace' : 'Save'}
+                </Button>
+                {status.hasKey && (
+                  <Button onClick={removeKey}>Remove</Button>
+                )}
               </div>
-              <button onClick={saveKey} disabled={busy || !keyInput.trim()} className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-9 px-3.5 text-sm bg-accent hover:bg-accent-hover text-ink-inverse">
-                {status.hasKey ? 'Replace' : 'Save'}
-              </button>
-              {status.hasKey && (
-                <button onClick={removeKey} className="px-3 py-2 border border-line-strong text-ink-secondary text-sm rounded-control hover:bg-surface-sunk">Remove</button>
+              {!status.encryptionAvailable && (
+                <p className="flex items-start gap-2 mt-1.5">
+                  <Badge tone="caution" className="shrink-0 mt-px">Warn</Badge>
+                  <span className="font-sans text-caption text-caution">OS secure storage unavailable — the key cannot be stored safely on this machine.</span>
+                </p>
               )}
             </div>
-            {!status.encryptionAvailable && (
-              <p className="text-caption text-caution mt-2 flex items-center gap-1">
-                <AlertTriangle className="w-3.5 h-3.5" /> OS secure storage unavailable — the key cannot be stored safely on this machine.
-              </p>
-            )}
 
-            <label className="flex items-center justify-between mt-4 py-2">
-              <span className="text-sm text-ink-secondary">Enable AI features</span>
+            <label className="flex items-center justify-between gap-2 h-row px-2.5">
+              <span className="text-caption uppercase tracking-[0.03em] text-ink-secondary">Enable AI features</span>
               <button
                 onClick={() => toggleAi(!aiEnabled)}
                 disabled={!status.hasKey}
-                className={`relative w-11 h-6 rounded-full transition-colors disabled:opacity-40 ${aiEnabled ? 'bg-accent' : 'bg-line-strong'}`}
+                className={`relative w-8 h-4 rounded-control border transition-colors disabled:opacity-40 ${aiEnabled ? 'bg-accent border-accent' : 'bg-canvas border-line-strong'}`}
                 title={!status.hasKey ? 'Save an API key first' : ''}
               >
-                <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-surface rounded-full transition-transform ${aiEnabled ? 'translate-x-5' : ''}`} />
+                <span className={`absolute top-px left-px w-3 h-3 transition-transform ${aiEnabled ? 'translate-x-4 bg-ink-inverse' : 'bg-ink-muted'}`} />
               </button>
             </label>
           </>
         )}
-      </div>
+      </Panel>
 
       {/* The privacy claim, made checkable. Desktop only, because the browser
           build has no key and no path to the API — there is nothing to show. */}
       {aiSupported && <AiAuditPanel />}
 
       {/* Backup & restore */}
-      <div className="bg-surface rounded-container border border-line p-5">
-        <h2 className="text-lg font-semibold text-ink mb-3">Backup & Restore</h2>
-        <p className="text-sm text-ink-muted mb-4">Export a full JSON backup, or restore one (also the way to move data from the web app into the desktop app).</p>
-        <div className="flex gap-2">
-          <button onClick={() => exportToJSON(state)} className="flex items-center gap-2 px-4 py-2 bg-surface-hover hover:bg-surface-hover text-ink-secondary text-sm rounded-control font-medium">
-            <Download className="w-4 h-4" /> Export backup
-          </button>
-          <button onClick={() => fileRef.current?.click()} className="flex items-center gap-2 px-4 py-2 bg-surface-hover hover:bg-surface-hover text-ink-secondary text-sm rounded-control font-medium">
-            <Upload className="w-4 h-4" /> Restore backup
-          </button>
+      <Panel bordered title="Backup & Restore" meta="JSON">
+        <p className="font-sans text-sm text-ink-muted px-2.5 py-2">Export a full JSON backup, or restore one (also the way to move data from the web app into the desktop app).</p>
+        <div className="flex gap-1.5 px-2.5 pb-2.5">
+          <Button icon={Download} onClick={() => exportToJSON(state)}>Export backup</Button>
+          <Button icon={Upload} onClick={() => fileRef.current?.click()}>Restore backup</Button>
           <input ref={fileRef} type="file" accept="application/json,.json" onChange={handleImport} className="hidden" />
         </div>
-      </div>
+      </Panel>
 
       <CategoryGrouping />
 
       {/* Display */}
-      <div className="bg-surface rounded-container border border-line p-5">
-        <h2 className="text-lg font-semibold text-ink mb-3">Display</h2>
-        <label htmlFor="settings-currency" className="block text-caption text-ink-muted mb-1.5">
-          Currency
-        </label>
-        <select
-          id="settings-currency"
-          value={settings.currency || 'CAD'}
-          onChange={e => dispatch({ type: 'UPDATE_SETTINGS', payload: { currency: e.target.value } })}
-          className="w-full sm:w-48 px-3 h-9 text-sm bg-surface border border-line rounded-control text-ink focus:outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-accent"
-        >
-          {SUPPORTED_CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
-        </select>
-        <p className="text-sm text-ink-muted mt-2">
-          Changes how every figure is printed — for example {formatCurrency(1234.5)}. It does not
-          convert anything: the amounts you entered stay exactly as they are.
-        </p>
+      <Panel bordered title="Display" meta={`${settings.currency || 'CAD'} · ${theme.toUpperCase()}`}>
+        <div className="px-2.5 py-2 border-b border-line">
+          <label htmlFor="settings-currency" className="label-micro block mb-1">
+            Currency
+          </label>
+          <select
+            id="settings-currency"
+            value={settings.currency || 'CAD'}
+            onChange={e => dispatch({ type: 'UPDATE_SETTINGS', payload: { currency: e.target.value } })}
+            className={`${inputClass} sm:w-40`}
+          >
+            {SUPPORTED_CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <p className="font-sans text-sm text-ink-muted mt-1.5">
+            Changes how every figure is printed — for example {formatCurrency(1234.5)}. It does not
+            convert anything: the amounts you entered stay exactly as they are.
+          </p>
+        </div>
 
-        <fieldset className="mt-5">
-          <legend className="block text-caption text-ink-muted mb-1.5">Theme</legend>
-          <div role="radiogroup" aria-label="Theme" className="inline-flex rounded-control border border-line overflow-hidden">
-            {THEME_OPTIONS.map(({ value, label, icon: Icon }) => {
-              const active = (settings.theme ?? DEFAULT_THEME) === value;
+        <fieldset className="px-2.5 py-2">
+          <legend className="label-micro float-left w-full mb-1">Theme</legend>
+          <div role="radiogroup" aria-label="Theme" className="clear-left inline-flex rounded-control border border-line-strong overflow-hidden">
+            {THEME_OPTIONS.map(({ value, label }) => {
+              const active = theme === value;
               return (
                 <button
                   key={value}
                   role="radio"
                   aria-checked={active}
                   onClick={() => dispatch({ type: 'UPDATE_SETTINGS', payload: { theme: value } })}
-                  className={`inline-flex items-center gap-2 h-9 px-3.5 text-sm font-medium transition-colors border-r border-line last:border-r-0
-                    ${active ? 'bg-accent-tint text-accent-ink' : 'text-ink-secondary hover:bg-surface-hover hover:text-ink'}`}
+                  className={`h-6 min-w-[64px] px-2.5 text-micro font-medium uppercase tracking-[0.06em] transition-colors border-r border-line-strong last:border-r-0
+                    ${active ? 'bg-accent-tint text-accent-ink' : 'bg-surface text-ink-secondary hover:bg-surface-hover hover:text-ink'}`}
                 >
-                  <Icon className="w-3.5 h-3.5" aria-hidden="true" />
                   {label}
                 </button>
               );
             })}
           </div>
-          <p className="text-sm text-ink-muted mt-2">
-            {(settings.theme ?? DEFAULT_THEME) === 'system'
+          <p className="font-sans text-sm text-ink-muted mt-1.5">
+            {theme === 'system'
               ? `Following your system, which is currently ${resolveTheme('system')}. It will change with it.`
               : 'Fixed, whatever your system is set to.'}
           </p>
         </fieldset>
-      </div>
+      </Panel>
 
       {/* Demo data */}
-      <div className="bg-surface rounded-container border border-line p-5">
-        <h2 className="text-lg font-semibold text-ink mb-3">Demo Data</h2>
-        <p className="text-sm text-ink-muted mb-4">
+      <Panel bordered title="Demo Data">
+        <p className="font-sans text-sm text-ink-muted px-2.5 py-2">
           Fill the app with about 8 months of generated transactions, budgets, goals, debts and a
           Plan Ahead setup, so every chart and insight has something to show. Replaces your current data.
         </p>
-        <button
-          onClick={loadDemoData}
-          className="flex items-center gap-2 px-4 py-2 bg-surface-hover hover:bg-surface-hover text-ink-secondary text-sm rounded-control font-medium"
-        >
-          <Wand2 className="w-4 h-4" /> Load demo data
-        </button>
-      </div>
+        <div className="px-2.5 pb-2.5">
+          <Button icon={Wand2} onClick={loadDemoData}>Load demo data</Button>
+        </div>
+      </Panel>
 
       {/* Danger zone */}
-      <div className="bg-surface rounded-container border border-negative p-5">
-        <h2 className="text-lg font-semibold text-negative mb-3">Danger Zone</h2>
-        <button
-          onClick={() => { if (window.confirm('Reset all data to the sample defaults? This cannot be undone.')) dispatch({ type: 'RESET_DATA' }); }}
-          className="flex items-center gap-2 px-4 py-2 border border-negative text-negative hover:bg-negative-tint text-sm rounded-control font-medium"
-        >
-          <Trash2 className="w-4 h-4" /> Reset all data
-        </button>
-      </div>
+      <section aria-labelledby="settings-danger" className="bg-surface border border-negative">
+        <div className="h-bar flex items-center px-2.5 bg-surface-sunk border-b border-negative">
+          <h2 id="settings-danger" className="text-micro uppercase font-semibold text-negative">Danger Zone</h2>
+        </div>
+        <div className="p-2.5">
+          <Button
+            variant="danger"
+            icon={Trash2}
+            className="border-negative"
+            onClick={() => { if (window.confirm('Reset all data to the sample defaults? This cannot be undone.')) dispatch({ type: 'RESET_DATA' }); }}
+          >
+            Reset all data
+          </Button>
+        </div>
+      </section>
     </div>
   );
 }

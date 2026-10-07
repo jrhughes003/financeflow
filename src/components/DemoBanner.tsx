@@ -6,8 +6,9 @@
 // in the desktop app's main process rather than because they are broken.
 
 import React, { useState } from 'react';
-import { Info, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { isDemoBuild } from '../demoMode';
+import { Badge, IconButton } from './ui';
 
 const DISMISSED_KEY = 'financeflow_demo_banner_dismissed';
 
@@ -32,21 +33,15 @@ export default function DemoBanner() {
   };
 
   return (
-    <div className="flex items-start gap-3 px-4 py-3 bg-accent-tint border-b border-line text-sm text-ink-secondary">
-      <Info className="w-4 h-4 shrink-0 mt-0.5 text-accent" aria-hidden="true" />
-      <p className="flex-1 min-w-0">
+    <div className="flex items-start gap-2.5 px-2.5 py-1.5 bg-surface border-b border-line">
+      <Badge tone="accent" className="shrink-0 mt-px">Demo</Badge>
+      <p className="flex-1 min-w-0 font-sans text-caption text-ink-secondary">
         <strong className="font-medium text-ink">Live demo.</strong>{' '}
         Everything here is generated data, and anything you change stays in this browser —
         nothing is uploaded. Clear your site data to start over. The AI features need an
         API key and run in the desktop build, so they're switched off here.
       </p>
-      <button
-        onClick={dismiss}
-        aria-label="Dismiss the demo notice"
-        className="p-1 -m-1 shrink-0 opacity-60 hover:opacity-100 rounded-control focus-visible:ring-2 focus-visible:ring-accent"
-      >
-        <X className="w-4 h-4" aria-hidden="true" />
-      </button>
+      <IconButton icon={X} label="Dismiss the demo notice" onClick={dismiss} className="shrink-0 -my-0.5" />
     </div>
   );
 }

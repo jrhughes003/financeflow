@@ -165,7 +165,7 @@ export default function MerchantCombobox({
         // element that exists; `hidden` keeps it out of the accessibility tree
         // and out of the layout in the meantime.
         hidden={!open}
-        className="absolute left-0 right-0 top-full mt-1 z-20 max-h-56 overflow-y-auto bg-surface border border-line-strong rounded-container shadow-overlay py-1"
+        className="absolute left-0 right-0 top-full mt-px z-20 max-h-56 overflow-y-auto bg-surface border border-line-strong shadow-overlay"
       >
         {suggestions.map((entry, index) => (
           <li
@@ -178,13 +178,13 @@ export default function MerchantCombobox({
             onMouseDown={e => e.preventDefault()}
             onMouseEnter={() => setActive(index)}
             onClick={() => select(entry)}
-            className={`flex items-baseline justify-between gap-3 px-3 py-2 text-sm cursor-pointer
+            className={`flex items-center justify-between gap-3 h-row px-2 text-sm cursor-pointer border-b border-line-faint last:border-b-0
               ${index === active ? 'bg-accent-tint text-accent-ink' : 'text-ink-secondary'}`}
           >
-            <span className="truncate">{entry.name}</span>
+            <span className="truncate min-w-0">{entry.name}</span>
             {/* The subcategory, because it is already human-readable and it says
                 what accepting this row is about to fill in. */}
-            {entry.subcategory && <span className="text-caption text-ink-muted shrink-0">{entry.subcategory}</span>}
+            {entry.subcategory && <span className="text-micro uppercase text-ink-muted shrink-0">{entry.subcategory}</span>}
           </li>
         ))}
       </ul>

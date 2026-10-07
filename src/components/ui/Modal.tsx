@@ -90,8 +90,10 @@ export default function Modal({
       aria-modal="true"
       aria-label={label}
     >
-      <div className="fixed inset-0 bg-ink/25" onClick={onClose} aria-hidden="true" />
-      <div ref={panelRef} className={`relative ${className}`}>
+      <div className="fixed inset-0 bg-[color-mix(in_srgb,var(--c-canvas)_72%,transparent)]" onClick={onClose} aria-hidden="true" />
+      {/* Square, and framed by a hairline that reads against the scrim. The
+          child selector flattens any radius the content brings with it. */}
+      <div ref={panelRef} className={`relative border border-line-strong shadow-overlay [&>*]:rounded-none ${className}`}>
         {children}
       </div>
     </div>

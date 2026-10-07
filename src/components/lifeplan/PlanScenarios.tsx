@@ -1,10 +1,11 @@
-import React, { useMemo, useState, useRef, useEffect } from 'react';
+import React, { useId, useMemo, useState, useRef, useEffect } from 'react';
 import { format, parseISO } from 'date-fns';
 import {
   ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine,
 } from 'recharts';
 import * as chart from '../ui/chartTheme';
-import { Copy, Trash2, Upload, RefreshCw, Dices, AlertTriangle } from 'lucide-react';
+import { Copy, Trash2, Upload, RefreshCw, Dices } from 'lucide-react';
+import { Button, IconButton, Meter, Table, Th, Td, Tr } from '../ui';
 import { formatCurrency } from '../../utils/calculations';
 import { runPlan } from '../../utils/lifeplan/engine';
 import { runSimulation } from '../../utils/lifeplan/runSimulation';
@@ -13,7 +14,7 @@ import type { LifePlan, PlanScenario } from '../../types/lifeplan';
 import type { AppState } from '../../types/state';
 import type { PlanOutcome, PlanRow, SimulationResult } from '../../types/projection';
 import { needsSetup } from '../../types/projection';
-import { Card, NumberField, Stat, inputCls } from './ui';
+import { Card, NumberField, Stat, Note, inputCls } from './ui';
 
 // Fixed order so a scenario keeps its colour when others are toggled off.
 const LINE_COLORS = ['var(--c-data-1)', 'var(--c-caution)', 'var(--c-data-6)', 'var(--c-data-7)', 'var(--c-data-3)'];
@@ -65,6 +66,7 @@ export default function PlanScenarios({ plan, setPlan, state, result }: PlanScen
   // at every read below.
   const [volatility, setVolatility] = useState<number | string>(12);
   const [trials, setTrials] = useState<number | string>(300);
+  const runsId = useId();
 
   // See PlanProjection: a fresh [] each render would defeat the memo below.
   const scenarios = useMemo(() => plan.scenarios || [], [plan.scenarios]);
@@ -145,111 +147,109 @@ export default function PlanScenarios({ plan, setPlan, state, result }: PlanScen
   const mcData = mc?.bands?.map(b => ({ year: b.year, age: b.age, range: [b.p10, b.p90], p50: b.p50 })) || [];
 
   if (planNeedsSetup) {
-    return <Card><p className="text-sm text-ink-muted text-center py-8">Add your birth year in Setup first.</p></Card>;
+    return <Card><p className="font-sans text-sm text-ink-muted">Add your birth year in Setup first.</p></Card>;
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-2">
       {/* Saved scenarios */}
       <Card
         title="Scenarios"
         subtitle="Save a copy of the whole plan, change something, and compare them side by side."
-        actions={
-          <div className="flex items-center gap-2">
-            <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. House in 2029" className={`${inputCls} w-52`} />
-            <button onClick={save} className="flex items-center gap-1.5 px-3 py-2 bg-accent hover:bg-accent-hover text-ink-inverse rounded-container text-sm font-medium">
-              <Copy className="w-3.5 h-3.5" />Save current
-            </button>
-          </div>
-        }
+        meta={scenarios.length ? `${scenarios.length} SAVED · ${selected.length} COMPARED` : undefined}
+        flush
       >
+        <div className="flex flex-wrap items-center gap-1.5 px-2.5 py-2 border-b border-line bg-surface-sunk">
+          <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. House in 2029" aria-label="Scenario name" className={`${inputCls} w-52`} />
+          <Button variant="primary" icon={Copy} onClick={save}>Save current</Button>
+        </div>
         {scenarios.length === 0 ? (
-          <p className="text-sm text-ink-muted text-center py-4">
+          <p className="font-sans text-sm text-ink-muted p-3">
             No saved scenarios yet. Save the plan as it stands, then try moving the house date or changing the salary to see the difference.
           </p>
         ) : (
-          <div className="space-y-2">
+          <ul>
             {scenarios.map(sc => (
-              <div key={sc.id} className="flex flex-wrap items-center gap-3 border border-line rounded-container p-3">
+              <li key={sc.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 min-h-row px-2.5 py-1 border-b border-line last:border-b-0 hover:bg-surface-hover">
                 <label className="flex items-center gap-2 cursor-pointer select-none flex-1 min-w-48">
                   <input type="checkbox" checked={selected.includes(sc.id)} onChange={() => toggle(sc.id)}
-                    className="w-4 h-4 rounded-[3px] border-line-strong text-accent focus:ring-accent" />
-                  <span>
+                    className="w-3.5 h-3.5 rounded-control border-line-strong accent-[var(--c-accent)]" />
+                  <span className="flex flex-wrap items-baseline gap-x-2">
                     <span className="text-sm font-medium text-ink">{sc.name}</span>
-                    <span className="block text-caption text-ink-muted">saved {fmtDate(sc.savedAt)}</span>
+                    <span className="text-caption text-ink-muted">saved {fmtDate(sc.savedAt)}</span>
                   </span>
                 </label>
                 {confirmLoad === sc.id ? (
-                  <div className="flex items-center gap-2">
-                    <span className="text-caption text-ink-secondary">Replace the current plan with this one?</span>
-                    <button onClick={() => load(sc)} className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-7 px-2.5 text-caption bg-accent hover:bg-accent-hover text-ink-inverse">Load it</button>
-                    <button onClick={() => setConfirmLoad(null)} className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-7 px-2.5 text-caption border border-line-strong text-ink hover:bg-surface-hover">Cancel</button>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="font-sans text-caption text-ink-secondary">Replace the current plan with this one?</span>
+                    <Button size="sm" variant="primary" onClick={() => load(sc)}>Load it</Button>
+                    <Button size="sm" onClick={() => setConfirmLoad(null)}>Cancel</Button>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => updateFromCurrent(sc.id)} className="flex items-center gap-1 px-2.5 py-1.5 border border-line-strong text-ink-secondary text-caption rounded-control hover:bg-surface-sunk" title="Overwrite with the current plan">
-                      <RefreshCw className="w-3.5 h-3.5" />Update
-                    </button>
-                    <button onClick={() => setConfirmLoad(sc.id)} className="flex items-center gap-1 px-2.5 py-1.5 border border-accent text-accent-ink text-caption font-medium rounded-control hover:bg-accent-tint">
-                      <Upload className="w-3.5 h-3.5" />Load
-                    </button>
-                    <button onClick={() => remove(sc.id)} className="p-1.5 text-ink-muted hover:text-negative hover:bg-negative-tint rounded-control"><Trash2 className="w-3.5 h-3.5" /></button>
+                  <div className="flex items-center gap-1">
+                    <Button size="sm" icon={RefreshCw} onClick={() => updateFromCurrent(sc.id)} title="Overwrite with the current plan">Update</Button>
+                    <Button size="sm" icon={Upload} onClick={() => setConfirmLoad(sc.id)} className="text-accent-ink">Load</Button>
+                    <IconButton icon={Trash2} label={`Delete ${sc.name}`} variant="danger" onClick={() => remove(sc.id)} />
                   </div>
                 )}
-              </div>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
       </Card>
 
       {/* Comparison */}
       {comparisons.length > 1 && (
-        <Card title="Side by side" subtitle="All figures in today's dollars.">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-caption text-ink-muted border-b border-line">
-                  <th className="text-left font-medium py-2">Measure</th>
-                  {comparisons.map((c, i) => (
-                    <th key={c.label} className="text-right font-medium py-2">
-                      <span className="inline-flex items-center gap-1.5">
-                        <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: LINE_COLORS[i % LINE_COLORS.length] }} />{c.label}
-                      </span>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {([
-                  ['Status', c => (c.firstShortfall ? `Runs short ${c.firstShortfall.year}` : 'Holds up')],
-                  ['Net worth at retirement', c => (c.retirementNetWorth === null ? '—' : money(c.retirementNetWorth))],
-                  [`Net worth at the end`, c => (c.endNetWorth === null ? '—' : money(c.endNetWorth))],
-                  ['Lifetime tax', c => money(c.lifetimeTax)],
-                  ['Home purchase', c => (c.houses.length ? c.houses.map(h => `${h.name}: ${h.date}`).join(', ') : 'none')],
-                ] as [string, (c: Comparison) => string][]).map(([label, get]) => (
-                  <tr key={label} className="border-b border-line-faint">
-                    <td className="py-2 text-ink-secondary">{label}</td>
-                    {comparisons.map(c => <td key={c.label} className="py-2 text-right text-ink">{get(c)}</td>)}
-                  </tr>
+        <Card title="Side by side" subtitle="All figures in today's dollars." meta={`${comparisons.length} PLANS`} flush>
+          <Table>
+            <thead>
+              <tr>
+                <Th>Measure</Th>
+                {comparisons.map((c, i) => (
+                  <Th key={c.label} numeric>
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="w-[7px] h-[7px] shrink-0" style={{ backgroundColor: LINE_COLORS[i % LINE_COLORS.length] }} aria-hidden="true" />{c.label}
+                    </span>
+                  </Th>
                 ))}
-              </tbody>
-            </table>
-          </div>
-
-          <ResponsiveContainer width="100%" height={280}>
-            <ComposedChart data={chartData} margin={{ top: 15, right: 10, left: 10, bottom: 5 }}>
-              <CartesianGrid {...chart.grid} />
-              <XAxis dataKey="year" {...chart.xAxis} tick={{ fontSize: 11 }} interval="preserveStartEnd" minTickGap={40} />
-              <YAxis {...chart.yAxis} tick={{ fontSize: 11 }} tickFormatter={compact} width={55} />
-              <ReferenceLine y={0} stroke="var(--c-ink-muted)" />
-              {/* The series keys are `s0`, `s1`, … — the index maps back to the comparison. */}
-              <Tooltip formatter={(v, n) => [money(chart.asNumber(v)), comparisons[Number(String(n).slice(1))]?.label || n]} labelFormatter={y => `${y}`} />
-              <Legend wrapperStyle={{ fontSize: 12 }} formatter={n => comparisons[Number(String(n).slice(1))]?.label || n} />
-              {comparisons.map((c, i) => (
-                <Line key={c.label} dataKey={`s${i}`} name={`s${i}`} stroke={LINE_COLORS[i % LINE_COLORS.length]} strokeWidth={2} dot={false} isAnimationActive={false} />
+              </tr>
+            </thead>
+            <tbody>
+              {([
+                ['Status', c => (c.firstShortfall ? `Runs short ${c.firstShortfall.year}` : 'Holds up')],
+                ['Net worth at retirement', c => (c.retirementNetWorth === null ? '—' : money(c.retirementNetWorth))],
+                [`Net worth at the end`, c => (c.endNetWorth === null ? '—' : money(c.endNetWorth))],
+                ['Lifetime tax', c => money(c.lifetimeTax)],
+                ['Home purchase', c => (c.houses.length ? c.houses.map(h => `${h.name}: ${h.date}`).join(', ') : 'none')],
+              ] as [string, (c: Comparison) => string][]).map(([label, get]) => (
+                <Tr key={label}>
+                  <Td className="text-caption uppercase tracking-[0.03em] text-ink-secondary whitespace-nowrap">{label}</Td>
+                  {comparisons.map(c => {
+                    const v = get(c);
+                    const tone = label === 'Status' ? (c.firstShortfall ? 'text-caution' : 'text-positive') : 'text-ink';
+                    return <Td key={c.label} numeric className={tone}>{v}</Td>;
+                  })}
+                </Tr>
               ))}
-            </ComposedChart>
-          </ResponsiveContainer>
+            </tbody>
+          </Table>
+
+          <div className="p-2">
+            <ResponsiveContainer width="100%" height={260}>
+              <ComposedChart data={chartData} margin={{ top: 15, right: 10, left: 0, bottom: 0 }}>
+                <CartesianGrid {...chart.grid} />
+                <XAxis dataKey="year" {...chart.xAxis} interval="preserveStartEnd" minTickGap={40} />
+                <YAxis {...chart.yAxis} tickFormatter={compact} />
+                <ReferenceLine y={0} stroke="var(--c-line-strong)" />
+                {/* The series keys are `s0`, `s1`, … — the index maps back to the comparison. */}
+                <Tooltip {...chart.tooltip} formatter={(v, n) => [money(chart.asNumber(v)), comparisons[Number(String(n).slice(1))]?.label || n]} labelFormatter={y => `${y}`} />
+                <Legend wrapperStyle={chart.legend.wrapperStyle} iconSize={chart.legend.iconSize} formatter={n => comparisons[Number(String(n).slice(1))]?.label || n} />
+                {comparisons.map((c, i) => (
+                  <Line key={c.label} dataKey={`s${i}`} name={`s${i}`} stroke={LINE_COLORS[i % LINE_COLORS.length]} strokeWidth={2} dot={false} isAnimationActive={false} />
+                ))}
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
         </Card>
       )}
 
@@ -257,35 +257,28 @@ export default function PlanScenarios({ plan, setPlan, state, result }: PlanScen
       <Card
         title="What if markets don't cooperate?"
         subtitle="Runs the plan many times over uncertain markets, and reports how often it survives — with the range that estimate is good to."
+        meta={mc ? `${mc.trials} RUNS · ${mc.volatilityPct}% VOL` : undefined}
+        flush
       >
-        <div className="flex flex-wrap items-end gap-3 mb-4">
+        <div className="flex flex-wrap items-start gap-2 px-2.5 py-2 border-b border-line bg-surface-sunk">
           <NumberField label="Market swing (volatility)" value={volatility} onChange={setVolatility} suffix="%" step="1"
             hint="Year-to-year variation. A balanced portfolio is roughly 10–12%; all stocks closer to 16–18%." className="w-56" />
-          <div className="w-40">
-            <label className="label-micro block mb-1.5">Runs</label>
-            <select value={trials} onChange={e => setTrials(e.target.value)} className={inputCls}>
+          <div className="w-32">
+            <label htmlFor={runsId} className="label-micro block mb-1">Runs</label>
+            <select id={runsId} value={trials} onChange={e => setTrials(e.target.value)} className={inputCls}>
               {[100, 300, 500, 1000].map(t => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
-          <button
-            onClick={runMc}
-            className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors h-9 px-3.5 text-sm bg-accent hover:bg-accent-hover text-ink-inverse"
-          >
-            <Dices className="w-4 h-4" />
+          <Button variant="primary" icon={Dices} onClick={runMc} className="mt-[18px]">
             {mcBusy
               ? `Cancel (${Math.round((mcProgress.completed / Math.max(1, mcProgress.total)) * 100)}%)`
               : 'Run'}
-          </button>
+          </Button>
         </div>
 
         {mcBusy && (
-          <div className="mb-4">
-            <div className="h-1 bg-line-faint rounded-pill overflow-hidden">
-              <div
-                className="h-full bg-accent transition-[width] duration-150"
-                style={{ width: `${(mcProgress.completed / Math.max(1, mcProgress.total)) * 100}%` }}
-              />
-            </div>
+          <div className="px-2.5 py-1.5 border-b border-line">
+            <Meter value={mcProgress.completed} max={Math.max(1, mcProgress.total)} />
             <p className="text-caption text-ink-muted mt-1.5">
               {mcProgress.completed} of {mcProgress.total} runs — the window stays usable while this works.
             </p>
@@ -293,12 +286,12 @@ export default function PlanScenarios({ plan, setPlan, state, result }: PlanScen
         )}
 
         {!mc ? (
-          <p className="text-sm text-ink-muted">
+          <p className="font-sans text-sm text-ink-muted p-3">
             The projection elsewhere assumes a steady {plan.assumptions.returnPct}% every year. Real markets don't do that — this shows how often the plan still works.
           </p>
         ) : (
           <>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-line border-b border-line">
               {/* The interval matters as much as the estimate: at a few hundred
                   runs the sampling error is several points wide, and rounding it
                   to a bare percentage implies a precision the run doesn't have. */}
@@ -312,24 +305,27 @@ export default function PlanScenarios({ plan, setPlan, state, result }: PlanScen
               <Stat label="Lucky (top 10%)" value={mcData.length ? money(mcData[mcData.length - 1].range[1]) : '—'} />
             </div>
             {mc.depletionYears && (
-              <p className="flex items-start gap-2 text-sm text-caution bg-caution-tint border border-caution rounded-container p-3 mb-4">
-                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-                In the {mc.failures} run{mc.failures > 1 ? 's' : ''} that ran out, money typically lasted until {mc.depletionYears.p50} (earliest cases {mc.depletionYears.p10}).
-              </p>
+              <Note tag="Depleted" tone="caution" className="px-2.5 py-1.5 border-b border-line">
+                <span className="text-sm text-caution">
+                  In the {mc.failures} run{mc.failures > 1 ? 's' : ''} that ran out, money typically lasted until {mc.depletionYears.p50} (earliest cases {mc.depletionYears.p10}).
+                </span>
+              </Note>
             )}
-            <ResponsiveContainer width="100%" height={280}>
-              <ComposedChart data={mcData} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
-                <CartesianGrid {...chart.grid} />
-                <XAxis dataKey="year" {...chart.xAxis} tick={{ fontSize: 11 }} interval="preserveStartEnd" minTickGap={40} />
-                <YAxis {...chart.yAxis} tick={{ fontSize: 11 }} tickFormatter={compact} width={55} />
-                <ReferenceLine y={0} stroke="var(--c-ink-muted)" />
-                <Tooltip formatter={(v, n) => [Array.isArray(v) ? `${money(Number(v[0]))} – ${money(Number(v[1]))}` : money(chart.asNumber(v)), n === 'range' ? 'Middle 80% of outcomes' : 'Typical (median)']} />
-                <Legend wrapperStyle={{ fontSize: 12 }} formatter={n => (n === 'range' ? 'Middle 80% of outcomes' : 'Typical (median)')} />
-                <Area dataKey="range" stroke="none" fill={chart.SERIES.primary} fillOpacity={0.15} isAnimationActive={false} />
-                <Line dataKey="p50" stroke={chart.SERIES.primary} strokeWidth={2} dot={false} isAnimationActive={false} />
-              </ComposedChart>
-            </ResponsiveContainer>
-            <p className="text-caption text-ink-muted mt-2">
+            <div className="p-2">
+              <ResponsiveContainer width="100%" height={260}>
+                <ComposedChart data={mcData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+                  <CartesianGrid {...chart.grid} />
+                  <XAxis dataKey="year" {...chart.xAxis} interval="preserveStartEnd" minTickGap={40} />
+                  <YAxis {...chart.yAxis} tickFormatter={compact} />
+                  <ReferenceLine y={0} stroke="var(--c-line-strong)" />
+                  <Tooltip {...chart.tooltip} formatter={(v, n) => [Array.isArray(v) ? `${money(Number(v[0]))} – ${money(Number(v[1]))}` : money(chart.asNumber(v)), n === 'range' ? 'Middle 80% of outcomes' : 'Typical (median)']} />
+                  <Legend wrapperStyle={chart.legend.wrapperStyle} iconSize={chart.legend.iconSize} formatter={n => (n === 'range' ? 'Middle 80% of outcomes' : 'Typical (median)')} />
+                  <Area dataKey="range" stroke="none" fill={chart.SERIES.primary} fillOpacity={0.15} isAnimationActive={false} />
+                  <Line dataKey="p50" stroke={chart.SERIES.primary} strokeWidth={2} dot={false} isAnimationActive={false} />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+            <p className="font-sans text-caption text-ink-muted px-2.5 py-1.5 border-t border-line">
               Net worth in today's dollars across {mc.trials} runs at {mc.volatilityPct}% volatility.
               Returns are drawn from a fat-tailed distribution with year-to-year persistence, so bad years
               can cluster — the sequence risk that matters once you're withdrawing. Runs are paired so each

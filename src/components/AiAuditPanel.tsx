@@ -9,9 +9,10 @@
 // point is that nothing stands between the user and the bytes.
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { ShieldCheck, RefreshCw, Trash2, ChevronRight } from 'lucide-react';
+import { RefreshCw, Trash2, ChevronRight } from 'lucide-react';
 import { getAiAuditLog, clearAiAuditLog } from '../ai/ai';
 import type { AiAuditEntry } from '../types/api';
+import { Panel, Button } from './ui';
 
 const FEATURE_LABELS: Record<string, string> = {
   categorize: 'Auto-categorisation',
@@ -32,43 +33,43 @@ function Entry({ entry, index }: { entry: AiAuditEntry; index: number }) {
   const when = new Date(entry.at);
 
   return (
-    <div className="border border-line rounded-control overflow-hidden">
+    <div className="border-b border-line last:border-b-0">
       <button
         onClick={() => setOpen(o => !o)}
         aria-expanded={open}
-        className="w-full flex items-center gap-3 px-3 h-row text-left hover:bg-surface-hover transition-colors"
+        className={`w-full flex items-center gap-2.5 px-2.5 h-row text-left transition-colors ${open ? 'bg-accent-tint' : 'hover:bg-surface-hover'}`}
       >
-        <ChevronRight className={`w-3.5 h-3.5 text-ink-muted shrink-0 transition-transform ${open ? 'rotate-90' : ''}`} />
+        <ChevronRight className={`w-3 h-3 text-ink-muted shrink-0 transition-transform ${open ? 'rotate-90' : ''}`} aria-hidden="true" />
         <span className="text-sm text-ink flex-1 truncate">
           {FEATURE_LABELS[entry.feature] ?? entry.feature}
         </span>
         {entry.outcome === 'error' && (
-          <span className="text-micro uppercase tracking-[0.06em] text-negative">failed</span>
+          <span className="px-1 border border-current text-[10px] leading-[14px] uppercase tracking-[0.06em] text-negative">failed</span>
         )}
-        <span className="text-caption text-ink-muted money shrink-0">{formatBytes(bytes(entry.request))}</span>
-        <span className="text-caption text-ink-muted money shrink-0 hidden sm:inline">
+        <span className="w-16 text-right text-caption text-ink-secondary money shrink-0">{formatBytes(bytes(entry.request))}</span>
+        <span className="w-16 text-right text-caption text-ink-muted money shrink-0 hidden sm:inline">
           {when.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
         </span>
       </button>
 
       {open && (
         <div className="border-t border-line">
-          <dl className="flex flex-wrap gap-x-6 gap-y-1 px-3 py-2 bg-surface-sunk text-caption">
-            <div><dt className="inline text-ink-muted">model </dt><dd className="inline text-ink money">{entry.model ?? '—'}</dd></div>
-            <div><dt className="inline text-ink-muted">took </dt><dd className="inline text-ink money">{entry.ms} ms</dd></div>
+          <dl className="flex flex-wrap gap-x-5 gap-y-0.5 px-2.5 py-1 bg-surface-sunk text-caption border-b border-line">
+            <div><dt className="inline label-micro">model </dt><dd className="inline text-ink money">{entry.model ?? '—'}</dd></div>
+            <div><dt className="inline label-micro">took </dt><dd className="inline text-ink money">{entry.ms} ms</dd></div>
             {entry.usage && (
               <div>
-                <dt className="inline text-ink-muted">tokens </dt>
+                <dt className="inline label-micro">tokens </dt>
                 <dd className="inline text-ink money">
                   {entry.usage.input_tokens ?? 0} in / {entry.usage.output_tokens ?? 0} out
                 </dd>
               </div>
             )}
             {entry.error && (
-              <div><dt className="inline text-ink-muted">error </dt><dd className="inline text-negative">{entry.error}</dd></div>
+              <div><dt className="inline label-micro">error </dt><dd className="inline text-negative">{entry.error}</dd></div>
             )}
           </dl>
-          <pre className="px-3 py-2 text-caption text-ink-secondary overflow-x-auto max-h-80 whitespace-pre-wrap break-words money">
+          <pre className="px-2.5 py-1.5 bg-canvas text-caption text-ink-secondary overflow-x-auto max-h-80 whitespace-pre-wrap break-words money">
             {JSON.stringify(entry.request, null, 2)}
           </pre>
         </div>
@@ -90,49 +91,52 @@ export default function AiAuditPanel() {
   useEffect(() => { void refresh(); }, [refresh]);
 
   return (
-    <div className="bg-surface rounded-container border border-line p-5">
-      <div className="flex items-start justify-between gap-4 mb-3">
-        <div>
-          <h2 className="text-lg font-semibold text-ink flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-ink-muted" aria-hidden="true" />
-            What was sent
-          </h2>
-          <p className="text-sm text-ink-muted mt-1">
-            Every request this app has made to the Anthropic API, exactly as it went out.
-            Held in memory only and gone when you close the app — a file of these would be
-            the thing this app exists not to keep.
-          </p>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            onClick={() => void refresh()}
-            className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors h-9 px-3.5 text-sm border border-line-strong text-ink hover:bg-surface-hover"
-          >
-            <RefreshCw className="w-3.5 h-3.5" /> Refresh
-          </button>
+    <Panel
+      bordered
+      title="What was sent"
+      meta={loading ? undefined : `${entries.length} REQ · MEMORY ONLY`}
+      actions={(
+        <>
+          <Button size="sm" variant="ghost" icon={RefreshCw} onClick={() => void refresh()}>
+            Refresh
+          </Button>
           {entries.length > 0 && (
-            <button
+            <Button
+              size="sm"
+              variant="danger"
+              icon={Trash2}
               onClick={async () => { await clearAiAuditLog(); void refresh(); }}
               aria-label="Clear the record"
-              className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors h-9 px-3.5 text-sm text-negative hover:bg-negative-tint"
             >
-              <Trash2 className="w-3.5 h-3.5" /> Clear
-            </button>
+              Clear
+            </Button>
           )}
-        </div>
-      </div>
+        </>
+      )}
+    >
+      <p className="font-sans text-sm text-ink-muted px-2.5 py-2 border-b border-line">
+        Every request this app has made to the Anthropic API, exactly as it went out.
+        Held in memory only and gone when you close the app — a file of these would be
+        the thing this app exists not to keep.
+      </p>
 
       {loading ? (
-        <p className="text-sm text-ink-muted py-3">Reading…</p>
+        <p className="font-sans text-sm text-ink-muted p-3">Reading…</p>
       ) : entries.length === 0 ? (
-        <p className="text-sm text-ink-muted py-3">
+        <p className="font-sans text-sm text-ink-muted p-3">
           Nothing has been sent. With AI off, or no key saved, nothing ever is — this stays empty.
         </p>
       ) : (
-        <div className="space-y-1.5">
+        <div>
+          <div className="flex items-center gap-2.5 px-2.5 h-[22px] bg-surface-sunk border-b border-line" aria-hidden="true">
+            <span className="w-3 shrink-0" />
+            <span className="label-micro flex-1">Feature</span>
+            <span className="label-micro w-16 text-right">Size</span>
+            <span className="label-micro w-16 text-right hidden sm:inline">Time</span>
+          </div>
           {entries.map((entry, i) => <Entry key={`${entry.at}-${i}`} entry={entry} index={i} />)}
         </div>
       )}
-    </div>
+    </Panel>
   );
 }

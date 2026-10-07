@@ -13,72 +13,68 @@
  * Money owed to you sits below the line rather than inside it. Mixing the two
  * is the specific mistake that makes a total read as spendable when part of it
  * has not arrived.
+ *
+ * Rendered as a terminal <Panel>, so it belongs inside a <PanelGrid>; pass
+ * `bordered` to stand it on its own.
  */
 
 import React from 'react';
 import { format, parseISO } from 'date-fns';
-import { ArrowDownRight, ArrowUpRight, Clock, Wallet, CreditCard, Info } from 'lucide-react';
 import { formatCurrency } from '../utils/calculations';
+import { Panel, Money, Badge } from './ui';
 import type { Position } from '../utils/position';
 
-export default function PositionPanel({ position, horizon }: { position: Position; horizon: Date }) {
+export default function PositionPanel({
+  position, horizon, className = 'col-span-12', bordered = false,
+}: { position: Position; horizon: Date; className?: string; bordered?: boolean }) {
   const p = position;
   const horizonLabel = format(horizon, 'd MMM');
 
   return (
-    <div className="bg-surface rounded-container border border-line p-5">
-      <div className="grid md:grid-cols-2 gap-x-8 gap-y-5">
+    <Panel title="Position" meta={`TO ${horizonLabel.toUpperCase()}`} className={className} bordered={bordered}>
+      <div className="grid md:grid-cols-2 gap-px bg-line border-b border-line">
         {/* What you have, and what the cards are holding against it. */}
-        <section>
+        <section className="bg-surface flex flex-col">
           <Row
-            icon={Wallet}
             label="Have"
             detail={p.have.length ? p.have.map(a => a.name).join(', ') : 'No cash account yet'}
             amount={p.haveTotal}
           />
           <Row
-            icon={CreditCard}
             label="Owe"
             detail={p.owe.length ? p.owe.map(a => a.name).join(', ') : 'No cards yet'}
             amount={-p.oweTotal}
           />
-          <div className="flex items-baseline justify-between border-t border-line-strong mt-2 pt-2">
-            <span className="text-sm font-medium text-ink">Available now</span>
-            <span className={`figure-display text-xl ${p.availableNow < 0 ? 'text-negative' : 'text-ink'}`}>
-              {formatCurrency(p.availableNow)}
-            </span>
-          </div>
-          <p className="text-caption text-ink-muted mt-1">
-            {p.hasCash
-              ? <>Card spending is already counted, so paying a card does not change this.</>
-              : <span className="text-caution">
-                  This is just your card balance until you add a chequing account — add one on the
-                  Investments screen with type Cash.
-                </span>}
-          </p>
+          <Total label="Available now" amount={p.availableNow} />
+          {p.hasCash ? (
+            <p className="font-sans text-caption text-ink-muted px-2.5 py-1.5">
+              Card spending is already counted, so paying a card does not change this.
+            </p>
+          ) : (
+            <div className="flex items-start gap-2.5 px-2.5 py-1.5">
+              <Badge tone="caution" className="shrink-0 mt-px">No cash</Badge>
+              <p className="font-sans text-caption text-caution">
+                This is just your card balance until you add a chequing account — add one on the
+                Investments screen with type Cash.
+              </p>
+            </div>
+          )}
         </section>
 
         {/* What is still to happen before the horizon. */}
-        <section>
+        <section className="bg-surface flex flex-col">
           <Row
-            icon={ArrowUpRight}
             label="Coming in"
             detail={comingInDetail(p)}
             amount={p.comingInTotal}
           />
           <Row
-            icon={ArrowDownRight}
             label="Coming out"
             detail={p.comingOut.length ? `${p.comingOut.length} due before ${horizonLabel}` : `Nothing due before ${horizonLabel}`}
             amount={-p.comingOutTotal}
           />
-          <div className="flex items-baseline justify-between border-t border-line-strong mt-2 pt-2">
-            <span className="text-sm font-medium text-ink">Expected by {horizonLabel}</span>
-            <span className={`figure-display text-xl ${p.expectedByHorizon < 0 ? 'text-negative' : 'text-ink'}`}>
-              {formatCurrency(p.expectedByHorizon)}
-            </span>
-          </div>
-          <p className="text-caption text-ink-muted mt-1">
+          <Total label={`Expected by ${horizonLabel}`} amount={p.expectedByHorizon} />
+          <p className="font-sans text-caption text-ink-muted px-2.5 py-1.5">
             Assumes everything owed to you arrives. It is not spendable until it does.
           </p>
         </section>
@@ -86,9 +82,9 @@ export default function PositionPanel({ position, horizon }: { position: Positio
 
       {/* Outstanding reimbursements, by age — the shape is the information. */}
       {p.owedToYou.length > 0 && (
-        <div className="mt-5 pt-4 border-t border-line">
-          <p className="label-micro mb-2">Owed to you</p>
-          <div className="flex flex-wrap gap-x-6 gap-y-1">
+        <div className="border-b border-line">
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-1 px-2.5 py-1.5">
+            <span className="label-micro">Owed to you</span>
             {p.owedToYou.map(b => (
               <span key={b.label} className="text-caption text-ink-secondary">
                 {b.label}: <span className="money text-ink">{formatCurrency(b.amount)}</span>
@@ -97,24 +93,29 @@ export default function PositionPanel({ position, horizon }: { position: Positio
             ))}
           </div>
           {p.owedToYou.some(b => b.label === 'Over 3 months') && (
-            <p className="text-caption text-caution mt-2">
-              Some of this has been outstanding for over three months. Worth chasing or writing off —
-              either way it stops sitting in a number you are counting on.
-            </p>
+            <div className="flex items-start gap-2.5 px-2.5 py-1.5 border-t border-line">
+              <Badge tone="caution" className="shrink-0 mt-px">Aged</Badge>
+              <p className="font-sans text-caption text-ink">
+                Some of this has been outstanding for over three months. Worth chasing or writing off —
+                either way it stops sitting in a number you are counting on.
+              </p>
+            </div>
           )}
         </div>
       )}
 
       {/* A position is only as current as its stalest input. */}
       {(p.oldestAsOf || p.undatedAccounts.length > 0) && (
-        <p className="text-caption text-ink-muted mt-4 flex items-start gap-1.5">
-          <Clock className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-          {p.undatedAccounts.length > 0
-            ? <>No date on {p.undatedAccounts.join(', ')} — update the balance on the Investments screen and it will be stamped.</>
-            : <>Balances last confirmed {format(parseISO(p.oldestAsOf!), 'd MMM yyyy')}. Card balances are typed, not synced, so they are only as current as your last update.</>}
-        </p>
+        <div className="flex items-start gap-2.5 px-2.5 py-1.5">
+          <Badge tone={p.undatedAccounts.length > 0 ? 'caution' : 'neutral'} className="shrink-0 mt-px">As of</Badge>
+          <p className="font-sans text-caption text-ink-muted">
+            {p.undatedAccounts.length > 0
+              ? <>No date on {p.undatedAccounts.join(', ')} — update the balance on the Investments screen and it will be stamped.</>
+              : <>Balances last confirmed {format(parseISO(p.oldestAsOf!), 'd MMM yyyy')}. Card balances are typed, not synced, so they are only as current as your last update.</>}
+          </p>
+        </div>
       )}
-    </div>
+    </Panel>
   );
 }
 
@@ -127,54 +128,58 @@ function comingInDetail(p: Position): string {
   return parts.length ? parts.join(' · ') : 'Nothing expected';
 }
 
-function Row({ icon: Icon, label, detail, amount }: {
-  icon: typeof Wallet; label: string; detail: string; amount: number;
+function Row({ label, detail, amount }: {
+  label: string; detail: string; amount: number;
 }) {
   return (
-    <div className="flex items-baseline justify-between h-row">
-      <span className="flex items-center gap-2 min-w-0">
-        <Icon className="w-3.5 h-3.5 text-ink-muted shrink-0" />
-        <span className="text-sm text-ink">{label}</span>
-        <span className="text-caption text-ink-muted truncate">{detail}</span>
-      </span>
-      <span className={`money text-sm ${amount < 0 ? 'text-negative' : 'text-ink-secondary'}`}>
+    <div className="flex items-center gap-2 h-row px-2.5 border-b border-line">
+      <span className="w-20 shrink-0 text-caption uppercase tracking-[0.03em] text-ink-secondary">{label}</span>
+      <span className="flex-1 min-w-0 text-caption text-ink-muted truncate">{detail}</span>
+      <span className={`money text-sm whitespace-nowrap ${amount < 0 ? 'text-negative' : 'text-ink'}`}>
         {formatCurrency(amount)}
       </span>
     </div>
   );
 }
 
-/** Shown in place of the panel when there is nothing to compute from. */
-export function PositionEmpty() {
+function Total({ label, amount }: { label: string; amount: number }) {
   return (
-    <div className="bg-surface rounded-container border border-line p-5">
-      <h2 className="text-lg font-semibold text-ink mb-1 flex items-center gap-2">
-        <Wallet className="w-4 h-4 text-ink-muted" />Where your money stands
-      </h2>
-      <p className="text-sm text-ink-secondary mb-3">
+    <div className="flex items-baseline justify-between gap-2 px-2.5 py-1.5 border-b border-line">
+      <span className="text-caption uppercase tracking-[0.03em] font-semibold text-ink">{label}</span>
+      <Money value={amount} size="lg" className={amount < 0 ? 'text-negative' : 'text-ink'} />
+    </div>
+  );
+}
+
+/** Shown in place of the panel when there is nothing to compute from. */
+export function PositionEmpty({ className = 'col-span-12', bordered = false }: { className?: string; bordered?: boolean }) {
+  return (
+    <Panel title="Where your money stands" className={className} bordered={bordered}>
+      <p className="font-sans text-sm text-ink-secondary px-2.5 py-2 border-b border-line">
         Add your chequing account and your credit cards and this becomes one number:
         what you can actually spend.
       </p>
-      <ul className="text-caption text-ink-muted space-y-1.5">
-        <li className="flex gap-2">
-          <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-          <span>
+      <ul>
+        <li className="flex items-start gap-2.5 px-2.5 py-1.5 border-b border-line">
+          <span className="font-sans text-caption text-ink-muted">
             <strong className="text-ink-secondary">Chequing:</strong> Investments → add an account
             with type <em>Cash</em>. Its balance is stamped with the date you entered it.
           </span>
         </li>
-        <li className="flex gap-2">
-          <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-          <span>
+        <li className="flex items-start gap-2.5 px-2.5 py-1.5 border-b border-line">
+          <span className="font-sans text-caption text-ink-muted">
             <strong className="text-ink-secondary">Cards:</strong> Debts → add each card with type
             <em> Credit Card</em>, using its <em>current</em> balance, not the statement balance.
           </span>
         </li>
       </ul>
-      <p className="text-caption text-ink-muted mt-3">
-        Do not record card payments as transactions. Your purchases are already counted on the day
-        you made them, so a payment would count them twice.
-      </p>
-    </div>
+      <div className="flex items-start gap-2.5 px-2.5 py-1.5">
+        <Badge tone="caution" className="shrink-0 mt-px">Note</Badge>
+        <p className="font-sans text-caption text-ink-muted">
+          Do not record card payments as transactions. Your purchases are already counted on the day
+          you made them, so a payment would count them twice.
+        </p>
+      </div>
+    </Panel>
   );
 }

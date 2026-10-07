@@ -1,9 +1,12 @@
 import React, { useMemo } from 'react';
-import { Scale, ArrowRight } from 'lucide-react';
 import { useFinancial, useGetCategory } from '../../context/FinancialContext';
 import { formatCurrency } from '../../utils/calculations';
 import { getBudgetSuggestions, applyBudgetSuggestion } from '../../utils/planning';
 import { DEFAULT_FLEX } from '../../utils/constants';
+import {
+  Panel, KeyValue, Badge, Button, CategoryMark,
+} from '../ui';
+import type { BadgeTone } from '../ui';
 
 // A stable empty array, so a settings object without the key does not hand a
 // fresh [] to useMemo on every render.
@@ -17,10 +20,10 @@ const NONE: string[] = [];
  * copies it onto each one so the copy can say "in 4 of the last 6 months".
  */
 type Suggestion = ReturnType<typeof getBudgetSuggestions>['suggestions'][number] & { months: number };
-const TYPE = {
-  raise: { label: 'Too tight', cls: 'bg-negative-tint text-negative' },
-  lower: { label: 'Too loose', cls: 'bg-info-tint text-info' },
-  add: { label: 'No budget', cls: 'bg-surface-hover text-ink-secondary' },
+const TYPE: Record<Suggestion['type'], { label: string; tone: BadgeTone }> = {
+  raise: { label: 'Too tight', tone: 'negative' },
+  lower: { label: 'Too loose', tone: 'neutral' },
+  add: { label: 'No budget', tone: 'neutral' },
 };
 const FREQ: Record<string, string> = { quarterly: 'every 3 months', semiannual: 'every 6 months', annual: 'yearly' };
 const dismissKey = (s: Suggestion): string => `${s.category}:${s.type}:${s.suggested}`;
@@ -40,7 +43,7 @@ function billNote(s: Suggestion): string | null {
   return `Includes ${formatCurrency(s.billShare)}/mo toward ${list}.${s.rollover ? '' : ' Turn on rollover for this budget so that share builds up for the bill month.'}`;
 }
 
-export default function BudgetTuneUpPanel() {
+export default function BudgetTuneUpPanel({ className = 'col-span-12' }: { className?: string }) {
   const { state, dispatch } = useFinancial();
   const { transactions, budgets } = state;
   const getCategory = useGetCategory();
@@ -57,63 +60,58 @@ export default function BudgetTuneUpPanel() {
   const dismiss = (s: Suggestion) => dispatch({ type: 'UPDATE_SETTINGS', payload: { dismissedBudgetTips: [...dismissed, dismissKey(s)] } });
 
   return (
-    <div className="bg-surface rounded-container border border-line p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
-        <div className="flex items-start gap-2">
-          <Scale className="w-4 h-4 text-ink-muted mt-0.5" />
-          <div>
-            <h2 className="text-lg font-semibold text-ink">Budget Tune-Up</h2>
-            <p className="text-caption text-ink-muted mt-0.5">
-              {result.insufficient
-                ? 'Compares your budgets with how you actually spend.'
-                : `Budgets compared with your last ${result.months} full months of spending. Suggestions cover a typical month (75th percentile).`}
-            </p>
-          </div>
-        </div>
-        {freed > 0 && (
-          <div className="text-right">
-            <p className="text-caption text-ink-muted">Could free up</p>
-            <p className="text-xl font-bold text-info">{formatCurrency(freed)}<span className="text-sm font-medium text-ink-muted">/mo</span></p>
-          </div>
-        )}
-      </div>
+    <Panel
+      title="Budget Tune-Up"
+      meta={!result.insufficient && suggestions.length ? `${suggestions.length} SUGGESTION${suggestions.length > 1 ? 'S' : ''}` : undefined}
+      className={className}
+    >
+      <p className="font-sans text-caption text-ink-muted px-2.5 py-1.5 border-b border-line">
+        {result.insufficient
+          ? 'Compares your budgets with how you actually spend.'
+          : `Budgets compared with your last ${result.months} full months of spending. Suggestions cover a typical month (75th percentile).`}
+      </p>
+      {freed > 0 && (
+        <KeyValue label="Could free up" strong>
+          <span className="text-info">{formatCurrency(freed)}</span><span className="text-ink-muted">/mo</span>
+        </KeyValue>
+      )}
 
       {result.insufficient ? (
-        <p className="text-sm text-ink-muted text-center py-6">Needs at least 3 full months of transactions to suggest realistic budgets.</p>
+        <p className="font-sans text-sm text-ink-muted p-3">Needs at least 3 full months of transactions to suggest realistic budgets.</p>
       ) : suggestions.length === 0 ? (
-        <p className="text-sm text-ink-muted text-center py-6">Your budgets line up well with how you actually spend. Nothing to change.</p>
+        <p className="font-sans text-sm text-ink-muted p-3">Your budgets line up well with how you actually spend. Nothing to change.</p>
       ) : (
-        <div className="space-y-3">
+        <ul>
           {suggestions.map(s => {
             const cat = getCategory(s.category);
             const t = TYPE[s.type];
+            const note = billNote(s);
             return (
-              <div key={dismissKey(s)} className="border border-line rounded-container p-3">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: cat.color }} />
-                    <span className="text-sm font-semibold text-ink">{cat.name}</span>
-                    <span className={`text-caption font-medium px-2 py-0.5 rounded-full ${t.cls}`}>{t.label}</span>
+              <li key={dismissKey(s)} className="px-2.5 py-1.5 border-b border-line last:border-b-0">
+                <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <CategoryMark color={cat.color} name={cat.name} className="text-sm text-ink font-medium" />
+                    <Badge tone={t.tone}>{t.label}</Badge>
                   </div>
-                  <div className="flex items-center gap-2 text-sm">
+                  <div className="flex items-center gap-2 text-sm whitespace-nowrap">
                     <span className="text-ink-muted">{s.current ? formatCurrency(s.current) : 'None'}</span>
-                    <ArrowRight className="w-3.5 h-3.5 text-ink-muted" />
+                    <span className="text-ink-muted" aria-hidden="true">→</span>
                     <span className="font-semibold text-ink">{formatCurrency(s.suggested)}/mo</span>
                   </div>
                 </div>
-                <p className="text-caption text-ink-muted mt-1.5">{explain(s)}</p>
-                {billNote(s) && <p className="text-caption text-ink-secondary mt-1">{billNote(s)}</p>}
-                <div className="flex gap-2 mt-2">
-                  <button onClick={() => apply(s)} className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-7 px-2.5 text-caption bg-accent hover:bg-accent-hover text-ink-inverse">
+                <p className="font-sans text-caption text-ink-muted mt-1">{explain(s)}</p>
+                {note && <p className="font-sans text-caption text-ink-secondary mt-0.5">{note}</p>}
+                <div className="flex gap-1.5 mt-1.5">
+                  <Button size="sm" variant="primary" onClick={() => apply(s)}>
                     {s.type === 'add' ? `Set ${formatCurrency(s.suggested)} budget` : `Change to ${formatCurrency(s.suggested)}`}
-                  </button>
-                  <button onClick={() => dismiss(s)} className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-7 px-2.5 text-caption border border-line-strong text-ink hover:bg-surface-hover">Dismiss</button>
+                  </Button>
+                  <Button size="sm" variant="secondary" onClick={() => dismiss(s)}>Dismiss</Button>
                 </div>
-              </div>
+              </li>
             );
           })}
-        </div>
+        </ul>
       )}
-    </div>
+    </Panel>
   );
 }

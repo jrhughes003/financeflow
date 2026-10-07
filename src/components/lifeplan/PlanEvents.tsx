@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { format, parseISO } from 'date-fns';
-import { Home, Car, PartyPopper, Repeat, Trash2, Plus, AlertTriangle, CheckCircle2, Search } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+import { Trash2, Plus, Search } from 'lucide-react';
+import { Button, IconButton } from '../ui';
 import { formatCurrency } from '../../utils/calculations';
 import { housePurchase } from '../../utils/lifeplan/housing';
 import { earliestAffordableDate } from '../../utils/lifeplan/engine';
@@ -9,13 +9,13 @@ import { newId } from '../../utils/lifeplan/snapshot';
 import type { HouseEvent, LifePlan, PlanEvent, PlanEventType } from '../../types/lifeplan';
 import type { PlanOutcome, PlanSnapshot, YearEvent } from '../../types/projection';
 import { needsSetup } from '../../types/projection';
-import { Card, NumberField, TextField, MonthField, SelectField, Toggle } from './ui';
+import { Card, NumberField, TextField, MonthField, SelectField, Toggle, Note } from './ui';
 
-const TYPES: Record<PlanEventType, { label: string; icon: LucideIcon }> = {
-  house: { label: 'Home purchase', icon: Home },
-  car: { label: 'Vehicle', icon: Car },
-  oneTime: { label: 'One-time cost', icon: PartyPopper },
-  recurring: { label: 'Ongoing cost', icon: Repeat },
+const TYPES: Record<PlanEventType, { label: string }> = {
+  house: { label: 'Home purchase' },
+  car: { label: 'Vehicle' },
+  oneTime: { label: 'One-time cost' },
+  recurring: { label: 'Ongoing cost' },
 };
 const fmtMonth = (d: string | null | undefined): string => (d ? format(parseISO(`${d}-01`), 'MMM yyyy') : '—');
 
@@ -56,18 +56,15 @@ function Outcome({ results }: { results?: EventResult[] }) {
   const funded = results.every(r => !((r.shortfall ?? 0) > 0.5));
   const first = results[0];
   return (
-    <div className={`flex items-start gap-2 rounded-control p-2.5 mt-3 text-caption ${funded ? 'bg-positive-tint text-positive' : 'bg-caution-tint text-caution'}`}>
-      {funded ? <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" /> : <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />}
-      <div>
-        {funded ? <p className="font-medium">Affordable as planned.</p> : <p className="font-medium">Short {formatCurrency(first.shortfall ?? 0)} at {fmtMonth(first.date)}.</p>}
-        {first.type === 'house' && (
-          <p className="mt-0.5">
-            Paid with {[(first.fromFhsa ?? 0) > 0 && `${formatCurrency(first.fromFhsa ?? 0)} FHSA`, (first.fromHbp ?? 0) > 0 && `${formatCurrency(first.fromHbp ?? 0)} RRSP (Home Buyers' Plan)`, (first.fromSavings ?? 0) > 0 && `${formatCurrency(first.fromSavings ?? 0)} savings`].filter(Boolean).join(' + ') || 'savings'}.
-          </p>
-        )}
-        {results.length > 1 && <p className="mt-0.5">{results.length} purchases planned: {results.map(r => fmtMonth(r.date)).join(', ')}.</p>}
-      </div>
-    </div>
+    <Note tag={funded ? 'OK' : 'Short'} tone={funded ? 'positive' : 'caution'} className="px-2.5 py-1.5 border-t border-line">
+      {funded ? <p className="font-medium text-positive">Affordable as planned.</p> : <p className="font-medium text-caution">Short {formatCurrency(first.shortfall ?? 0)} at {fmtMonth(first.date)}.</p>}
+      {first.type === 'house' && (
+        <p className="mt-0.5 text-ink-secondary">
+          Paid with {[(first.fromFhsa ?? 0) > 0 && `${formatCurrency(first.fromFhsa ?? 0)} FHSA`, (first.fromHbp ?? 0) > 0 && `${formatCurrency(first.fromHbp ?? 0)} RRSP (Home Buyers' Plan)`, (first.fromSavings ?? 0) > 0 && `${formatCurrency(first.fromSavings ?? 0)} savings`].filter(Boolean).join(' + ') || 'savings'}.
+        </p>
+      )}
+      {results.length > 1 && <p className="mt-0.5 text-ink-secondary">{results.length} purchases planned: {results.map(r => fmtMonth(r.date)).join(', ')}.</p>}
+    </Note>
   );
 }
 
@@ -77,8 +74,8 @@ function HouseDetails({ ev }: { ev: HouseEvent }) {
     amortizationYears: Number(ev.amortizationYears) || 25, firstTime: ev.firstTime !== false, toronto: !!ev.toronto,
   });
   return (
-    <div className="bg-surface-sunk rounded-control p-3 mt-3 text-caption text-ink-secondary">
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-y-1 gap-x-4">
+    <div className="border-t border-line text-caption text-ink-secondary">
+      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-y-1 gap-x-4 px-2.5 py-1.5 bg-surface-sunk">
         <span>Down payment: <strong>{formatCurrency(hp.downPayment)}</strong></span>
         <span>Land transfer tax: <strong>{formatCurrency(hp.ltt.total)}</strong>{ev.firstTime !== false && ' (after first-time rebate)'}</span>
         <span>CMHC insurance: <strong>{hp.cmhc.premium ? `${formatCurrency(hp.cmhc.premium)} added to the mortgage` : 'none (20%+ down)'}</strong></span>
@@ -87,7 +84,9 @@ function HouseDetails({ ev }: { ev: HouseEvent }) {
         <span className="lg:col-span-2">Mortgage {formatCurrency(hp.mortgage)} over {hp.amortizationYears} yrs → <strong className="text-ink">{formatCurrency(hp.monthlyPayment)}/mo</strong></span>
       </div>
       {hp.belowMinimum && (
-        <p className="flex items-center gap-1.5 text-caution mt-2"><AlertTriangle className="w-3.5 h-3.5" />Below the minimum down payment in Canada ({formatCurrency(hp.minDown)} for this price).</p>
+        <Note tag="Min" tone="caution" className="px-2.5 py-1.5 border-t border-line">
+          <span className="text-caution">Below the minimum down payment in Canada ({formatCurrency(hp.minDown)} for this price).</span>
+        </Note>
       )}
     </div>
   );
@@ -123,48 +122,53 @@ export default function PlanEvents({ plan, setPlan, snapshot, result }: PlanEven
   };
 
   return (
-    <div className="space-y-5">
-      <Card title="Life events" subtitle="Plans with a price tag. Each one is folded into the projection on its date.">
-        <div className="flex flex-wrap gap-2">
-          {Object.entries(TYPES).map(([type, { label, icon: Icon }]) => (
-            <button key={type} onClick={() => add(type as PlanEventType)} className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-9 px-3.5 text-sm border border-line-strong text-ink hover:bg-surface-hover">
-              <Plus className="w-3.5 h-3.5" /><Icon className="w-4 h-4 text-ink-muted" />{label}
-            </button>
+    <div className="space-y-2">
+      <Card
+        title="Life events"
+        subtitle="Plans with a price tag. Each one is folded into the projection on its date."
+        meta={plan.events.length ? `${plan.events.length} PLANNED` : undefined}
+        flush
+      >
+        <div className="flex flex-wrap gap-1.5 px-2.5 py-2">
+          {Object.entries(TYPES).map(([type, { label }]) => (
+            <Button key={type} size="md" icon={Plus} onClick={() => add(type as PlanEventType)}>{label}</Button>
           ))}
         </div>
       </Card>
 
       {plan.events.length === 0 && (
-        <Card><p className="text-sm text-ink-muted text-center py-6">Nothing planned yet. Add a home purchase, a wedding, a car — anything with a date and a cost.</p></Card>
+        <Card><p className="font-sans text-sm text-ink-muted">Nothing planned yet. Add a home purchase, a wedding, a car — anything with a date and a cost.</p></Card>
       )}
 
       {plan.events.map(ev => {
-        const { icon: Icon, label } = TYPES[ev.type] || TYPES.oneTime;
+        const { label } = TYPES[ev.type] || TYPES.oneTime;
         // eventResults is Record<string, unknown>; the engine stores an array
         // of occurrences under each event id.
         const results = projection?.eventResults?.[ev.id] as EventResult[] | undefined;
         const earliest = found[ev.id];
+        // The projection starts next month, so an earlier date never happens.
+        const when = ev.type === 'recurring' ? ev.end : ev.date;
+        const startYm = projection?.startYm || '';
+        const past = !!when && !!startYm && when < startYm;
         return (
-          <Card key={ev.id}>
-            <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-              <div className="flex items-center gap-2">
-                <Icon className="w-4 h-4 text-ink-muted" />
-                <span className="text-sm font-semibold text-ink">{ev.name || label}</span>
-                <span className="text-caption text-ink-muted">{label}</span>
-              </div>
-              <div className="flex items-center gap-2">
+          <Card
+            key={ev.id}
+            title={ev.name || label}
+            meta={label}
+            flush
+            actions={(
+              <>
                 {ev.type !== 'recurring' && (
-                  <button onClick={() => findEarliest(ev)} disabled={busy === ev.id}
-                    className="flex items-center gap-1.5 px-3 py-1.5 border border-accent text-accent-ink text-caption font-medium rounded-control hover:bg-accent-tint disabled:opacity-50">
-                    <Search className="w-3.5 h-3.5" />{busy === ev.id ? 'Searching…' : 'Earliest affordable date'}
-                  </button>
+                  <Button size="sm" icon={Search} onClick={() => findEarliest(ev)} disabled={busy === ev.id}>
+                    {busy === ev.id ? 'Searching…' : 'Earliest affordable date'}
+                  </Button>
                 )}
                 <Toggle label="Include" checked={ev.enabled !== false} onChange={v => setEvent(ev.id, { enabled: v })} />
-                <button onClick={() => update(plan.events.filter(e => e.id !== ev.id))} className="p-1.5 text-ink-muted hover:text-negative hover:bg-negative-tint rounded-control"><Trash2 className="w-3.5 h-3.5" /></button>
-              </div>
-            </div>
-
-            <div className="grid sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                <IconButton icon={Trash2} label={`Remove ${ev.name || label}`} variant="danger" onClick={() => update(plan.events.filter(e => e.id !== ev.id))} />
+              </>
+            )}
+          >
+            <div className="grid sm:grid-cols-3 lg:grid-cols-4 gap-2 p-2.5">
               <TextField label="Name" value={ev.name} onChange={v => setEvent(ev.id, { name: v })} />
               {ev.type === 'recurring' ? (
                 <>
@@ -189,7 +193,7 @@ export default function PlanEvents({ plan, setPlan, snapshot, result }: PlanEven
                   <NumberField label="Home insurance" value={ev.insuranceAnnual} onChange={v => setEvent(ev.id, { insuranceAnnual: v })} suffix="/yr" />
                   <NumberField label="Upkeep" value={ev.maintenancePct} onChange={v => setEvent(ev.id, { maintenancePct: v })} suffix="%/yr" step="0.1" hint="Of home value" />
                   <NumberField label="Condo fees" value={ev.condoFeesMonthly} onChange={v => setEvent(ev.id, { condoFeesMonthly: v })} suffix="/mo" />
-                  <div className="sm:col-span-3 lg:col-span-4 flex flex-wrap gap-4">
+                  <div className="sm:col-span-3 lg:col-span-4 flex flex-wrap gap-x-5 gap-y-2 pt-1">
                     <Toggle label="First-time buyer" checked={ev.firstTime !== false} onChange={v => setEvent(ev.id, { firstTime: v })} hint="Land transfer tax rebate, 30-yr insured amortization" />
                     <Toggle label="In Toronto" checked={!!ev.toronto} onChange={v => setEvent(ev.id, { toronto: v })} hint="Adds the municipal land transfer tax" />
                     <Toggle label="Use FHSA first" checked={ev.useFHSA !== false} onChange={v => setEvent(ev.id, { useFHSA: v })} />
@@ -215,28 +219,25 @@ export default function PlanEvents({ plan, setPlan, snapshot, result }: PlanEven
             </div>
 
             {ev.type === 'house' && <HouseDetails ev={ev} />}
-            {(() => {
-              // The projection starts next month, so an earlier date never happens.
-              const when = ev.type === 'recurring' ? ev.end : ev.date;
-              const startYm = projection?.startYm || '';
-              if (!when || !startYm || when >= startYm) return null;
-              return (
-                <p className="flex items-center gap-1.5 text-caption text-caution mt-3">
-                  <AlertTriangle className="w-3.5 h-3.5" />
+            {past && (
+              <Note tag="Past" tone="caution" className="px-2.5 py-1.5 border-t border-line">
+                <span className="text-caution">
                   {ev.type === 'recurring'
                     ? `This ends before the projection starts (${startYm}), so it has no effect.`
                     : `This date is in the past. The projection starts ${startYm}, so this event is skipped — pick a future month.`}
-                </p>
-              );
-            })()}
+                </span>
+              </Note>
+            )}
             <Outcome results={results} />
             {earliest && (
-              <p className="text-caption text-ink-secondary mt-2">
-                {earliest === 'none'
-                  ? 'No affordable month found in the next 25 years at these numbers — more income, a smaller purchase, or a bigger down payment would change that.'
-                  : <>Earliest month this works: <span className="font-semibold text-ink">{fmtMonth(earliest)}</span>{' '}
-                    <button onClick={() => setEvent(ev.id, { date: earliest })} className="text-accent hover:text-accent-ink font-medium">use this date</button></>}
-              </p>
+              <Note tag="Earliest" tone={earliest === 'none' ? 'caution' : 'accent'} className="px-2.5 py-1.5 border-t border-line">
+                <span className="text-ink-secondary">
+                  {earliest === 'none'
+                    ? 'No affordable month found in the next 25 years at these numbers — more income, a smaller purchase, or a bigger down payment would change that.'
+                    : <>Earliest month this works: <span className="font-semibold text-ink">{fmtMonth(earliest)}</span>{' '}
+                      <button onClick={() => setEvent(ev.id, { date: earliest })} className="text-accent-ink underline underline-offset-2 hover:text-accent font-medium">use this date</button></>}
+                </span>
+              </Note>
             )}
           </Card>
         );

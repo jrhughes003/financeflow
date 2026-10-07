@@ -17,12 +17,13 @@ import { format, parseISO } from 'date-fns';
 import {
   Area, AreaChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts';
-import { Plus, Trash2, TriangleAlert, Wallet, Info } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import * as chart from './ui/chartTheme';
 import { useFinancial } from '../context/FinancialContext';
 import { buildCashFlow } from '../utils/cashPlan';
 import { buildPosition, hasPositionData } from '../utils/position';
 import PositionPanel, { PositionEmpty } from './PositionPanel';
+import { Panel, PanelGrid, Button, IconButton, Badge } from './ui';
 import { formatCurrency } from '../utils/calculations';
 import { projectMonthEnd } from '../utils/insights';
 import { useTaxonomy } from '../context/FinancialContext';
@@ -125,193 +126,195 @@ export default function CashFlowPlanner() {
   const dipsNegative = flow.firstNegative !== null;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-ink">Cash Flow</h1>
-        <p className="text-caption text-ink-muted mt-0.5">
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+        <h1 className="sr-only">Cash Flow</h1>
+        <p className="font-sans text-caption text-ink-muted">
           A running balance, day by day. Add what you know is coming and see where it gets tight.
         </p>
       </div>
 
-      {knowsPosition
-        ? <PositionPanel position={position} horizon={horizon} />
-        : <PositionEmpty />}
+      <PanelGrid className="grid-flow-row-dense">
+        {knowsPosition
+          ? <PositionPanel position={position} horizon={horizon} className="col-span-12 xl:col-span-8" />
+          : <PositionEmpty className="col-span-12 xl:col-span-8" />}
 
-      {/* Opening balance — derived from the position unless overridden. */}
-      <div className="bg-surface rounded-container border border-line p-5">
-        <div className="flex flex-wrap items-end gap-5">
-          <div>
-            <label htmlFor="cash-opening" className="label-micro block mb-1.5">Balance today</label>
-            <input
-              id="cash-opening"
-              type="number"
-              value={plan.openingBalance ?? ''}
-              onChange={e => save({ openingBalance: e.target.value === '' ? undefined : Number(e.target.value) })}
-              // Shows what the projection is actually seeded with, which is not
-              // availableNow when no cash account exists — promising a figure the
-              // chart is not using is worse than showing none.
-              placeholder={position.hasCash ? String(position.availableNow) : '$0'}
-              className="w-40 h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent money"
-            />
-          </div>
-          <div>
-            <span className="label-micro block mb-1.5">Look ahead</span>
-            <div className="flex gap-1">
-              {HORIZONS.map(m => (
-                <button
-                  key={m}
-                  onClick={() => setMonths(m)}
-                  className={`h-9 px-3 rounded-control text-sm border transition-colors ${
-                    months === m
-                      ? 'bg-accent-tint border-accent text-accent-ink font-medium'
-                      : 'border-line-strong text-ink-secondary hover:bg-surface-hover'
-                  }`}
-                >
-                  {m} mo
-                </button>
-              ))}
+        {/* Opening balance — derived from the position unless overridden. */}
+        <Panel title="Inputs" meta={`${months} MO`} className="col-span-12 xl:col-span-4">
+          <div className="flex flex-wrap items-end gap-3 px-2.5 py-2 border-b border-line">
+            <div>
+              <label htmlFor="cash-opening" className="label-micro block mb-1">Balance today</label>
+              <input
+                id="cash-opening"
+                type="number"
+                value={plan.openingBalance ?? ''}
+                onChange={e => save({ openingBalance: e.target.value === '' ? undefined : Number(e.target.value) })}
+                // Shows what the projection is actually seeded with, which is not
+                // availableNow when no cash account exists — promising a figure the
+                // chart is not using is worse than showing none.
+                placeholder={position.hasCash ? String(position.availableNow) : '$0'}
+                className="w-36 h-7 px-2 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent money"
+              />
+            </div>
+            <div>
+              <span className="label-micro block mb-1">Look ahead</span>
+              <div className="flex border border-line-strong rounded-control">
+                {HORIZONS.map(m => (
+                  <button
+                    key={m}
+                    onClick={() => setMonths(m)}
+                    aria-pressed={months === m}
+                    className={`h-[26px] px-2.5 text-sm border-l border-line-strong first:border-l-0 transition-colors ${
+                      months === m
+                        ? 'bg-accent-tint text-accent-ink font-medium'
+                        : 'text-ink-secondary hover:bg-surface-hover'
+                    }`}
+                  >
+                    {m} mo
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
-        </div>
 
-        {plan.openingBalance === undefined && (
-          <p className="text-caption text-ink-muted mt-3 flex items-start gap-1.5">
-            <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-            {knowsPosition
-              ? <>Starting from your available balance above. Type a figure to override it — useful for
-                  asking what would happen if you started from somewhere else.</>
-              : <>Add a cash account and your cards, or type a starting balance. Until then the line
-                  below shows the change from zero, not your balance.</>}
-          </p>
-        )}
-      </div>
-
-      {/* The line, and the two numbers that matter on it. */}
-      <div className="bg-surface rounded-container border border-line p-5">
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
-          <Stat label="Lowest point" value={flow.lowest ? formatCurrency(flow.lowest.balance) : '—'}
-            sub={flow.lowest ? format(parseISO(flow.lowest.date), 'd MMM yyyy') : undefined}
-            tone={flow.lowest && flow.lowest.balance < 0 ? 'negative' : 'normal'} />
-          <Stat label={`Balance in ${months} month${months > 1 ? 's' : ''}`} value={formatCurrency(flow.endingBalance)}
-            tone={flow.endingBalance < 0 ? 'negative' : 'normal'} />
-          <Stat label="Dated items" value={String(items.length)} sub="You added these" />
-        </div>
-
-        {dipsNegative && (
-          <div className="flex items-start gap-2 bg-negative-tint border border-negative rounded-container p-3 mb-4">
-            <TriangleAlert className="w-4 h-4 text-negative mt-0.5 shrink-0" />
-            <p className="text-sm text-ink">
-              Goes below zero on{' '}
-              <span className="font-semibold">{format(parseISO(flow.firstNegative!), 'd MMMM')}</span>
-              {flow.lowest && <>, bottoming at <span className="money font-semibold">{formatCurrency(flow.lowest.balance)}</span></>}.
+          {plan.openingBalance === undefined && (
+            <p className="font-sans text-caption text-ink-muted px-2.5 py-1.5">
+              {knowsPosition
+                ? <>Starting from your available balance above. Type a figure to override it — useful for
+                    asking what would happen if you started from somewhere else.</>
+                : <>Add a cash account and your cards, or type a starting balance. Until then the line
+                    below shows the change from zero, not your balance.</>}
             </p>
-          </div>
-        )}
-
-        <ResponsiveContainer width="100%" height={260}>
-          <AreaChart data={chartData} margin={{ top: 5, right: 12, left: 0, bottom: 5 }}>
-            <CartesianGrid {...chart.grid} />
-            <XAxis
-              dataKey="date" {...chart.xAxis}
-              tickFormatter={d => format(parseISO(d), 'd MMM')}
-              minTickGap={40}
-            />
-            <YAxis {...chart.yAxis} tickFormatter={chart.compactMoney} />
-            <Tooltip
-              {...chart.tooltip}
-              labelFormatter={d => format(parseISO(String(d)), 'EEEE d MMMM')}
-              formatter={v => [formatCurrency(chart.asNumber(v)), 'Balance']}
-            />
-            {/* Zero is the line that matters; without it a dip is just a shape. */}
-            <ReferenceLine y={0} stroke="var(--c-negative)" strokeDasharray="3 3" />
-            <Area type="monotone" dataKey="balance" stroke="var(--c-data-1)" fill="var(--c-accent-tint)" strokeWidth={2} />
-          </AreaChart>
-        </ResponsiveContainer>
-
-        {flow.smoothedIncomes.length > 0 && (
-          <p className="text-caption text-ink-muted mt-3 flex items-start gap-1.5">
-            <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-            {flow.smoothedIncomes.join(' and ')} {flow.smoothedIncomes.length > 1 ? 'have' : 'has'} no
-            payday set, so {flow.smoothedIncomes.length > 1 ? 'they are' : 'it is'} spread evenly
-            across the month rather than landing on a date. That flattens the dips between paydays —
-            set a date on the Income screen to see them.
-          </p>
-        )}
-      </div>
-
-      {/* Dated items. */}
-      <div className="bg-surface rounded-container border border-line p-5">
-        <h2 className="text-lg font-semibold text-ink mb-1 flex items-center gap-2">
-          <Wallet className="w-4 h-4 text-ink-muted" />What&apos;s coming
-        </h2>
-        <p className="text-caption text-ink-muted mb-4">
-          Planning only — nothing here is added to your transactions. Recurring bills and income you
-          have already set up are included in the line above automatically.
-        </p>
-
-        <div className="flex flex-wrap items-end gap-2 mb-4">
-          <div className="flex-1 min-w-[10rem]">
-            <label htmlFor="cp-label" className="label-micro block mb-1.5">What</label>
-            <input id="cp-label" value={draft.label} onChange={e => setDraft(d => ({ ...d, label: e.target.value }))}
-              placeholder="Tuition, bonus, car repair…"
-              className="w-full h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent" />
-          </div>
-          <div>
-            <label htmlFor="cp-kind" className="label-micro block mb-1.5">Direction</label>
-            <select id="cp-kind" value={draft.kind} onChange={e => setDraft(d => ({ ...d, kind: e.target.value as 'in' | 'out' }))}
-              className="h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink focus:outline-none focus:border-accent">
-              <option value="out">Payment</option>
-              <option value="in">Money in</option>
-            </select>
-          </div>
-          <div>
-            <label htmlFor="cp-amount" className="label-micro block mb-1.5">Amount</label>
-            <input id="cp-amount" type="number" value={draft.amount} onChange={e => setDraft(d => ({ ...d, amount: e.target.value }))}
-              placeholder="$0"
-              className="w-28 h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent money" />
-          </div>
-          <div>
-            <label htmlFor="cp-date" className="label-micro block mb-1.5">Date</label>
-            <input id="cp-date" type="date" value={draft.date} onChange={e => setDraft(d => ({ ...d, date: e.target.value }))}
-              className="h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink focus:outline-none focus:border-accent" />
-          </div>
-          <button onClick={addItem}
-            className="h-9 px-3 inline-flex items-center gap-1.5 bg-accent text-ink-inverse rounded-control text-sm font-medium hover:bg-accent-hover">
-            <Plus className="w-3.5 h-3.5" />Add
-          </button>
-        </div>
-
-        {items.length === 0
-          ? <p className="text-sm text-ink-muted py-4 text-center">Nothing added yet.</p>
-          : (
-            <ul>
-              {items.map(item => (
-                <li key={item.id} className="flex items-center gap-3 h-row border-b border-line-faint last:border-0">
-                  <span className="text-caption text-ink-muted w-24 shrink-0">{format(parseISO(item.date), 'd MMM yyyy')}</span>
-                  <span className="text-sm text-ink flex-1">{item.label}</span>
-                  <span className={`money text-sm font-medium ${item.kind === 'in' ? 'text-positive' : 'text-negative'}`}>
-                    {item.kind === 'in' ? '+' : '−'}{formatCurrency(item.amount)}
-                  </span>
-                  <button onClick={() => removeItem(item.id)} aria-label={`Remove ${item.label}`}
-                    className="p-1.5 text-ink-muted hover:text-negative hover:bg-negative-tint rounded-control">
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </li>
-              ))}
-            </ul>
           )}
-      </div>
+        </Panel>
+
+        {/* The line, and the two numbers that matter on it. */}
+        <Panel
+          title="Running balance"
+          meta={`NEXT ${months} MO`}
+          className="col-span-12"
+        >
+          <div className="grid grid-cols-3 gap-px bg-line border-b border-line">
+            <Cell label="Lowest point" value={flow.lowest ? formatCurrency(flow.lowest.balance) : '—'}
+              sub={flow.lowest ? format(parseISO(flow.lowest.date), 'd MMM yyyy') : undefined}
+              tone={flow.lowest && flow.lowest.balance < 0 ? 'negative' : 'normal'} />
+            <Cell label={`Balance in ${months} month${months > 1 ? 's' : ''}`} value={formatCurrency(flow.endingBalance)}
+              tone={flow.endingBalance < 0 ? 'negative' : 'normal'} />
+            <Cell label="Dated items" value={String(items.length)} sub="You added these" />
+          </div>
+
+          {dipsNegative && (
+            <div className="flex items-start gap-2.5 px-2.5 py-1.5 border-b border-line">
+              <Badge tone="negative" className="shrink-0 mt-px">Below 0</Badge>
+              <p className="font-sans text-sm text-ink">
+                Goes below zero on{' '}
+                <span className="font-semibold">{format(parseISO(flow.firstNegative!), 'd MMMM')}</span>
+                {flow.lowest && <>, bottoming at <span className="money font-semibold text-negative">{formatCurrency(flow.lowest.balance)}</span></>}.
+              </p>
+            </div>
+          )}
+
+          <div className="p-2">
+            <ResponsiveContainer width="100%" height={240}>
+              <AreaChart data={chartData} margin={{ top: 5, right: 12, left: 0, bottom: 0 }}>
+                <CartesianGrid {...chart.grid} />
+                <XAxis
+                  dataKey="date" {...chart.xAxis}
+                  tickFormatter={d => format(parseISO(d), 'd MMM')}
+                  minTickGap={40}
+                />
+                <YAxis {...chart.yAxis} tickFormatter={chart.compactMoney} />
+                <Tooltip
+                  {...chart.tooltip}
+                  labelFormatter={d => format(parseISO(String(d)), 'EEEE d MMMM')}
+                  formatter={v => [formatCurrency(chart.asNumber(v)), 'Balance']}
+                />
+                {/* Zero is the line that matters; without it a dip is just a shape. */}
+                <ReferenceLine y={0} stroke="var(--c-negative)" strokeDasharray="3 3" />
+                <Area type="monotone" dataKey="balance" stroke="var(--c-data-1)" fill="var(--c-accent-tint)" strokeWidth={2} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+
+          {flow.smoothedIncomes.length > 0 && (
+            <div className="flex items-start gap-2.5 px-2.5 py-1.5 border-t border-line">
+              <Badge tone="neutral" className="shrink-0 mt-px">Smoothed</Badge>
+              <p className="font-sans text-caption text-ink-muted">
+                {flow.smoothedIncomes.join(' and ')} {flow.smoothedIncomes.length > 1 ? 'have' : 'has'} no
+                payday set, so {flow.smoothedIncomes.length > 1 ? 'they are' : 'it is'} spread evenly
+                across the month rather than landing on a date. That flattens the dips between paydays —
+                set a date on the Income screen to see them.
+              </p>
+            </div>
+          )}
+        </Panel>
+
+        {/* Dated items. */}
+        <Panel title="What's coming" meta={items.length ? `${items.length} ITEM${items.length === 1 ? '' : 'S'}` : undefined} className="col-span-12">
+          <p className="font-sans text-caption text-ink-muted px-2.5 py-1.5 border-b border-line">
+            Planning only — nothing here is added to your transactions. Recurring bills and income you
+            have already set up are included in the line above automatically.
+          </p>
+
+          <div className="flex flex-wrap items-end gap-2 px-2.5 py-2 border-b border-line bg-surface-sunk">
+            <div className="flex-1 min-w-[10rem]">
+              <label htmlFor="cp-label" className="label-micro block mb-1">What</label>
+              <input id="cp-label" value={draft.label} onChange={e => setDraft(d => ({ ...d, label: e.target.value }))}
+                placeholder="Tuition, bonus, car repair…"
+                className="w-full h-7 px-2 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent" />
+            </div>
+            <div>
+              <label htmlFor="cp-kind" className="label-micro block mb-1">Direction</label>
+              <select id="cp-kind" value={draft.kind} onChange={e => setDraft(d => ({ ...d, kind: e.target.value as 'in' | 'out' }))}
+                className="h-7 px-2 bg-surface border border-line-strong rounded-control text-sm text-ink focus:outline-none focus:border-accent">
+                <option value="out">Payment</option>
+                <option value="in">Money in</option>
+              </select>
+            </div>
+            <div>
+              <label htmlFor="cp-amount" className="label-micro block mb-1">Amount</label>
+              <input id="cp-amount" type="number" value={draft.amount} onChange={e => setDraft(d => ({ ...d, amount: e.target.value }))}
+                placeholder="$0"
+                className="w-28 h-7 px-2 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent money" />
+            </div>
+            <div>
+              <label htmlFor="cp-date" className="label-micro block mb-1">Date</label>
+              <input id="cp-date" type="date" value={draft.date} onChange={e => setDraft(d => ({ ...d, date: e.target.value }))}
+                className="h-7 px-2 bg-surface border border-line-strong rounded-control text-sm text-ink focus:outline-none focus:border-accent" />
+            </div>
+            <Button variant="primary" icon={Plus} onClick={addItem}>Add</Button>
+          </div>
+
+          {items.length === 0
+            ? <p className="font-sans text-sm text-ink-muted p-3">Nothing added yet.</p>
+            : (
+              <ul>
+                {items.map(item => (
+                  <li key={item.id} className="flex items-center gap-3 h-row px-2.5 border-b border-line last:border-0 hover:bg-surface-hover">
+                    <span className="text-caption text-ink-muted w-24 shrink-0">{format(parseISO(item.date), 'd MMM yyyy')}</span>
+                    <span className="text-sm text-ink flex-1 min-w-0 truncate">{item.label}</span>
+                    <span className={`money text-sm font-medium ${item.kind === 'in' ? 'text-positive' : 'text-negative'}`}>
+                      {item.kind === 'in' ? '+' : '−'}{formatCurrency(item.amount)}
+                    </span>
+                    <IconButton icon={Trash2} label={`Remove ${item.label}`} variant="danger" onClick={() => removeItem(item.id)} />
+                  </li>
+                ))}
+              </ul>
+            )}
+        </Panel>
+      </PanelGrid>
     </div>
   );
 }
 
-function Stat({ label, value, sub, tone = 'normal' }: {
+/* A compact figure cell, as in the Dashboard's strip. */
+function Cell({ label, value, sub, tone = 'normal' }: {
   label: string; value: string; sub?: string; tone?: 'normal' | 'negative';
 }) {
   return (
-    <div className="bg-surface-sunk rounded-container p-3">
-      <p className="text-caption text-ink-muted">{label}</p>
-      <p className={`text-xl font-semibold money ${tone === 'negative' ? 'text-negative' : 'text-ink'}`}>{value}</p>
+    <div className="bg-surface px-2.5 py-1.5">
+      <p className="label-micro">{label}</p>
+      <p className={`text-xl font-medium money mt-0.5 ${tone === 'negative' ? 'text-negative' : 'text-ink'}`}>{value}</p>
       {sub && <p className="text-caption text-ink-muted mt-0.5">{sub}</p>}
     </div>
   );

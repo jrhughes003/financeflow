@@ -1,4 +1,4 @@
-# FinanceFlow
+# <img src="build/logo/logo/icon-dark.svg" alt="" width="36" height="36" align="top"> FinanceFlow
 
 **A local-first personal finance app for Windows and the browser, with optional AI
 features that are limited, in code, to the minimum data each one needs.**
@@ -36,7 +36,7 @@ narrow IPC, OS-encrypted secrets) · SQLite · LLM tool use with the Anthropic A
 design · testing and CI (Vitest, Playwright, coverage gates) · release engineering (tagged
 Windows builds with package verification and checksums).
 
-![FinanceFlow dashboard: monthly income, spending, savings rate and net worth, with a financial health score](docs/screenshots/dashboard.png)
+![FinanceFlow dashboard in the terminal layout: month figures, cumulative spend against budget pace, net worth, budgets with pace ticks, and a signals feed](docs/screenshots/dashboard.png)
 
 ## Privacy: what the AI features can send
 
@@ -109,7 +109,7 @@ purchase and life events.
 
 **Monte Carlo:** the same plan run a few hundred times with random yearly returns, to see
 how often it holds up.
-![Monte Carlo: 67% of 300 runs hold up, with a median outcome and a middle-80% band to 2094](docs/screenshots/plan-montecarlo.png)
+![Monte Carlo: 68% of 300 runs hold up, with a median outcome and a middle-80% band to 2094](docs/screenshots/plan-montecarlo.png)
 
 **Analytics:** what changed this month, against your own baseline rather than a fixed
 budget.
@@ -120,7 +120,7 @@ budget.
 
 ![Budget page with per-category progress, flex thresholds and rollover](docs/screenshots/budget.png)
 
-![Owed to Me: partly repaid split expense with payment chips](docs/screenshots/owed-to-me.png)
+![Owed to Me: partly repaid split expense with its repayments](docs/screenshots/owed-to-me.png)
 
 ![Debts page showing a deferred interest-free loan and payoff projections](docs/screenshots/debts.png)
 
@@ -157,7 +157,7 @@ The full feature table and captioned screenshots are in
   - a ten-method preload bridge;
   - a Content-Security-Policy with `connect-src 'none'`;
   - the API key encrypted with OS-backed `safeStorage`, and held only in the main process.
-- **Tests:** Roughly 26k lines of source and **994 unit tests**, plus one end-to-end
+- **Tests:** Roughly 27k lines of source and **993 unit tests**, plus one end-to-end
   Playwright test.
 - **CI** runs typecheck and lint, tests with coverage gates on Ubuntu and Windows, and
   checks that the figures in this README are current.
@@ -191,7 +191,7 @@ desktop build.
 | `npm run dev` | Browser app at `http://localhost:5173` (localStorage) |
 | `npm run electron:dev` | Desktop app in development (SQLite) |
 | `npm run electron:dev:mock` | Desktop app with AI wired to a local mock of the API (no key, no spend) |
-| `npm test` | Unit tests (994) |
+| `npm test` | Unit tests (993) |
 | `npm run test:e2e` | One end-to-end test in a real browser (Playwright) |
 | `npm run dist` | Windows installer into `release/` |
 

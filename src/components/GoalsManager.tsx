@@ -2,7 +2,9 @@ import React, { useState } from 'react';
 import { Plus, Edit2, Trash2, Target, Plane, Car, Shield, Home, Star } from 'lucide-react';
 import { format, parseISO, differenceInMonths } from 'date-fns';
 import { useFinancial } from '../context/FinancialContext';
-import { Card, PageLede, Stat as UiStat, Money } from './ui';
+import {
+  Panel, PanelGrid, Button, IconButton, Money, Meter, Badge, Table, Th, Td, Tr,
+} from './ui';
 import EmptyState from './EmptyState';
 import { useUndoableDelete } from '../hooks/useUndoableDelete';
 import { projectGoalCompletion, getGoalProgress, formatCurrency } from '../utils/calculations';
@@ -13,14 +15,16 @@ const ICONS: Record<string, LucideIcon> = { Shield, Plane, Car, Home, Star, Targ
 const ICON_LIST = ['Target', 'Plane', 'Car', 'Shield', 'Home', 'Star'];
 const COLORS = ['var(--c-data-1)', 'var(--c-positive)', 'var(--c-caution)', 'var(--c-data-7)', 'var(--c-data-5)', 'var(--c-data-6)', 'var(--c-data-2)', 'var(--c-data-3)'];
 
-interface GoalCardProps {
+const INPUT = 'h-7 px-2 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent';
+
+interface GoalRowProps {
   goal: Goal;
   transactions: Transaction[];
   onEdit: (goal: Goal) => void;
   onDelete: (goal: Goal) => void;
 }
 
-function GoalCard({ goal, transactions, onEdit, onDelete }: GoalCardProps) {
+function GoalRow({ goal, transactions, onEdit, onDelete }: GoalRowProps) {
   // Progress is derived: the opening balance plus every savings transaction
   // logged against this goal (kind: 'savings', goalId === goal.id).
   const progress = getGoalProgress(goal, transactions);
@@ -34,79 +38,53 @@ function GoalCard({ goal, transactions, onEdit, onDelete }: GoalCardProps) {
   const monthsLeft = differenceInMonths(targetDate, new Date());
   const onTrack = projection && differenceInMonths(projection.completionDate, targetDate) <= 0;
   const completed = currentAmount >= goal.targetAmount;
+  const breakdown = `${formatCurrency(progress.opening)} opening + ${formatCurrency(progress.contributed)} from savings transactions`;
 
   return (
-    <div className={`bg-surface rounded-container  border p-5 ${completed ? 'border-positive' : 'border-line'}`}>
-      {completed && (
-        <div className="mb-3 bg-positive-tint border border-positive rounded-container p-3 text-center">
-          <p className="text-sm font-semibold text-positive">🎉 Goal Achieved! Congratulations!</p>
-        </div>
-      )}
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-container flex items-center justify-center" style={{ backgroundColor: (goal.color || 'var(--c-data-1)') + '20' }}>
-            <Icon className="w-5 h-5" style={{ color: goal.color || 'var(--c-data-1)' }} />
-          </div>
-          <div>
-            <p className="font-semibold text-ink">{goal.name}</p>
-            <p className="text-caption text-ink-muted">Target: {format(targetDate, 'MMM d, yyyy')}</p>
-          </div>
-        </div>
-        <div className="flex gap-1">
-          <button onClick={() => onEdit(goal)} className="p-1.5 text-ink-muted hover:text-accent hover:bg-accent-tint rounded-control"><Edit2 className="w-3.5 h-3.5" /></button>
-          <button onClick={() => onDelete(goal)} aria-label={`Delete goal ${goal.name}`} title={`Delete ${goal.name}`} className="p-1.5 text-ink-muted hover:text-negative hover:bg-negative-tint rounded-control"><Trash2 className="w-3.5 h-3.5" /></button>
-        </div>
-      </div>
-
-      <div className="mb-3">
-        <div className="flex justify-between text-sm mb-1.5">
-          <span className="font-bold text-ink">{formatCurrency(currentAmount)}</span>
-          <span className="text-ink-muted">of {formatCurrency(goal.targetAmount)}</span>
-        </div>
-        <div className="h-3 bg-surface-hover rounded-full overflow-hidden">
-          <div
-            className="h-full rounded-full transition-all duration-700"
-            style={{ width: `${pct}%`, backgroundColor: goal.color || 'var(--c-data-1)' }}
-          />
-        </div>
-        <div className="flex justify-between mt-1">
-          <span className="text-caption text-ink-muted">{pct.toFixed(1)}% complete</span>
-          <span className="text-caption text-ink-muted">{formatCurrency(remaining)} remaining</span>
-        </div>
-        {progress.contributed > 0 && (
-          <p className="text-micro text-ink-muted mt-1">
-            {formatCurrency(progress.opening)} opening + {formatCurrency(progress.contributed)} from savings transactions
-          </p>
-        )}
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 text-caption">
-        <div className="bg-surface-sunk rounded-control p-2.5">
-          <p className="text-ink-muted mb-0.5">Monthly savings</p>
-          <p className="font-semibold text-ink">{formatCurrency(goal.monthlyContribution)}/mo</p>
-        </div>
-        <div className={`rounded-control p-2.5 ${onTrack ? 'bg-positive-tint' : 'bg-caution-tint'}`}>
-          <p className={`mb-0.5 ${onTrack ? 'text-positive' : 'text-caution'}`}>
-            {onTrack ? '✓ On Track' : '⚠ Behind'}
-          </p>
-          <p className={`font-semibold ${onTrack ? 'text-positive' : 'text-caution'}`}>
-            {projection ? format(projection.completionDate, 'MMM yyyy') : 'N/A'}
-          </p>
-        </div>
-      </div>
-
-      {/* Scenario */}
-      {!completed && (
-        <div className="mt-3 text-caption text-ink-muted bg-surface-sunk rounded-control p-2.5">
-          At {formatCurrency(goal.monthlyContribution)}/mo → reach goal in <strong>{projection?.months ?? '?'} months</strong>
-          {!onTrack && monthsLeft > 0 && (
-            <span className="block mt-1 text-caution">
-              Need {formatCurrency(Math.ceil(remaining / monthsLeft))}/mo to hit target date
-            </span>
-          )}
-        </div>
-      )}
-    </div>
+    <Tr>
+      <Td className="text-ink">
+        <span className="inline-flex items-center gap-2 min-w-0">
+          {/* The goal's chosen icon, in its chosen colour: the goal's mark. */}
+          <Icon className="w-3.5 h-3.5 shrink-0" style={{ color: goal.color || 'var(--c-data-1)' }} aria-hidden="true" />
+          <span className="truncate">{goal.name}</span>
+        </span>
+      </Td>
+      <Td numeric className="text-ink-muted" title={`Target: ${format(targetDate, 'MMM d, yyyy')}`}>
+        {format(targetDate, 'MMM d, yyyy')}
+      </Td>
+      <Td numeric title={progress.contributed > 0 ? breakdown : undefined}>
+        <Money value={currentAmount} size="sm" />
+      </Td>
+      <Td numeric className="hidden lg:table-cell text-ink-muted" title={progress.contributed > 0 ? breakdown : undefined}>
+        {progress.contributed > 0 ? <Money value={progress.contributed} size="sm" signed /> : '—'}
+      </Td>
+      <Td numeric><Money value={goal.targetAmount} size="sm" className="text-ink-muted" /></Td>
+      <Td numeric><Money value={remaining} size="sm" className={remaining < 0 ? 'text-positive' : ''} /></Td>
+      <Td className="w-[16%] min-w-[110px]">
+        <span className="flex items-center gap-2">
+          <Meter value={currentAmount} max={goal.targetAmount} tone="positive" className="flex-1" />
+          <span className="w-12 text-right text-caption text-ink-secondary">{pct.toFixed(1)}%</span>
+        </span>
+      </Td>
+      <Td numeric><Money value={goal.monthlyContribution} size="sm" /><span className="text-caption text-ink-muted">/mo</span></Td>
+      <Td numeric className="text-ink-secondary">
+        {completed ? '—' : projection ? `${projection.months} mo · ${format(projection.completionDate, 'MMM yyyy')}` : 'N/A'}
+      </Td>
+      <Td numeric className="text-caution">
+        {!completed && !onTrack && monthsLeft > 0
+          ? <span title="Needed per month to hit the target date">{formatCurrency(Math.ceil(remaining / monthsLeft))}/mo</span>
+          : <span className="text-ink-muted">—</span>}
+      </Td>
+      <Td>
+        {completed
+          ? <Badge tone="positive">Goal Achieved</Badge>
+          : onTrack ? <Badge tone="positive">On Track</Badge> : <Badge tone="caution">Behind</Badge>}
+      </Td>
+      <Td className="w-14 whitespace-nowrap text-right">
+        <IconButton icon={Edit2} label={`Edit goal ${goal.name}`} onClick={() => onEdit(goal)} />
+        <IconButton icon={Trash2} label={`Delete goal ${goal.name}`} title={`Delete ${goal.name}`} onClick={() => onDelete(goal)} className="hover:text-negative" />
+      </Td>
+    </Tr>
   );
 }
 
@@ -172,129 +150,159 @@ export default function GoalsManager() {
     : null;
 
   return (
-    <div className="space-y-5 animate-fade-in">
-      <Card>
-        <PageLede
-          label="Saved toward goals"
-          supporting={(
-            <>
-              <UiStat label="Target total"><Money value={goalTotals.target} /></UiStat>
-              <UiStat label="Still to go"><Money value={Math.max(0, goalTotals.target - goalTotals.saved)} /></UiStat>
-              <UiStat label="Per month"><Money value={goalTotals.monthly} /></UiStat>
-            </>
-          )}
-        >
-          <Money value={goalTotals.saved} size="display" />
-          {goalTotals.target > 0 && (
-            <p className="text-caption text-ink-muted mt-2">
-              {Math.round((goalTotals.saved / goalTotals.target) * 100)}% of everything you're saving for
-            </p>
-          )}
-        </PageLede>
-      </Card>
-
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-ink-muted">{savings_goals.length} active goal{savings_goals.length === 1 ? '' : 's'}</p>
-        <button onClick={() => { setShowForm(s => !s); setEditId(null); setForm(EMPTY_FORM); }} className="flex items-center gap-2 px-4 py-2 bg-accent hover:bg-accent-hover text-ink-inverse rounded-container text-sm font-medium">
-          <Plus className="w-4 h-4" /> New Goal
-        </button>
-      </div>
-
+    <div className="space-y-2 animate-fade-in">
       {/* Add/Edit form */}
       {showForm && (
-        <div className="bg-accent-tint border border-accent rounded-container p-5 space-y-3">
-          <h3 className="text-sm font-semibold text-accent-ink">{editId ? 'Edit Goal' : 'Create New Goal'}</h3>
-          <div className="grid grid-cols-2 gap-3">
+        <Panel title={editId ? 'Edit Goal' : 'Create New Goal'} bordered bodyClassName="p-3 space-y-2.5">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-3 gap-y-2">
             <div className="col-span-2">
-              <label className="label-micro block mb-1.5">Goal Name</label>
-              <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Emergency Fund" className="w-full h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent" />
+              <label className="label-micro block mb-1">Goal Name</label>
+              <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Emergency Fund" className={`${INPUT} w-full`} />
             </div>
             <div>
-              <label className="label-micro block mb-1.5">Target Amount</label>
-              <input type="number" value={form.targetAmount} onChange={e => setForm(f => ({ ...f, targetAmount: e.target.value }))} placeholder="$0" className="w-full h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent" />
+              <label className="label-micro block mb-1">Target Amount</label>
+              <input type="number" value={form.targetAmount} onChange={e => setForm(f => ({ ...f, targetAmount: e.target.value }))} placeholder="$0" className={`${INPUT} w-full`} />
             </div>
             <div>
-              <label className="label-micro block mb-1.5">Opening Balance</label>
-              <input type="number" value={form.currentAmount} onChange={e => setForm(f => ({ ...f, currentAmount: e.target.value }))} placeholder="$0" className="w-full h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent" />
-              <p className="text-micro text-ink-muted mt-1">Starting amount. Log savings transactions to add more.</p>
+              <label className="label-micro block mb-1">Opening Balance</label>
+              <input type="number" value={form.currentAmount} onChange={e => setForm(f => ({ ...f, currentAmount: e.target.value }))} placeholder="$0" className={`${INPUT} w-full`} />
+              <p className="font-sans text-caption text-ink-muted mt-1">Starting amount. Log savings transactions to add more.</p>
             </div>
             <div>
-              <label className="label-micro block mb-1.5">Monthly Contribution</label>
-              <input type="number" value={form.monthlyContribution} onChange={e => setForm(f => ({ ...f, monthlyContribution: e.target.value }))} placeholder="$0" className="w-full h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent" />
+              <label className="label-micro block mb-1">Monthly Contribution</label>
+              <input type="number" value={form.monthlyContribution} onChange={e => setForm(f => ({ ...f, monthlyContribution: e.target.value }))} placeholder="$0" className={`${INPUT} w-full`} />
             </div>
             <div>
-              <label className="label-micro block mb-1.5">Target Date</label>
-              <input type="date" value={form.targetDate} onChange={e => setForm(f => ({ ...f, targetDate: e.target.value }))} className="w-full h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent" />
+              <label className="label-micro block mb-1">Target Date</label>
+              <input type="date" value={form.targetDate} onChange={e => setForm(f => ({ ...f, targetDate: e.target.value }))} className={`${INPUT} w-full`} />
             </div>
             <div>
-              <label className="label-micro block mb-1.5">Color</label>
-              <div className="flex flex-wrap gap-1.5">
+              <label className="label-micro block mb-1">Color</label>
+              <div className="flex flex-wrap gap-1.5 h-7 items-center">
                 {COLORS.map(c => (
-                  <button key={c} type="button" onClick={() => setForm(f => ({ ...f, color: c }))} className={`w-6 h-6 rounded-full border-2 transition-all ${form.color === c ? 'border-line-strong scale-110' : 'border-transparent'}`} style={{ backgroundColor: c }} />
+                  <button key={c} type="button" onClick={() => setForm(f => ({ ...f, color: c }))} className={`w-5 h-5 rounded-control outline-offset-1 ${form.color === c ? 'outline outline-1 outline-accent' : ''}`} style={{ backgroundColor: c }} />
                 ))}
               </div>
             </div>
             <div>
-              <label className="label-micro block mb-1.5">Icon</label>
-              <select value={form.icon} onChange={e => setForm(f => ({ ...f, icon: e.target.value }))} className="w-full h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent">
+              <label className="label-micro block mb-1">Icon</label>
+              <select value={form.icon} onChange={e => setForm(f => ({ ...f, icon: e.target.value }))} className={`${INPUT} w-full`}>
                 {ICON_LIST.map(i => <option key={i} value={i}>{i}</option>)}
               </select>
             </div>
           </div>
-          <div className="flex gap-2 pt-1">
-            <button onClick={handleSave} className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-9 px-3.5 text-sm bg-accent hover:bg-accent-hover text-ink-inverse">Save Goal</button>
-            <button onClick={() => { setShowForm(false); setEditId(null); setForm(EMPTY_FORM); }} className="inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-9 px-3.5 text-sm border border-line-strong text-ink hover:bg-surface-hover">Cancel</button>
+          <div className="flex gap-1.5">
+            <Button variant="primary" onClick={handleSave}>Save Goal</Button>
+            <Button onClick={() => { setShowForm(false); setEditId(null); setForm(EMPTY_FORM); }}>Cancel</Button>
           </div>
-        </div>
+        </Panel>
       )}
 
-      {/* Goals grid */}
-      {savings_goals.length === 0
-        ? <EmptyState
-            icon={Target}
-            title="No savings goals yet"
-            description="Name what you're saving for and the app tracks progress from your actual savings transactions — not a number you have to keep updating."
-            actionLabel="Create a goal"
-            onAction={() => { setShowForm(true); setEditId(null); }}
-          />
-        : <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {savings_goals.map(g => (
-              <GoalCard key={g.id} goal={g} transactions={transactions} onEdit={openEdit} onDelete={() => removeItem({ type: 'goal', item: g })} />
-            ))}
-          </div>
-      }
-
-      {/* Scenario calculator */}
-      {savings_goals.length > 0 && (
-        <div className="bg-surface rounded-container border border-line p-5">
-          <h2 className="text-lg font-semibold text-ink mb-4">Scenario Calculator</h2>
-          <p className="text-sm text-ink-muted mb-3">See how changing your monthly contribution affects your goal timeline.</p>
-          <div className="flex flex-wrap gap-3">
-            <select value={scenarioGoal?.id || ''} onChange={e => setScenarioGoal(savings_goals.find(g => g.id === e.target.value) || null)} className="h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent">
-              <option value="">Select a goal...</option>
-              {savings_goals.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-            </select>
-            <input type="number" placeholder="Monthly savings amount" value={scenarioAmt} onChange={e => setScenarioAmt(e.target.value)} className="h-9 px-2.5 bg-surface border border-line-strong rounded-control text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent" />
-          </div>
-          {scenarioProjection && scenarioGoal && (
-            <div className="mt-3 bg-accent-tint rounded-container p-4">
-              <p className="text-sm text-accent-ink">
-                If you save <strong>{formatCurrency(parseFloat(scenarioAmt))}/month</strong> toward <strong>{scenarioGoal.name}</strong>,
-                you'll reach your goal in <strong>{scenarioProjection.months} months</strong> — by <strong>{format(scenarioProjection.completionDate, 'MMMM yyyy')}</strong>.
-              </p>
-              <button
-                onClick={() => {
-                  dispatch({ type: 'UPDATE_GOAL', payload: { ...scenarioGoal, monthlyContribution: parseFloat(scenarioAmt) } });
-                  setScenarioGoal({ ...scenarioGoal, monthlyContribution: parseFloat(scenarioAmt) });
-                }}
-                className="mt-3 px-4 py-2 bg-accent hover:bg-accent-hover text-ink-inverse text-sm rounded-control font-medium"
-              >
-                Apply as monthly contribution
-              </button>
-            </div>
+      <PanelGrid>
+        <Panel
+          title="Goals"
+          meta={`${savings_goals.length} active goal${savings_goals.length === 1 ? '' : 's'}`}
+          actions={(
+            <Button size="sm" variant="primary" icon={Plus} onClick={() => { setShowForm(s => !s); setEditId(null); setForm(EMPTY_FORM); }}>
+              New Goal
+            </Button>
           )}
-        </div>
-      )}
+          className="col-span-12"
+        >
+          {/* Totals strip */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-line border-b border-line">
+            <div className="bg-surface px-2.5 py-1.5">
+              <p className="label-micro">Saved toward goals</p>
+              <Money value={goalTotals.saved} size="lg" className="block mt-0.5" />
+              {goalTotals.target > 0 && (
+                <p className="text-caption text-ink-muted mt-0.5">
+                  {Math.round((goalTotals.saved / goalTotals.target) * 100)}% of everything you're saving for
+                </p>
+              )}
+            </div>
+            <div className="bg-surface px-2.5 py-1.5">
+              <p className="label-micro">Target total</p>
+              <Money value={goalTotals.target} size="lg" className="block mt-0.5" />
+            </div>
+            <div className="bg-surface px-2.5 py-1.5">
+              <p className="label-micro">Still to go</p>
+              <Money value={Math.max(0, goalTotals.target - goalTotals.saved)} size="lg" className="block mt-0.5" />
+            </div>
+            <div className="bg-surface px-2.5 py-1.5">
+              <p className="label-micro">Per month</p>
+              <Money value={goalTotals.monthly} size="lg" className="block mt-0.5" />
+            </div>
+          </div>
+
+          {/* Goals table */}
+          {savings_goals.length === 0
+            ? <EmptyState
+                icon={Target}
+                title="No savings goals yet"
+                description="Name what you're saving for and the app tracks progress from your actual savings transactions — not a number you have to keep updating."
+                actionLabel="Create a goal"
+                onAction={() => { setShowForm(true); setEditId(null); }}
+              />
+            : (
+              <Table>
+                <thead>
+                  <tr>
+                    <Th>Goal</Th>
+                    <Th numeric>Target date</Th>
+                    <Th numeric>Saved</Th>
+                    <Th numeric className="hidden lg:table-cell">Logged</Th>
+                    <Th numeric>Target</Th>
+                    <Th numeric>Remaining</Th>
+                    <Th>Progress</Th>
+                    <Th numeric>Monthly</Th>
+                    <Th numeric>Reach goal</Th>
+                    <Th numeric>Need</Th>
+                    <Th>Status</Th>
+                    <Th><span className="sr-only">Actions</span></Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {savings_goals.map(g => (
+                    <GoalRow key={g.id} goal={g} transactions={transactions} onEdit={openEdit} onDelete={() => removeItem({ type: 'goal', item: g })} />
+                  ))}
+                </tbody>
+              </Table>
+            )}
+        </Panel>
+
+        {/* Scenario calculator */}
+        {savings_goals.length > 0 && (
+          <Panel title="Scenario Calculator" className="col-span-12">
+            <p className="font-sans text-sm text-ink-muted px-2.5 pt-2">See how changing your monthly contribution affects your goal timeline.</p>
+            <div className="flex flex-wrap gap-1.5 p-2.5">
+              <select value={scenarioGoal?.id || ''} onChange={e => setScenarioGoal(savings_goals.find(g => g.id === e.target.value) || null)} className={INPUT}>
+                <option value="">Select a goal...</option>
+                {savings_goals.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+              </select>
+              <input type="number" placeholder="Monthly savings amount" value={scenarioAmt} onChange={e => setScenarioAmt(e.target.value)} className={`${INPUT} w-56`} />
+            </div>
+            {scenarioProjection && scenarioGoal && (
+              <div className="flex flex-wrap items-start gap-2.5 px-2.5 py-1.5 border-t border-line">
+                <span className="shrink-0 w-12 text-center border border-current text-[10px] leading-[14px] tracking-[0.06em] mt-px text-accent-ink">CALC</span>
+                <p className="flex-1 min-w-0 font-sans text-[12.5px] leading-snug text-ink">
+                  If you save <strong>{formatCurrency(parseFloat(scenarioAmt))}/month</strong> toward <strong>{scenarioGoal.name}</strong>,
+                  you'll reach your goal in <strong>{scenarioProjection.months} months</strong> — by <strong>{format(scenarioProjection.completionDate, 'MMMM yyyy')}</strong>.
+                </p>
+                <Button
+                  size="sm"
+                  variant="primary"
+                  onClick={() => {
+                    dispatch({ type: 'UPDATE_GOAL', payload: { ...scenarioGoal, monthlyContribution: parseFloat(scenarioAmt) } });
+                    setScenarioGoal({ ...scenarioGoal, monthlyContribution: parseFloat(scenarioAmt) });
+                  }}
+                >
+                  Apply as monthly contribution
+                </Button>
+              </div>
+            )}
+          </Panel>
+        )}
+      </PanelGrid>
     </div>
   );
 }

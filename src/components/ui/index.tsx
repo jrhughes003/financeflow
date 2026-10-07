@@ -294,7 +294,7 @@ export function Badge({
 }: { children?: React.ReactNode; tone?: BadgeTone; className?: string }) {
   return (
     <span className={cx(
-      'inline-flex items-center px-1 py-px border bg-transparent',
+      'inline-flex items-center px-1 py-px border bg-transparent whitespace-nowrap',
       'text-[10px] leading-[14px] font-medium uppercase tracking-[0.06em]',
       BADGE_TONES[tone], className,
     )}>

@@ -38,14 +38,17 @@ to reach the network, so it is not allowed to.
 [`electron/ai/payload.cjs`](electron/ai/payload.cjs). Each feature names the
 fields it may include, anything else is stripped, and an unrecognised feature
 name throws rather than falling through to sending an unfiltered object. The
-per-feature table is in the [README](README.md#privacy).
+per-feature table is in [docs/PRIVACY.md](docs/PRIVACY.md).
 
-**Q&A sends the question and nothing else.** Figures reach the model only when
-it calls a tool that computes an aggregate locally against the database
-([`electron/ai/aggregates.cjs`](electron/ai/aggregates.cjs)). Those tools return
-sums and counts — never a transaction, an id, a note, a tag, or a merchant name
-the user didn't ask about. A merchant search returns how *many* matched, not
-which.
+**Q&A never sends a raw transaction.** The first request carries the question,
+today's date and the category ids. Every figure after that reaches the model only
+when it calls a tool that computes an aggregate locally against the database
+([`electron/ai/aggregates.cjs`](electron/ai/aggregates.cjs)), and only that tool
+result is sent. Those tools return totals, counts, averages and per-category or
+per-month breakdowns, plus goals and debts by name with their figures. They never
+return a transaction, an id, a note, a tag, or a merchant name the user didn't
+type. A merchant search returns how *many* matched, not which. An aggregate over a
+narrow enough filter can still describe a single purchase.
 
 **The API key** is encrypted through the OS keychain (DPAPI on Windows, Keychain
 on macOS) via Electron's `safeStorage`, and stored as ciphertext. If the
@@ -57,7 +60,7 @@ is.
 ## Desktop hardening
 
 `contextIsolation` on, `nodeIntegration` off, `sandbox` on. The preload exposes
-exactly eight IPC methods and never hands over `ipcRenderer` itself. Window
+exactly ten IPC methods and never hands over `ipcRenderer` itself. Window
 opening is denied outright and real web links go to the system browser;
 navigation is blocked except to the dev server and `file:`. A packaged build
 sends a Content-Security-Policy header, and the built HTML carries the same

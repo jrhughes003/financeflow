@@ -14,6 +14,10 @@ const secureStore = require('./ai/secureStore.cjs');
 
 const isDev = !app.isPackaged;
 
+// Packaged with the app (package.json → build.files) so the window carries it
+// in development too; the installed exe already embeds the same icon.
+const APP_ICON = path.join(__dirname, '..', 'build', 'logo', 'logo', 'icon-dark.ico');
+
 /** URL parsing that answers "no" instead of throwing. */
 function parseUrl(url) {
   try {
@@ -33,6 +37,8 @@ function createWindow() {
   const win = new BrowserWindow({
     width: 1280,
     height: 860,
+    icon: APP_ICON,
+    backgroundColor: '#0a0c0f', // the dark canvas, so the window never flashes white
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true, // renderer cannot reach Node directly
@@ -170,6 +176,11 @@ ipcMain.handle('ai:run', async (_evt, feature, input) => {
     return { ok: false, error: err.message || 'AI request failed' };
   }
 });
+
+// Must match build.appId: Windows groups the window with the installed
+// shortcut by this id, which is what makes the taskbar show the app's icon
+// rather than a generic Electron one.
+if (process.platform === 'win32') app.setAppUserModelId('com.financeflow.app');
 
 app.whenReady().then(() => {
   applyContentSecurityPolicy(); // before any window loads

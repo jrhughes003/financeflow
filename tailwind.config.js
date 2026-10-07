@@ -48,15 +48,17 @@ export default {
         sans: 'var(--font-sans)',
         mono: 'var(--font-numeric)',
       },
+      // Terminal density: the body is 12–13px mono, and the largest figure on
+      // a screen leads by weight rather than size.
       fontSize: {
-        micro: ['11px', { lineHeight: '1.2', letterSpacing: '0.07em' }],
-        caption: ['12px', { lineHeight: '1.35' }],
-        sm: ['13px', { lineHeight: '1.45' }],
-        base: ['14px', { lineHeight: '1.5' }],
-        lg: ['16px', { lineHeight: '1.45', letterSpacing: '-0.005em' }],
-        xl: ['20px', { lineHeight: '1.3', letterSpacing: '-0.015em' }],
-        '2xl': ['26px', { lineHeight: '1.15', letterSpacing: '-0.022em' }],
-        display: ['34px', { lineHeight: '1.05', letterSpacing: '-0.03em' }],
+        micro: ['10.5px', { lineHeight: '1.2', letterSpacing: '0.08em' }],
+        caption: ['11px', { lineHeight: '1.35' }],
+        sm: ['12px', { lineHeight: '1.4' }],
+        base: ['13px', { lineHeight: '1.45' }],
+        lg: ['14px', { lineHeight: '1.4', letterSpacing: '-0.005em' }],
+        xl: ['17px', { lineHeight: '1.3', letterSpacing: '-0.015em' }],
+        '2xl': ['21px', { lineHeight: '1.15', letterSpacing: '-0.02em' }],
+        display: ['26px', { lineHeight: '1.05', letterSpacing: '-0.03em' }],
       },
       borderRadius: {
         control: 'var(--r-control)',
@@ -69,6 +71,7 @@ export default {
       },
       spacing: {
         row: 'var(--row-height)',
+        bar: 'var(--bar-height)',
       },
     },
   },

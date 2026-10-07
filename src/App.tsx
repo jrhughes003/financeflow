@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useMemo, lazy, Suspense } from 'react';
-import { FinancialProvider, useFinancial } from './context/FinancialContext';
+import { FinancialProvider, useFinancial, useTaxonomy } from './context/FinancialContext';
 import { ToastProvider, useToast } from './context/ToastContext';
 import { isTemplateDue } from './utils/recurring';
 import { getOwedSummary } from './utils/reimbursements';
-import { formatCurrency } from './utils/calculations';
-import { applyTheme, watchSystemTheme } from './utils/theme';
-import Layout from './components/Layout';
+import {
+  formatCurrency, getTotalExpenses, getNetWorth, getSavingsRate, getBudgetStatus,
+} from './utils/calculations';
+import { getIncomeSources } from './utils/accounts';
+import { applyTheme, watchSystemTheme, DEFAULT_THEME } from './utils/theme';
+import Layout, { type StatusItem } from './components/Layout';
 import CommandPalette from './components/CommandPalette';
 import Dashboard from './components/Dashboard';
 import TransactionEntry from './components/TransactionEntry';
@@ -47,7 +50,7 @@ function AppContent() {
   // The theme is one attribute on <html>; tokens.css does the rest. Re-applied
   // whenever the preference changes, and — for 'system' — whenever the OS
   // does, so an app left open through sunset follows along.
-  const themePreference = state.settings?.theme ?? 'system';
+  const themePreference = state.settings?.theme ?? DEFAULT_THEME;
   useEffect(() => {
     applyTheme(themePreference);
     return watchSystemTheme(themePreference, () => applyTheme(themePreference));
@@ -67,6 +70,39 @@ function AppContent() {
         : {}),
     };
   }, [state.recurringTemplates, state.transactions]);
+
+  // The figures across the top of every screen: where you stand overall and
+  // how this month is going. Always the current month — the strip answers
+  // "right now", whatever period a page below it is showing.
+  const taxonomy = useTaxonomy();
+  const status = useMemo<StatusItem[]>(() => {
+    const now = new Date();
+    const month = now.getMonth();
+    const year = now.getFullYear();
+    const incomeSources = getIncomeSources(state.incomes, state.investments);
+    const spent = getTotalExpenses(state.transactions, month, year);
+    const budgetTotal = getBudgetStatus(state.budgets, state.transactions, month, year, taxonomy)
+      .reduce((s, b) => s + (b.budget > 0 ? b.effectiveBudget : 0), 0);
+    const rate = getSavingsRate(incomeSources, state.transactions, month, year);
+    const items: StatusItem[] = [
+      { label: 'Net worth', value: formatCurrency(getNetWorth(state.investments, state.debts, state.savings_goals)) },
+      { label: 'MTD spend', value: formatCurrency(spent) },
+    ];
+    if (budgetTotal > 0) {
+      const used = (spent / budgetTotal) * 100;
+      // Day of month rather than "% of month": bills land early, so a bare
+      // percentage invites a comparison that isn't fair. The dashboard does
+      // the proper pace calculation.
+      items.push({
+        label: 'Budget used',
+        value: `${used.toFixed(1)}%`,
+        delta: `DAY ${now.getDate()}/${new Date(year, month + 1, 0).getDate()}`,
+        deltaTone: used > 100 ? 'negative' : 'muted',
+      });
+    }
+    items.push({ label: 'Save rate', value: `${rate.toFixed(1)}%`, deltaTone: rate < 0 ? 'negative' : 'muted' });
+    return items;
+  }, [state.incomes, state.investments, state.transactions, state.budgets, state.debts, state.savings_goals, taxonomy]);
 
   // Global shortcuts: Ctrl+K opens the command palette, Ctrl+N quick-adds.
   useEffect(() => {
@@ -105,7 +141,14 @@ function AppContent() {
 
   return (
     <>
-      <Layout currentPage={currentPage} setCurrentPage={setCurrentPage} onQuickAdd={() => setShowQuickAdd(true)} badges={navBadges}>
+      <Layout
+        currentPage={currentPage}
+        setCurrentPage={setCurrentPage}
+        onQuickAdd={() => setShowQuickAdd(true)}
+        onOpenPalette={() => setShowPalette(true)}
+        badges={navBadges}
+        status={status}
+      >
         {/* Scoped to the page area so a failure leaves the nav usable, and
             reset by navigation so one bad page doesn't trap the session. */}
         <ErrorBoundary resetKey={currentPage} onExport={() => exportToJSON(state)}>

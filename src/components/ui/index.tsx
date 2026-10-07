@@ -4,8 +4,11 @@
 // components, which is how an interface ends up with one radius, one blue and a
 // shadow under everything. Changing the look now means changing a token or a
 // component here — not finding forty occurrences of `rounded-2xl shadow-sm`.
+//
+// The look is a trading terminal: square panels on a hairline grid, a title
+// bar on each, mono figures, 24px rows. See src/styles/tokens.css.
 
-import React from 'react';
+import React, { useId } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { getDisplayCurrency, localeFor } from '../../utils/calculations';
 
@@ -22,7 +25,7 @@ export type BadgeTone = 'neutral' | 'positive' | 'negative' | 'caution' | 'accen
 const cx = (...parts: ClassPart[]): string => parts.filter(Boolean).join(' ');
 
 /* -------------------------------------------------------------------------
- * Surface — a panel. Hairline border, no shadow: elevation is for overlays.
+ * Card — a plain panel. Hairline border, no shadow, square.
  * ---------------------------------------------------------------------- */
 export function Card({
   children, className = '', padded = true, as: Tag = 'div', ...rest
@@ -33,7 +36,7 @@ export function Card({
 }) {
   return (
     <Tag
-      className={cx('bg-surface border border-line rounded-container', padded && 'p-5', className)}
+      className={cx('bg-surface border border-line rounded-container', padded && 'p-3', className)}
       {...rest}
     >
       {children}
@@ -41,7 +44,7 @@ export function Card({
   );
 }
 
-/* A card's heading row: title on the left, actions on the right. */
+/* A card's heading row: title on the left, actions on the right, a rule under. */
 export function CardHeader({
   title, subtitle, children, className = '',
 }: {
@@ -52,18 +55,88 @@ export function CardHeader({
   className?: string;
 }) {
   return (
-    <div className={cx('flex items-start justify-between gap-4 mb-4', className)}>
-      <div>
-        <h2 className="text-lg font-semibold text-ink">{title}</h2>
-        {subtitle && <p className="text-caption text-ink-muted mt-0.5">{subtitle}</p>}
+    <div className={cx('flex items-start justify-between gap-3 mb-3 pb-2 border-b border-line', className)}>
+      <div className="min-w-0">
+        <h2 className="text-micro uppercase font-semibold text-ink">{title}</h2>
+        {subtitle && <p className="text-caption text-ink-muted mt-1">{subtitle}</p>}
       </div>
-      {children && <div className="flex items-center gap-2 shrink-0">{children}</div>}
+      {children && <div className="flex items-center gap-1.5 shrink-0">{children}</div>}
     </div>
   );
 }
 
 /* -------------------------------------------------------------------------
- * Button — four intents, one shape. Tight radius; the accent is evergreen.
+ * Panel — the terminal's unit: a title bar, then content edge to edge.
+ *
+ * Panels are meant to sit in a <PanelGrid>, which draws the 1px rules between
+ * them, so a panel has no border of its own there. Standalone, pass `bordered`.
+ * ---------------------------------------------------------------------- */
+export function Panel({
+  title, meta, actions, children, className = '', bodyClassName = '', bordered = false,
+}: {
+  title: React.ReactNode;
+  /** One fact about the panel's contents, right-aligned in the title bar. */
+  meta?: React.ReactNode;
+  /** Small controls, after the meta. */
+  actions?: React.ReactNode;
+  children?: React.ReactNode;
+  className?: string;
+  bodyClassName?: string;
+  bordered?: boolean;
+}) {
+  const id = useId();
+  return (
+    <section
+      aria-labelledby={id}
+      className={cx('bg-surface flex flex-col min-w-0', bordered && 'border border-line', className)}
+    >
+      <div className="h-bar shrink-0 flex items-center gap-2.5 px-2.5 bg-surface-sunk border-b border-line whitespace-nowrap overflow-hidden">
+        <h2 id={id} className="text-micro uppercase font-semibold text-ink">{title}</h2>
+        {meta && <span className="ml-auto text-micro uppercase text-ink-muted truncate">{meta}</span>}
+        {actions && <span className={cx('flex items-center gap-1 shrink-0', !meta && 'ml-auto')}>{actions}</span>}
+      </div>
+      <div className={cx('flex-1 min-w-0', bodyClassName)}>{children}</div>
+    </section>
+  );
+}
+
+/* Panels on a 1px grid. The gap shows the line colour through, so every
+   panel edge is exactly one hairline whatever the layout. */
+export function PanelGrid({
+  children, className = '',
+}: { children?: React.ReactNode; className?: string }) {
+  return (
+    <div className={cx('grid grid-cols-12 gap-px bg-line border border-line', className)}>
+      {children}
+    </div>
+  );
+}
+
+/* A label and its figure on one 24px line, with an optional third column for
+   the change or context. The terminal's basic way of saying a number. */
+export function KeyValue({
+  label, children, delta, deltaClassName = 'text-ink-muted', strong = false, title,
+}: {
+  label: React.ReactNode;
+  children?: React.ReactNode;
+  delta?: React.ReactNode;
+  deltaClassName?: string;
+  strong?: boolean;
+  title?: string;
+}) {
+  return (
+    <div className="flex items-center gap-2 h-row px-2.5 border-b border-line last:border-b-0" title={title}>
+      <span className="flex-1 min-w-0 truncate text-caption uppercase tracking-[0.03em] text-ink-secondary">{label}</span>
+      <span className={cx('text-sm text-right whitespace-nowrap', strong ? 'font-semibold text-ink' : 'text-ink')}>{children}</span>
+      {delta !== undefined && (
+        <span className={cx('w-24 text-right text-caption whitespace-nowrap', deltaClassName)}>{delta}</span>
+      )}
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------
+ * Button — four intents, one shape. Compact and uppercase, like a function key.
  * ---------------------------------------------------------------------- */
 const BUTTON_VARIANTS: Record<ButtonVariant, string> = {
   primary: 'bg-accent text-ink-inverse hover:bg-accent-hover border border-transparent',
@@ -73,9 +146,9 @@ const BUTTON_VARIANTS: Record<ButtonVariant, string> = {
 };
 
 const BUTTON_SIZES: Record<ButtonSize, string> = {
-  sm: 'h-7 px-2.5 text-caption gap-1.5',
-  md: 'h-9 px-3.5 text-sm gap-2',
-  lg: 'h-10 px-4 text-base gap-2',
+  sm: 'h-6 px-2 text-micro gap-1.5',
+  md: 'h-7 px-2.5 text-caption gap-1.5',
+  lg: 'h-8 px-3 text-sm gap-2',
 };
 
 export function Button({
@@ -88,13 +161,13 @@ export function Button({
   return (
     <button
       className={cx(
-        'inline-flex items-center justify-center rounded-control font-medium',
+        'inline-flex items-center justify-center rounded-control font-medium uppercase tracking-[0.05em]',
         'transition-colors disabled:opacity-40 disabled:pointer-events-none whitespace-nowrap',
         BUTTON_VARIANTS[variant], BUTTON_SIZES[size], className,
       )}
       {...rest}
     >
-      {Icon && <Icon className="w-4 h-4 shrink-0" aria-hidden="true" />}
+      {Icon && <Icon className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />}
       {children}
     </button>
   );
@@ -114,7 +187,7 @@ export function IconButton({
       aria-label={label}
       title={label}
       className={cx(
-        'inline-flex items-center justify-center w-7 h-7 rounded-control transition-colors',
+        'inline-flex items-center justify-center w-6 h-6 rounded-control transition-colors',
         BUTTON_VARIANTS[variant], className,
       )}
       {...rest}
@@ -184,7 +257,7 @@ export function Money({
 
 /* -------------------------------------------------------------------------
  * Stat — a labelled figure. One per page should be `prominent`; the rest
- * support it. Four equal tiles is the pattern this replaces.
+ * support it.
  * ---------------------------------------------------------------------- */
 export function Stat({
   label, children, hint, prominent = false, className = '',
@@ -199,21 +272,21 @@ export function Stat({
   return (
     <div className={className}>
       <p className="label-micro">{label}</p>
-      <div className={cx('mt-1.5', prominent ? '' : 'text-xl font-medium text-ink')}>{children}</div>
-      {hint && <p className="text-caption text-ink-muted mt-1">{hint}</p>}
+      <div className={cx('mt-1', prominent ? '' : 'text-lg font-medium text-ink')}>{children}</div>
+      {hint && <p className="text-caption text-ink-muted mt-0.5">{hint}</p>}
     </div>
   );
 }
 
 /* -------------------------------------------------------------------------
- * Badge — status, not decoration. Square-ish, ink-toned, never pastel.
+ * Badge — status, not decoration. An outlined tag in the status colour.
  * ---------------------------------------------------------------------- */
 const BADGE_TONES: Record<BadgeTone, string> = {
-  neutral: 'bg-surface-sunk text-ink-secondary border-line',
-  positive: 'bg-positive-tint text-positive border-transparent',
-  negative: 'bg-negative-tint text-negative border-transparent',
-  caution: 'bg-caution-tint text-caution border-transparent',
-  accent: 'bg-accent-tint text-accent-ink border-transparent',
+  neutral: 'text-ink-secondary border-line-strong',
+  positive: 'text-positive border-current',
+  negative: 'text-negative border-current',
+  caution: 'text-caution border-current',
+  accent: 'text-accent-ink border-current',
 };
 
 export function Badge({
@@ -221,8 +294,8 @@ export function Badge({
 }: { children?: React.ReactNode; tone?: BadgeTone; className?: string }) {
   return (
     <span className={cx(
-      'inline-flex items-center px-1.5 py-0.5 rounded-control border',
-      'text-micro font-medium uppercase tracking-[0.06em]',
+      'inline-flex items-center px-1 py-px border bg-transparent',
+      'text-[10px] leading-[14px] font-medium uppercase tracking-[0.06em]',
       BADGE_TONES[tone], className,
     )}>
       {children}
@@ -236,7 +309,7 @@ export function CategoryMark({
 }: { color: string; name: React.ReactNode; className?: string }) {
   return (
     <span className={cx('inline-flex items-center gap-2 min-w-0', className)}>
-      <span className="w-2 h-2 rounded-[2px] shrink-0" style={{ background: color }} aria-hidden="true" />
+      <span className="w-[7px] h-[7px] shrink-0" style={{ background: color }} aria-hidden="true" />
       <span className="truncate">{name}</span>
     </span>
   );
@@ -263,7 +336,7 @@ export function Th({
     <th
       scope="col"
       className={cx(
-        'label-micro font-medium py-2 px-3 border-b border-line bg-surface-sunk',
+        'label-micro font-medium h-[22px] py-0 px-2.5 border-b border-line bg-surface-sunk whitespace-nowrap',
         numeric ? 'text-right' : 'text-left', className,
       )}
       {...rest}
@@ -278,8 +351,8 @@ export function Td({
 }: React.TdHTMLAttributes<HTMLTableCellElement> & { numeric?: boolean }) {
   return (
     <td
-      className={cx('py-0 px-3 h-row border-b border-line-faint align-middle',
-        numeric ? 'text-right' : 'text-left', className)}
+      className={cx('py-0 px-2.5 h-row border-b border-line align-middle',
+        numeric ? 'text-right whitespace-nowrap' : 'text-left', className)}
       {...rest}
     >
       {children}
@@ -290,26 +363,37 @@ export function Td({
 export function Tr({
   children, className = '', ...rest
 }: React.HTMLAttributes<HTMLTableRowElement>) {
-  return <tr className={cx('hover:bg-surface-hover transition-colors', className)} {...rest}>{children}</tr>;
+  return <tr className={cx('hover:bg-surface-hover', className)} {...rest}>{children}</tr>;
 }
 
 /* -------------------------------------------------------------------------
- * Meter — budget progress. A rule, not a rounded capsule.
+ * Meter — progress as a square rule. `marker` draws a tick at a percentage,
+ * typically how far through the month we are, so "57% spent" can be read
+ * against "19% of the month gone" without arithmetic.
  * ---------------------------------------------------------------------- */
 export function Meter({
-  value, max, tone = 'accent', className = '',
+  value, max, tone = 'accent', marker, className = '',
 }: {
   value: number;
   max: number;
   tone?: BadgeTone;
+  /** 0–100: where to draw the reference tick. */
+  marker?: number;
   className?: string;
 }) {
   const pct = max > 0 ? Math.min(100, (value / max) * 100) : 0;
   const over = max > 0 && value > max;
-  const fill = over ? 'bg-negative' : tone === 'accent' ? 'bg-accent' : `bg-${tone}`;
+  // Spelled out in full: Tailwind only generates classes it can see whole.
+  const fills: Record<BadgeTone, string> = {
+    accent: 'bg-accent', neutral: 'bg-ink-muted', positive: 'bg-positive', negative: 'bg-negative', caution: 'bg-caution',
+  };
+  const fill = over ? 'bg-negative' : fills[tone];
   return (
-    <div className={cx('h-1 bg-line-faint rounded-pill overflow-hidden', className)} role="presentation">
-      <div className={cx('h-full rounded-pill transition-[width] duration-300', fill)} style={{ width: `${pct}%` }} />
+    <div className={cx('relative h-1.5 bg-line', className)} role="presentation">
+      <div className={cx('h-full transition-[width] duration-300', fill)} style={{ width: `${pct}%` }} />
+      {marker !== undefined && (
+        <span className="absolute -top-[3px] -bottom-[3px] w-px bg-ink-secondary" style={{ left: `${Math.min(100, Math.max(0, marker))}%` }} />
+      )}
     </div>
   );
 }
@@ -325,13 +409,13 @@ export function PageLede({
   className?: string;
 }) {
   return (
-    <div className={cx('flex flex-wrap items-end justify-between gap-6', className)}>
+    <div className={cx('flex flex-wrap items-end justify-between gap-4', className)}>
       <div>
         <p className="label-micro">{label}</p>
-        <div className="mt-2">{children}</div>
+        <div className="mt-1.5">{children}</div>
       </div>
       {supporting && (
-        <div className="flex items-end gap-8">{supporting}</div>
+        <div className="flex flex-wrap items-end gap-6">{supporting}</div>
       )}
     </div>
   );

@@ -14,13 +14,13 @@
 // later if the mirror is stale.
 (function () {
   try {
-    var saved = localStorage.getItem('financeflow_theme') || 'system';
+    var saved = localStorage.getItem('financeflow_theme') || 'dark';
     var dark = saved === 'dark'
       || (saved === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
     document.documentElement.dataset.theme = dark ? 'dark' : 'light';
   } catch (e) {
-    // Private mode or blocked site data: light is the safe default, and the
+    // Private mode or blocked site data: dark is the default theme, and the
     // app corrects it once state loads.
-    document.documentElement.dataset.theme = 'light';
+    document.documentElement.dataset.theme = 'dark';
   }
 })();

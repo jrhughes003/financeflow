@@ -30,7 +30,7 @@ export const grid = {
 
 /* Axes lose their spines — the gridlines already imply the scale. */
 export const axis = {
-  tick: { fill: 'var(--c-ink-muted)', fontSize: 11, fontFamily: 'var(--font-numeric)' },
+  tick: { fill: 'var(--c-ink-muted)', fontSize: 10, fontFamily: 'var(--font-numeric)' },
   tickLine: false,
   axisLine: false,
 };
@@ -52,19 +52,20 @@ export const tooltip = {
   contentStyle: {
     background: 'var(--c-surface)',
     border: '1px solid var(--c-line)',
-    borderRadius: 'var(--r-container)',
+    borderRadius: 0,
     boxShadow: 'var(--shadow-overlay)',
-    fontSize: 12,
-    padding: '8px 10px',
+    fontSize: 11,
+    fontFamily: 'var(--font-numeric)',
+    padding: '6px 8px',
   },
-  labelStyle: { color: 'var(--c-ink-muted)', fontSize: 11, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' },
+  labelStyle: { color: 'var(--c-ink-muted)', fontSize: 10.5, marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.08em' },
   itemStyle: { color: 'var(--c-ink)', fontFamily: 'var(--font-numeric)', padding: '1px 0' },
 };
 
 export const legend = {
   iconType: 'plainline',
   iconSize: 10,
-  wrapperStyle: { fontSize: 12, color: 'var(--c-ink-secondary)', paddingTop: 8 },
+  wrapperStyle: { fontSize: 10.5, fontFamily: 'var(--font-numeric)', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--c-ink-secondary)', paddingTop: 6 },
 };
 
 /**

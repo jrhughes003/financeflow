@@ -71,7 +71,6 @@ test('a transaction survives a reload', async ({ page }) => {
   await page.reload();
 
   await expect(spent).toContainText(`$${AMOUNT}`);
-  await page.getByRole('button', { name: 'Everyday' }).click();
   await page.getByRole('button', { name: 'Transactions', exact: true }).click();
   await expect(page.getByText(MERCHANT)).toBeVisible();
 

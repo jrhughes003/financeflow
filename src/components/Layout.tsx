@@ -1,302 +1,251 @@
-import React, { useState, useEffect } from 'react';
-import {
-  LayoutDashboard, CreditCard, PieChart, Target, TrendingUp, Wallet,
-  BarChart3, FileText, Menu, X, Plus, DollarSign, Landmark, RefreshCw,
-  Settings as SettingsIcon, HandCoins, Milestone, ChevronDown, Receipt, LineChart, PiggyBank
-, Waves } from 'lucide-react';
+import React, { useState } from 'react';
+import { Menu, X } from 'lucide-react';
+import { format } from 'date-fns';
 import DemoBanner from './DemoBanner';
-import type { LucideIcon } from 'lucide-react';
+import { isElectron } from '../storage/storage';
 import type { NavBadge as Badge, NavBadges, PageId } from '../types/navigation';
 
-// Dashboard and Settings stay pinned; everything else lives in a collapsible
-// group, so the sidebar is six rows at rest instead of fourteen.
-/** A destination in the sidebar. */
+// The shell is laid out like a trading terminal: a strip of the figures that
+// matter across the top of every screen, pages listed by a short code down the
+// left, a command line above the page, and the keys along the bottom.
+//
+// The nav is flat. It used to collapse into groups to keep the sidebar at six
+// rows, but at 24px a row all fifteen pages fit on any screen, and seeing
+// every destination at once is the point of a terminal.
+
+/** A destination in the nav. */
 interface NavItem {
   id: PageId;
+  /** Three letters, shown before the name and in the command line. */
+  code: string;
   label: string;
-  icon: LucideIcon;
 }
 
-/** A collapsible group of destinations, or a pinned one when `items` is absent. */
-interface NavEntry {
-  id: string;
-  label: string;
-  icon: LucideIcon;
-  items?: NavItem[];
+interface NavSection {
+  /** Absent for the pinned first entry. */
+  label?: string;
+  items: NavItem[];
 }
 
-const NAV: NavEntry[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+const NAV: NavSection[] = [
+  { items: [{ id: 'dashboard', code: 'DSH', label: 'Dashboard' }] },
   {
-    id: 'everyday',
     label: 'Everyday',
-    icon: Receipt,
     items: [
-      { id: 'transactions', label: 'Transactions', icon: CreditCard },
-      { id: 'owed',         label: 'Owed to Me',   icon: HandCoins },
-      { id: 'recurring',    label: 'Recurring',    icon: RefreshCw },
+      { id: 'transactions', code: 'TXN', label: 'Transactions' },
+      { id: 'owed',         code: 'OWE', label: 'Owed to Me' },
+      { id: 'recurring',    code: 'REC', label: 'Recurring' },
     ],
   },
   {
-    id: 'budgeting',
     label: 'Budgeting',
-    icon: PiggyBank,
     items: [
-      { id: 'budget', label: 'Budget', icon: Wallet },
-      { id: 'goals',  label: 'Goals',  icon: Target },
+      { id: 'budget', code: 'BGT', label: 'Budget' },
+      { id: 'goals',  code: 'GOL', label: 'Goals' },
     ],
   },
   {
-    id: 'analysis',
     label: 'Analysis',
-    icon: LineChart,
     items: [
-      { id: 'comparison', label: 'Comparison', icon: BarChart3 },
-      { id: 'analytics',  label: 'Analytics',  icon: PieChart },
-      { id: 'reports',    label: 'Reports',    icon: FileText },
+      { id: 'comparison', code: 'CMP', label: 'Comparison' },
+      { id: 'analytics',  code: 'ANL', label: 'Analytics' },
+      { id: 'reports',    code: 'RPT', label: 'Reports' },
     ],
   },
   {
-    id: 'wealth',
     label: 'Wealth & Planning',
-    icon: TrendingUp,
     items: [
-      { id: 'income',      label: 'Income',      icon: DollarSign },
-      { id: 'investments', label: 'Investments', icon: TrendingUp },
-      { id: 'debts',       label: 'Debts',       icon: Landmark },
-      { id: 'cashflow',    label: 'Cash Flow',   icon: Waves },
-      { id: 'plan',        label: 'Plan Ahead',  icon: Milestone },
+      { id: 'income',      code: 'INC', label: 'Income' },
+      { id: 'investments', code: 'INV', label: 'Investments' },
+      { id: 'debts',       code: 'DBT', label: 'Debts' },
+      { id: 'cashflow',    code: 'CFL', label: 'Cash Flow' },
+      { id: 'plan',        code: 'PLN', label: 'Plan Ahead' },
     ],
   },
-  { id: 'settings', label: 'Settings', icon: SettingsIcon },
+  { label: 'System', items: [{ id: 'settings', code: 'SET', label: 'Settings' }] },
 ];
 
-// Flat list, for looking up the current page's title.
-// A group contributes its items; a pinned entry is itself a destination.
-const NAV_ITEMS: NavItem[] = NAV.flatMap(entry => (
-  entry.items ? entry.items : [{ id: entry.id as PageId, label: entry.label, icon: entry.icon }]
-));
+const NAV_ITEMS: NavItem[] = NAV.flatMap(s => s.items);
 
-const groupIdFor = (pageId: PageId): string | undefined =>
-  NAV.find(g => g.items?.some(i => i.id === pageId))?.id;
+/** One figure in the status strip. */
+export interface StatusItem {
+  label: string;
+  value: React.ReactNode;
+  /** A short change or context after the value. */
+  delta?: React.ReactNode;
+  deltaTone?: 'positive' | 'negative' | 'caution' | 'muted';
+}
+
+const DELTA_TONES = {
+  positive: 'text-positive', negative: 'text-negative', caution: 'text-caution', muted: 'text-ink-muted',
+} as const;
 
 function NavBadge({ badge }: { badge: Badge }) {
   return (
-    <span
-      title={badge.title}
-      className="shrink-0 px-1.5 py-0.5 rounded-control bg-caution-tint text-caution text-micro font-medium leading-none"
-    >
+    <span title={badge.title} className="shrink-0 text-micro font-medium text-caution">
       {badge.label}
     </span>
   );
 }
 
-const OPEN_GROUPS_KEY = 'financeflow_nav_groups';
-
-// Which groups start expanded: whatever the user left open last time, else just
-// the one holding the current page. Storage can throw (private mode, blocked
-// site data), so every access is guarded and falls back to a sane default.
-function loadOpenGroups(currentPage: PageId): string[] {
-  try {
-    const saved: unknown = JSON.parse(localStorage.getItem(OPEN_GROUPS_KEY) ?? 'null');
-    if (Array.isArray(saved)) return saved;
-  } catch { /* ignore — fall through to the default */ }
-  const active = groupIdFor(currentPage);
-  return active ? [active] : [];
+function Key({ children }: { children: React.ReactNode }) {
+  return (
+    <kbd className="inline-block px-1 border border-line-strong text-ink-secondary text-[10px] leading-[14px] font-[inherit]">
+      {children}
+    </kbd>
+  );
 }
 
 export default function Layout({
-  currentPage, setCurrentPage, onQuickAdd, children, badges = {},
+  currentPage, setCurrentPage, onQuickAdd, onOpenPalette, children, badges = {}, status = [],
 }: {
   currentPage: PageId;
   setCurrentPage: (page: PageId) => void;
   onQuickAdd: () => void;
+  /** Opens the command palette; the command line is a button for it. */
+  onOpenPalette?: () => void;
   children?: React.ReactNode;
   badges?: NavBadges;
+  /** The figures across the top of every screen. */
+  status?: StatusItem[];
 }) {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [openGroups, setOpenGroups] = useState(() => loadOpenGroups(currentPage));
-
-  useEffect(() => {
-    try { localStorage.setItem(OPEN_GROUPS_KEY, JSON.stringify(openGroups)); } catch { /* not critical */ }
-  }, [openGroups]);
-
-  // Navigating from elsewhere (a dashboard link, a keyboard shortcut) should
-  // reveal where you landed.
-  useEffect(() => {
-    const group = groupIdFor(currentPage);
-    if (group) setOpenGroups(prev => (prev.includes(group) ? prev : [...prev, group]));
-  }, [currentPage]);
-
-  const toggleGroup = (id: string): void =>
-    setOpenGroups(prev => (prev.includes(id) ? prev.filter(g => g !== id) : [...prev, id]));
+  const [navOpen, setNavOpen] = useState(false);
+  const current = NAV_ITEMS.find(n => n.id === currentPage);
 
   const handleNav = (id: PageId): void => {
     setCurrentPage(id);
-    setSidebarOpen(false);
+    setNavOpen(false);
   };
 
-  const itemClasses = (id: PageId, nested = false): string => `
-    w-full flex items-center gap-2.5 ${nested ? 'pl-8 pr-2.5' : 'px-2.5'} h-8 rounded-control mb-px
-    text-sm transition-colors text-left
-    ${currentPage === id
-      ? 'bg-accent-tint text-accent-ink font-medium'
-      : 'text-ink-secondary hover:bg-surface-hover hover:text-ink'}
-  `;
-
   return (
-    <div className="flex h-screen bg-canvas overflow-hidden">
-      {/* Mobile overlay */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-ink/25 z-20 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
-      {/* Sidebar */}
-      <aside className={`
-        fixed lg:static inset-y-0 left-0 z-30 w-60 bg-surface border-r border-line
-        transform transition-transform duration-200 ease-in-out flex flex-col
-        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-      `}>
-        {/* Logo */}
-        <div className="flex items-center justify-between px-5 h-14 border-b border-line">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 bg-accent rounded-control flex items-center justify-center">
-              <TrendingUp className="w-3.5 h-3.5 text-ink-inverse" />
-            </div>
-            <span className="text-base font-semibold text-ink tracking-[-0.01em]">FinanceFlow</span>
-          </div>
-          <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-ink-muted hover:text-ink">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Quick Add button */}
-        <div className="px-3 py-3">
-          <button
-            onClick={() => { onQuickAdd(); setSidebarOpen(false); }}
-            className="w-full inline-flex items-center justify-center gap-2 rounded-control font-medium transition-colors disabled:opacity-40 h-9 px-3.5 text-sm bg-accent hover:bg-accent-hover text-ink-inverse"
-          >
-            <Plus className="w-4 h-4" />
-            Add transaction
-          </button>
-        </div>
-
-        {/* Navigation */}
-        <nav className="flex-1 px-3 pb-4 overflow-y-auto">
-          {NAV.map((entry) => {
-            const Icon = entry.icon;
-
-            // A pinned, top-level destination.
-            if (!entry.items) {
-              return (
-                <button key={entry.id} onClick={() => handleNav(entry.id as PageId)} className={itemClasses(entry.id as PageId)}>
-                  <Icon className="shrink-0" style={{ width: 18, height: 18 }} />
-                  <span className="flex-1 text-left">{entry.label}</span>
-                  {badges[entry.id as PageId] && <NavBadge badge={badges[entry.id as PageId] as Badge} />}
-                </button>
-              );
-            }
-
-            const isOpen = openGroups.includes(entry.id);
-            const holdsCurrent = entry.items.some(i => i.id === currentPage);
-
-            return (
-              <div key={entry.id} className="mb-0.5">
-                <button
-                  onClick={() => toggleGroup(entry.id)}
-                  aria-expanded={isOpen}
-                  aria-controls={`nav-group-${entry.id}`}
-                  className={`
-                    w-full flex items-center gap-2.5 px-2.5 h-8 rounded-control text-sm
-                    transition-colors text-left
-                    ${holdsCurrent && !isOpen
-                      ? 'text-accent-ink font-medium hover:bg-accent-tint'
-                      : 'text-ink-secondary hover:bg-surface-hover hover:text-ink'}
-                  `}
-                >
-                  <Icon className="shrink-0" style={{ width: 18, height: 18 }} />
-                  <span className="flex-1">{entry.label}</span>
-                  {/* A collapsed group still shows where you are, and that
-                      something inside is waiting on you. */}
-                  {!isOpen && entry.items.some(i => badges[i.id]) && (
-                    <span className="w-1.5 h-1.5 rounded-pill bg-caution shrink-0" title="Something inside needs attention" />
-                  )}
-                  {holdsCurrent && !isOpen && <span className="w-1.5 h-1.5 rounded-pill bg-accent shrink-0" />}
-                  <ChevronDown
-                    className={`shrink-0 text-ink-muted transition-transform duration-200 ${isOpen ? '' : '-rotate-90'}`}
-                    style={{ width: 16, height: 16 }}
-                  />
-                </button>
-
-                {isOpen && (
-                  <div id={`nav-group-${entry.id}`} className="mt-0.5">
-                    {entry.items.map(({ id, label, icon: ItemIcon }) => (
-                      <button key={id} onClick={() => handleNav(id)} className={itemClasses(id, true)}>
-                        <ItemIcon className="shrink-0" style={{ width: 16, height: 16 }} />
-                        <span className="flex-1">{label}</span>
-                        {badges[id] && <NavBadge badge={badges[id]} />}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </nav>
-
-        {/* Footer */}
-        <div className="px-4 py-2.5 border-t border-line">
-          <p className="text-caption text-ink-muted text-center">Your data stays on your device</p>
-        </div>
-      </aside>
-
-      {/* Main content area */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Top header */}
-        <header className="bg-surface border-b border-line px-4 lg:px-6 h-14 flex items-center gap-4 shrink-0">
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="lg:hidden text-ink-secondary hover:text-ink"
-          >
-            <Menu className="w-6 h-6" />
-          </button>
-          <div>
-            <h1 className="text-base font-semibold text-ink tracking-[-0.01em]">
-              {NAV_ITEMS.find(n => n.id === currentPage)?.label || 'FinanceFlow'}
-            </h1>
-            <p className="text-caption text-ink-muted">
-              {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-            </p>
-          </div>
-          <div className="ml-auto flex items-center gap-3">
-            <button
-              onClick={onQuickAdd}
-              className="hidden sm:flex items-center gap-2 border border-line-strong hover:bg-surface-hover text-ink text-sm font-medium h-8 px-3 rounded-control transition-colors"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              Quick add
-            </button>
-          </div>
-        </header>
-
-        {/* Renders only in the deployed demo build; null everywhere else. */}
-        <DemoBanner />
-
-        {/* Page content */}
-        <main className="flex-1 overflow-y-auto p-4 lg:p-5 bg-canvas">
-          {children}
-        </main>
+    <div className="flex flex-col h-screen bg-canvas overflow-hidden text-sm">
+      {/* Status strip */}
+      <div className="shrink-0 flex items-stretch h-[26px] bg-surface border-b border-line-strong overflow-x-auto whitespace-nowrap">
+        <span className="flex items-center px-3 border-r border-line font-semibold tracking-[0.1em] text-accent-ink">
+          FINANCEFLOW
+        </span>
+        {status.map(s => (
+          <span key={s.label} className="flex items-center gap-2 px-3 border-r border-line">
+            <span className="label-micro">{s.label}</span>
+            <span className="font-medium text-ink">{s.value}</span>
+            {s.delta && <span className={`text-caption ${DELTA_TONES[s.deltaTone ?? 'muted']}`}>{s.delta}</span>}
+          </span>
+        ))}
+        <span className="ml-auto flex items-center gap-3 px-3 text-caption text-ink-muted">
+          <span className="hidden md:inline-flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 bg-positive" aria-hidden="true" />
+            {isElectron ? 'LOCAL · SQLITE' : 'LOCAL · BROWSER'}
+          </span>
+          <span className="text-ink-secondary">{format(new Date(), 'EEE dd MMM yyyy').toUpperCase()}</span>
+        </span>
       </div>
 
-      {/* Mobile FAB */}
+      <div className="flex flex-1 min-h-0">
+        {/* Mobile overlay */}
+        {navOpen && (
+          <div className="fixed inset-0 bg-black/50 z-20 lg:hidden" onClick={() => setNavOpen(false)} />
+        )}
+
+        {/* Navigation */}
+        <aside className={`
+          fixed lg:static inset-y-0 left-0 z-30 w-52 lg:w-48 bg-surface border-r border-line
+          transform transition-transform duration-150 flex flex-col
+          ${navOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+        `}>
+          <div className="flex items-center gap-1 p-2 border-b border-line">
+            <button
+              onClick={() => { onQuickAdd(); setNavOpen(false); }}
+              className="flex-1 h-7 inline-flex items-center justify-center gap-2 bg-accent hover:bg-accent-hover text-ink-inverse text-caption font-semibold tracking-[0.06em] uppercase rounded-control transition-colors"
+            >
+              + Add transaction
+            </button>
+            <button onClick={() => setNavOpen(false)} className="lg:hidden w-7 h-7 inline-flex items-center justify-center text-ink-muted hover:text-ink" aria-label="Close menu">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          <nav aria-label="Pages" className="flex-1 overflow-y-auto pb-3">
+            {NAV.map((section, i) => (
+              <div key={section.label ?? i}>
+                {section.label && <p className="label-micro px-2.5 pt-3 pb-1">{section.label}</p>}
+                {section.items.map(({ id, code, label }) => {
+                  const active = currentPage === id;
+                  return (
+                    <button
+                      key={id}
+                      onClick={() => handleNav(id)}
+                      aria-current={active ? 'page' : undefined}
+                      className={`w-full flex items-center gap-2 h-6 px-2.5 text-left text-sm transition-colors ${
+                        active
+                          ? 'bg-accent-tint text-ink shadow-[inset_2px_0_0_var(--c-accent)]'
+                          : 'text-ink-secondary hover:bg-surface-hover hover:text-ink'
+                      }`}
+                    >
+                      <span aria-hidden="true" className={`w-8 text-micro tracking-[0.04em] ${active ? 'text-accent-ink' : 'text-ink-muted'}`}>{code}</span>
+                      <span className="flex-1 truncate">{label}</span>
+                      {badges[id] && <NavBadge badge={badges[id] as Badge} />}
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
+          </nav>
+        </aside>
+
+        {/* Page */}
+        <div className="flex-1 flex flex-col min-w-0">
+          {/* Command line */}
+          <header className="shrink-0 flex items-center gap-2.5 px-2.5 h-9 bg-surface border-b border-line">
+            <button onClick={() => setNavOpen(true)} className="lg:hidden text-ink-secondary hover:text-ink" aria-label="Open menu">
+              <Menu className="w-4 h-4" />
+            </button>
+            <span aria-hidden="true" className="font-semibold tracking-[0.08em] text-accent-ink">{current?.code ?? 'DSH'}</span>
+            <span aria-hidden="true" className="text-ink-muted">›</span>
+            <h1 className="text-sm font-medium text-ink uppercase tracking-[0.06em] whitespace-nowrap">
+              {current?.label || 'FinanceFlow'}
+            </h1>
+            {onOpenPalette && (
+              <button
+                onClick={onOpenPalette}
+                className="ml-auto sm:ml-4 flex-1 max-w-md hidden sm:flex items-center gap-2 h-6 px-2 border border-line-strong bg-canvas text-ink-muted hover:text-ink-secondary text-left"
+              >
+                <span className="text-accent-ink" aria-hidden="true">&gt;</span>
+                <span className="flex-1 truncate">Go to a page or run a command…</span>
+                <Key>CTRL K</Key>
+              </button>
+            )}
+            <button
+              onClick={onQuickAdd}
+              className="ml-auto hidden sm:inline-flex items-center gap-2 h-6 px-2 border border-line-strong text-caption uppercase tracking-[0.05em] text-ink hover:bg-surface-hover"
+            >
+              + New <Key>CTRL N</Key>
+            </button>
+          </header>
+
+          {/* Renders only in the deployed demo build; null everywhere else. */}
+          <DemoBanner />
+
+          <main className="flex-1 overflow-y-auto p-2 bg-canvas">
+            {children}
+          </main>
+
+          {/* Keys */}
+          <footer className="shrink-0 hidden sm:flex items-center gap-4 px-2.5 h-6 bg-surface border-t border-line text-caption text-ink-muted whitespace-nowrap overflow-hidden">
+            <span><Key>CTRL K</Key> COMMAND</span>
+            <span><Key>CTRL N</Key> NEW TRANSACTION</span>
+            <span><Key>ESC</Key> CLOSE</span>
+            <span className="ml-auto">YOUR DATA STAYS ON THIS DEVICE</span>
+          </footer>
+        </div>
+      </div>
+
+      {/* Mobile quick add */}
       <button
         onClick={onQuickAdd}
-        className="sm:hidden fixed bottom-6 right-6 z-10 w-12 h-12 bg-accent hover:bg-accent-hover text-ink-inverse rounded-pill shadow-overlay flex items-center justify-center transition-colors"
+        aria-label="Add transaction"
+        className="sm:hidden fixed bottom-5 right-5 z-10 w-11 h-11 bg-accent hover:bg-accent-hover text-ink-inverse shadow-overlay flex items-center justify-center text-xl"
       >
-        <Plus className="w-6 h-6" />
+        +
       </button>
     </div>
   );

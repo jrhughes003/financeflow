@@ -7,7 +7,7 @@ import generateDemoData from '../utils/demoData';
 import AiAuditPanel from './AiAuditPanel';
 import CategoryGrouping from './CategoryGrouping';
 import { SUPPORTED_CURRENCIES, formatCurrency } from '../utils/calculations';
-import { resolveTheme } from '../utils/theme';
+import { resolveTheme, DEFAULT_THEME } from '../utils/theme';
 import type { ThemePreference } from '../types/state';
 
 const THEME_OPTIONS: { value: ThemePreference; label: string; icon: typeof Sun }[] = [
@@ -192,7 +192,7 @@ export default function Settings() {
           <legend className="block text-caption text-ink-muted mb-1.5">Theme</legend>
           <div role="radiogroup" aria-label="Theme" className="inline-flex rounded-control border border-line overflow-hidden">
             {THEME_OPTIONS.map(({ value, label, icon: Icon }) => {
-              const active = (settings.theme ?? 'system') === value;
+              const active = (settings.theme ?? DEFAULT_THEME) === value;
               return (
                 <button
                   key={value}
@@ -209,7 +209,7 @@ export default function Settings() {
             })}
           </div>
           <p className="text-sm text-ink-muted mt-2">
-            {(settings.theme ?? 'system') === 'system'
+            {(settings.theme ?? DEFAULT_THEME) === 'system'
               ? `Following your system, which is currently ${resolveTheme('system')}. It will change with it.`
               : 'Fixed, whatever your system is set to.'}
           </p>

@@ -1,118 +1,93 @@
 import React from 'react';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import Layout from './Layout';
+import type { StatusItem } from './Layout';
 import type { NavBadges, PageId } from '../types/navigation';
 
-const renderNav = (currentPage: PageId = 'dashboard', setCurrentPage = vi.fn(), badges: NavBadges = {}) => {
+const renderNav = (
+  currentPage: PageId = 'dashboard',
+  setCurrentPage = vi.fn(),
+  badges: NavBadges = {},
+  status: StatusItem[] = [],
+) => {
   render(
-    <Layout currentPage={currentPage} setCurrentPage={setCurrentPage} onQuickAdd={vi.fn()} badges={badges}>
+    <Layout currentPage={currentPage} setCurrentPage={setCurrentPage} onQuickAdd={vi.fn()} badges={badges} status={status}>
       <div>page body</div>
     </Layout>,
   );
   return { setCurrentPage };
 };
 
-const group = (name: string) => screen.getByRole('button', { name: new RegExp(name, 'i') });
+const nav = () => within(screen.getByRole('navigation', { name: 'Pages' }));
 
-beforeEach(() => {
-  try { localStorage.clear(); } catch { /* ignore */ }
-});
-
-describe('sidebar grouping', () => {
-  it('shows pinned items and collapsed groups, not every page at once', () => {
+describe('navigation', () => {
+  it('lists every page at once, under its section', () => {
     renderNav();
-    // Pinned destinations are always reachable.
-    expect(screen.getByRole('button', { name: /dashboard/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /settings/i })).toBeInTheDocument();
-    // Group headers are present…
+    // The terminal nav is flat: nothing is hidden behind a group.
+    ['Dashboard', 'Transactions', 'Owed to Me', 'Recurring', 'Budget', 'Goals', 'Comparison',
+      'Analytics', 'Reports', 'Income', 'Investments', 'Debts', 'Cash Flow', 'Plan Ahead', 'Settings',
+    ].forEach(label => {
+      expect(nav().getByRole('button', { name: new RegExp(`^${label}$`, 'i') })).toBeInTheDocument();
+    });
     ['Everyday', 'Budgeting', 'Analysis', 'Wealth & Planning'].forEach(label => {
-      expect(group(label)).toBeInTheDocument();
+      expect(nav().getByText(label)).toBeInTheDocument();
     });
-    // …but their pages are not, until opened.
-    expect(screen.queryByRole('button', { name: /^transactions$/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /plan ahead/i })).not.toBeInTheDocument();
   });
 
-  it('expands a group on click and collapses it again', () => {
+  it('names each page by itself, not by its code', () => {
     renderNav();
-    const header = group('Wealth & Planning');
-    expect(header).toHaveAttribute('aria-expanded', 'false');
-
-    fireEvent.click(header);
-    expect(header).toHaveAttribute('aria-expanded', 'true');
-    ['Income', 'Investments', 'Debts', 'Plan Ahead'].forEach(label => {
-      expect(screen.getByRole('button', { name: new RegExp(`^${label}$`, 'i') })).toBeInTheDocument();
-    });
-
-    fireEvent.click(header);
-    expect(header).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.queryByRole('button', { name: /^investments$/i })).not.toBeInTheDocument();
+    // The three-letter code is visual shorthand; a screen reader hears the name.
+    expect(nav().getByRole('button', { name: /^transactions$/i })).toHaveTextContent('TXN');
   });
 
-  it('navigates when a page inside a group is clicked', () => {
+  it('navigates when a page is clicked', () => {
     const setCurrentPage = vi.fn();
     renderNav('dashboard', setCurrentPage);
-
-    fireEvent.click(group('Analysis'));
-    fireEvent.click(screen.getByRole('button', { name: /^reports$/i }));
+    fireEvent.click(nav().getByRole('button', { name: /^reports$/i }));
     expect(setCurrentPage).toHaveBeenCalledWith('reports');
   });
 
-  it('opens the group holding the current page', () => {
+  it('marks the current page', () => {
     renderNav('debts');
-    expect(group('Wealth & Planning')).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByRole('button', { name: /^debts$/i })).toBeInTheDocument();
-    // Unrelated groups stay shut.
-    expect(group('Everyday')).toHaveAttribute('aria-expanded', 'false');
-  });
-
-  it('remembers which groups were open', () => {
-    const { unmount } = render(
-      <Layout currentPage="dashboard" setCurrentPage={vi.fn()} onQuickAdd={vi.fn()}><div /></Layout>,
-    );
-    fireEvent.click(screen.getByRole('button', { name: /budgeting/i }));
-    unmount();
-
-    renderNav();
-    expect(group('Budgeting')).toHaveAttribute('aria-expanded', 'true');
-  });
-
-  it('survives localStorage being unavailable', () => {
-    const getItem = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('blocked'); });
-    const setItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('blocked'); });
-    expect(() => renderNav('goals')).not.toThrow();
-    expect(group('Budgeting')).toHaveAttribute('aria-expanded', 'true'); // still follows the current page
-    getItem.mockRestore();
-    setItem.mockRestore();
+    expect(nav().getByRole('button', { name: /^debts$/i })).toHaveAttribute('aria-current', 'page');
+    expect(nav().getByRole('button', { name: /^income$/i })).not.toHaveAttribute('aria-current');
   });
 
   it('shows a badge on a page that needs attention', () => {
     renderNav('dashboard', vi.fn(), { recurring: { label: '3', title: '3 recurring charges due to post' } });
-    fireEvent.click(group('Everyday'));
-    const recurring = screen.getByRole('button', { name: /^recurring/i });
-    expect(recurring).toHaveTextContent('3');
-  });
-
-  it('flags a collapsed group when something inside is waiting', () => {
-    const { container } = render(
-      <Layout currentPage="dashboard" setCurrentPage={vi.fn()} onQuickAdd={vi.fn()}
-        badges={{ owed: { label: '$62', title: '$62.00 still owed to you' } }}><div /></Layout>,
-    );
-    expect(group('Everyday')).toHaveAttribute('aria-expanded', 'false');
-    expect(container.querySelector('[title="Something inside needs attention"]')).toBeTruthy();
+    expect(nav().getByRole('button', { name: /^recurring/i })).toHaveTextContent('3');
+    expect(screen.getByTitle('3 recurring charges due to post')).toBeInTheDocument();
   });
 
   it('shows no badges when nothing needs attention', () => {
-    const { container } = render(
-      <Layout currentPage="dashboard" setCurrentPage={vi.fn()} onQuickAdd={vi.fn()}><div /></Layout>,
-    );
-    expect(container.querySelector('[title="Something inside needs attention"]')).toBeNull();
+    renderNav();
     expect(screen.queryByTitle(/still owed|due to post/)).not.toBeInTheDocument();
   });
 
-  it('still shows the page title in the header for a grouped page', () => {
+  it('shows the page title in the header', () => {
     renderNav('plan');
     expect(screen.getByRole('heading', { name: /plan ahead/i })).toBeInTheDocument();
+  });
+});
+
+describe('status strip', () => {
+  it('shows the figures it is given', () => {
+    renderNav('dashboard', vi.fn(), {}, [
+      { label: 'Net worth', value: '$48,912.40' },
+      { label: 'Budget used', value: '66.0%', delta: '19% OF MONTH' },
+    ]);
+    expect(screen.getByText('$48,912.40')).toBeInTheDocument();
+    expect(screen.getByText('66.0%')).toBeInTheDocument();
+    expect(screen.getByText('19% OF MONTH')).toBeInTheDocument();
+  });
+
+  it('opens the command palette from the command line', () => {
+    const onOpenPalette = vi.fn();
+    render(
+      <Layout currentPage="dashboard" setCurrentPage={vi.fn()} onQuickAdd={vi.fn()} onOpenPalette={onOpenPalette}><div /></Layout>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /go to a page or run a command/i }));
+    expect(onOpenPalette).toHaveBeenCalled();
   });
 });

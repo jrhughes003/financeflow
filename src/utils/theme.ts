@@ -20,6 +20,9 @@ import type { ThemePreference } from '../types/state';
 
 export const THEME_STORAGE_KEY = 'financeflow_theme';
 
+/** What a user who has never chosen sees. The terminal design is drawn dark. */
+export const DEFAULT_THEME: ThemePreference = 'dark';
+
 const query = () => (typeof window !== 'undefined' && window.matchMedia
   ? window.matchMedia('(prefers-color-scheme: dark)')
   : null);

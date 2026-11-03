@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { addDays, format } from 'date-fns';
 import { useFinancial, useGetCategory, useTaxonomy } from '../context/FinancialContext';
@@ -45,11 +45,25 @@ interface DashboardProps {
 
 const NONE: string[] = [];
 
+/** Whether the spend chart counts bills: 'all' does, 'everyday' leaves them out. */
+type SpendScope = 'all' | 'everyday';
+const SPEND_SCOPE_KEY = 'financeflow_dashboard_spend_scope';
+
+function savedSpendScope(): SpendScope {
+  try {
+    return localStorage.getItem(SPEND_SCOPE_KEY) === 'everyday' ? 'everyday' : 'all';
+  } catch {
+    return 'all'; // blocked site data — fall back to the default
+  }
+}
+
 /** Running total of spending by day of month: index 0 is the end of the 1st. */
-function cumulativeByDay(transactions: Transaction[], month: number, year: number): number[] {
+function cumulativeByDay(
+  transactions: Transaction[], month: number, year: number, include: (t: Transaction) => boolean = () => true,
+): number[] {
   const days = new Date(year, month + 1, 0).getDate();
   const daily = new Array<number>(days).fill(0);
-  getTransactionsForPeriod(transactions, month, year).forEach(t => {
+  getTransactionsForPeriod(transactions, month, year).filter(include).forEach(t => {
     const day = Number(t.date.slice(8, 10));
     if (day >= 1 && day <= days) daily[day - 1] += t.amount;
   });
@@ -72,13 +86,14 @@ function niceStep(max: number): number {
 // Cumulative spend, drawn by hand rather than with Recharts: four lines and a
 // grid, and it has to stretch to whatever height the panel row settles at.
 function SpendChart({
-  days, actual, previous, budget, paceStart, forecast, today,
+  days, actual, previous, budget, budgetLabel = 'BUDGET', paceStart, forecast, today,
 }: {
   days: number;
   /** Through today (or the whole month, for a past one). */
   actual: number[];
   previous: number[];
   budget: number;
+  budgetLabel?: string;
   /** Where the pace line starts: bills already posted count from day one. */
   paceStart: number;
   forecast: number | null;
@@ -121,7 +136,7 @@ function SpendChart({
       )}
       <svg
         viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="absolute inset-0 w-full h-full overflow-visible"
-        role="img" aria-label={`Spending to date ${formatCurrency(end)} against a budget of ${formatCurrency(budget)}`}
+        role="img" aria-label={`Spending to date ${formatCurrency(end)} against a budget line (${budgetLabel.toLowerCase()}) of ${formatCurrency(budget)}`}
       >
         {ticks.map(v => (
           <line key={v} x1="0" x2={W} y1={y(v)} y2={y(v)} stroke={v === 0 ? 'var(--c-line-strong)' : 'var(--c-line)'} vectorEffect="non-scaling-stroke" />
@@ -147,7 +162,7 @@ function SpendChart({
       </svg>
       {budget > 0 && (
         <span className="absolute right-0 text-[10px] text-negative -translate-y-full pb-0.5" style={{ top: yPct(budget) }}>
-          BUDGET {compactMoney(budget)}
+          {budgetLabel} {compactMoney(budget)}
         </span>
       )}
     </div>
@@ -226,6 +241,13 @@ export default function Dashboard({ onQuickAdd, onNavigate }: DashboardProps) {
   const now = new Date();
   const [month, setMonth] = useState(now.getMonth());
   const [year, setYear] = useState(now.getFullYear());
+  const [spendScope, setSpendScopeState] = useState<SpendScope>(savedSpendScope);
+  const setSpendScope = (scope: SpendScope) => {
+    setSpendScopeState(scope);
+    try {
+      localStorage.setItem(SPEND_SCOPE_KEY, scope);
+    } catch { /* remembered for this session only */ }
+  };
 
   const {
     transactions, budgets, incomes, savings_goals, investments, debts, recurringTemplates = [],
@@ -287,10 +309,14 @@ export default function Dashboard({ onQuickAdd, onNavigate }: DashboardProps) {
   const weekly = useMemo(() => {
     const monthStart = format(new Date(year, month, 1), 'yyyy-MM-dd');
     const monthEnd = format(new Date(year, month, daysInMonth), 'yyyy-MM-dd');
-    const from = isCurrent ? format(addDays(new Date(year, month, dayOfMonth), 1), 'yyyy-MM-dd') : monthStart;
-    const billsDue = isCurrent || isFuture
-      ? recurringTemplates.reduce((s, t) => s + templateOccurrences(t, from, monthEnd).length * t.amount, 0)
-      : 0;
+    // For the month in progress the projection already knows what is still
+    // due, detected periodic bills included; a future month has only the
+    // recurring templates to go on.
+    const billsDue = projection
+      ? projection.totals.recurringRemaining
+      : isFuture
+        ? recurringTemplates.reduce((s, t) => s + templateOccurrences(t, monthStart, monthEnd).length * t.amount, 0)
+        : 0;
     return buildWeeklyBudget({
       year,
       month,
@@ -301,10 +327,40 @@ export default function Dashboard({ onQuickAdd, onNavigate }: DashboardProps) {
       billsDue,
       today: isCurrent ? dayOfMonth : isFuture ? 0 : daysInMonth + 1,
     });
-  }, [transactions, recurringTemplates, billIds, budgetTotal, month, year, daysInMonth, dayOfMonth, isCurrent, isFuture]);
+  }, [transactions, recurringTemplates, billIds, projection, budgetTotal, month, year, daysInMonth, dayOfMonth, isCurrent, isFuture]);
   const thisWeek = weekly.current === null ? null : weekly.weeks[weekly.current];
   const thisWeekLeft = thisWeek ? thisWeek.allowance - thisWeek.spent : 0;
   const thisWeekDaysLeft = thisWeek ? thisWeek.end - dayOfMonth + 1 : 0;
+
+  // The spend chart, with or without bills. With them, rent posting on the
+  // 1st jumps the line over a budget it was comfortably under; without them,
+  // the line is everyday spending against what the budget leaves after bills,
+  // which is the same pool the weekly allowances share.
+  const isEveryday = useCallback(
+    (t: Transaction) => !isFixedTransaction(t, recurringTemplates, billIds),
+    [recurringTemplates, billIds],
+  );
+  const everydayCumulative = useMemo(
+    () => cumulativeByDay(transactions, month, year, isEveryday),
+    [transactions, month, year, isEveryday],
+  );
+  const everydayPrevious = useMemo(
+    () => cumulativeByDay(transactions, prevDate.getMonth(), prevDate.getFullYear(), isEveryday),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [transactions, month, year, isEveryday],
+  );
+  const everyday = spendScope === 'everyday';
+  const chartCumulative = everyday ? everydayCumulative : cumulative;
+  const chartPrevious = everyday ? everydayPrevious : previous;
+  const chartActual = chartCumulative.slice(0, dayOfMonth);
+  const chartToDate = chartActual.length ? chartActual[chartActual.length - 1] : 0;
+  const chartBudget = everyday ? weekly.discretionaryBudget : budgetTotal;
+  const chartPace = everyday ? chartBudget * (elapsedPct / 100) : pace;
+  const chartForecast = everyday
+    ? (projection ? chartToDate + projection.totals.discretionaryRemaining : null)
+    : forecast;
+  const chartPrevAtSameDay = dayOfMonth > 0 ? chartPrevious[Math.min(dayOfMonth, chartPrevious.length) - 1] ?? 0 : 0;
+  const chartVsPrev = chartPrevAtSameDay > 0 ? ((chartToDate - chartPrevAtSameDay) / chartPrevAtSameDay) * 100 : null;
 
   const investmentsValue = getInvestmentsValue(investments);
   const goalsValue = savings_goals.reduce((s, g) => s + g.currentAmount, 0);
@@ -464,49 +520,67 @@ export default function Dashboard({ onQuickAdd, onNavigate }: DashboardProps) {
 
         {/* Spend over time */}
         <Panel
-          title="Cumulative spend"
+          title={everyday ? 'Everyday spend' : 'Cumulative spend'}
           className="col-span-12 md:col-span-7 xl:col-span-6"
           bodyClassName="flex flex-col"
           meta={(
             <span className="flex gap-3">
               <span><Swatch className="bg-accent" />{format(new Date(year, month, 1), 'MMM')}</span>
-              {forecast !== null && <span><Swatch className="border-accent" dashed />FCST</span>}
-              {budgetTotal > 0 && <span><Swatch className="bg-caution" />BUDGET PACE</span>}
+              {chartForecast !== null && <span><Swatch className="border-accent" dashed />FCST</span>}
+              {chartBudget > 0 && <span><Swatch className="bg-caution" />BUDGET PACE</span>}
               <span><Swatch className="bg-ink-muted" />{prevCode}</span>
+            </span>
+          )}
+          actions={(
+            <span className="flex border border-line-strong">
+              {([['all', 'All', 'Everything, bills included, against the full budget'],
+                ['everyday', 'Everyday', 'Leaves out bills and recurring charges, against what the budget leaves after them']] as const)
+                .map(([val, label, hint]) => (
+                  <button
+                    key={val}
+                    onClick={() => setSpendScope(val)}
+                    aria-pressed={spendScope === val}
+                    title={hint}
+                    className={`h-[18px] px-1.5 text-micro uppercase tracking-[0.06em] border-r border-line-strong last:border-r-0 transition-colors ${spendScope === val ? 'bg-accent-tint text-accent-ink' : 'text-ink-muted hover:text-ink'}`}
+                  >
+                    {label}
+                  </button>
+                ))}
             </span>
           )}
         >
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-line border-b border-line">
-            <div className="bg-surface px-2.5 py-1.5">
-              <p className="label-micro">Spent</p>
-              <Money value={spentToDate} size="lg" className="block mt-0.5" />
+            <div className="bg-surface px-2.5 py-1.5" title={everyday ? `${formatCurrency(weekly.bills)} of bills this month left out` : undefined}>
+              <p className="label-micro">{everyday ? 'Spent excl. bills' : 'Spent'}</p>
+              <Money value={chartToDate} size="lg" className="block mt-0.5" />
             </div>
             <div className="bg-surface px-2.5 py-1.5">
               <p className="label-micro">vs pace</p>
-              <p className={`text-xl font-medium mt-0.5 ${budgetTotal > 0 && dayOfMonth > 0 ? toneFor(spentToDate - pace) : 'text-ink-muted'}`}>
-                {budgetTotal > 0 && dayOfMonth > 0 ? signedMoney(spentToDate - pace) : '—'}
+              <p className={`text-xl font-medium mt-0.5 ${chartBudget > 0 && dayOfMonth > 0 ? toneFor(chartToDate - chartPace) : 'text-ink-muted'}`}>
+                {chartBudget > 0 && dayOfMonth > 0 ? signedMoney(chartToDate - chartPace) : '—'}
               </p>
             </div>
             <div className="bg-surface px-2.5 py-1.5">
               <p className="label-micro">vs {prevCode} day {Math.max(dayOfMonth, 1)}</p>
-              <p className={`text-xl font-medium mt-0.5 ${vsPrev === null ? 'text-ink-muted' : toneFor(vsPrev)}`}>
-                {vsPrev === null ? '—' : pct(vsPrev)}
+              <p className={`text-xl font-medium mt-0.5 ${chartVsPrev === null ? 'text-ink-muted' : toneFor(chartVsPrev)}`}>
+                {chartVsPrev === null ? '—' : pct(chartVsPrev)}
               </p>
             </div>
             <div className="bg-surface px-2.5 py-1.5">
               <p className="label-micro">Forecast</p>
-              {forecast !== null
-                ? <Money value={forecast} size="lg" className="block mt-0.5" />
+              {chartForecast !== null
+                ? <Money value={chartForecast} size="lg" className="block mt-0.5" />
                 : <p className="text-xl font-medium mt-0.5 text-ink-muted">—</p>}
             </div>
           </div>
           <SpendChart
             days={daysInMonth}
-            actual={actual}
-            previous={previous}
-            budget={budgetTotal}
-            paceStart={isCurrent ? fixedTotal : 0}
-            forecast={forecast}
+            actual={chartActual}
+            previous={chartPrevious}
+            budget={chartBudget}
+            budgetLabel={everyday ? 'AFTER BILLS' : 'BUDGET'}
+            paceStart={everyday || !isCurrent ? 0 : fixedTotal}
+            forecast={chartForecast}
             today={dayOfMonth}
           />
         </Panel>

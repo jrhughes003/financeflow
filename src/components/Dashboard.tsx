@@ -15,6 +15,7 @@ import { rollUp } from '../utils/categoryTree';
 import { paydaysBetween } from '../utils/cashPlan';
 import { isTemplateDue } from '../utils/recurring';
 import { getFinancialHealth } from '../utils/healthScore';
+import { buildWeeklyBudget, type WeekSlice } from '../utils/weeklyBudget';
 import { compactMoney } from './ui/chartTheme';
 import {
   Panel, PanelGrid, KeyValue, IconButton, Button, Money, Meter, CategoryMark,
@@ -31,6 +32,7 @@ import type { PageId } from '../types/navigation';
 //   Spend       the same, over time, against the budget line and last month
 //   Net worth   where the money sits
 //   Budgets     each category against how far through the month we are
+//   Weeks       the budget left after bills, as a weekly allowance
 //   Signals     everything that wants attention, in one list
 //   Ledger, Upcoming, Goals
 
@@ -205,6 +207,18 @@ function budgetFlag(
   return null;
 }
 
+/** The same thresholds as budgetFlag, against the week's allowance and how far into the week today is. */
+function weekFlag(week: WeekSlice, today: number): { label: string; tone: Tone } | null {
+  if (week.spent > week.allowance + 0.005) return { label: 'OVER', tone: 'negative' };
+  if (week.status === 'closed') return { label: 'UNDER', tone: 'positive' };
+  if (week.status !== 'current' || week.allowance <= 0) return null;
+  const usedPct = (week.spent / week.allowance) * 100;
+  const ratio = usedPct / (((today - week.start + 1) / week.days) * 100);
+  if (ratio >= 1.5 && usedPct >= 40) return { label: 'HOT', tone: 'negative' };
+  if (ratio >= 1.2 && usedPct >= 25) return { label: 'WARM', tone: 'caution' };
+  return null;
+}
+
 export default function Dashboard({ onQuickAdd, onNavigate }: DashboardProps) {
   const { state } = useFinancial();
   const taxonomy = useTaxonomy();
@@ -246,14 +260,17 @@ export default function Dashboard({ onQuickAdd, onNavigate }: DashboardProps) {
 
   // Bills already posted this month, rolled into the same rows the budgets
   // use, so pace can treat them as due on the day they landed.
+  const billIds = useMemo(
+    () => detectIrregularExpenses(transactions, { recurringTemplates }).billTransactionIds,
+    [transactions, recurringTemplates],
+  );
   const fixedByRow = useMemo(() => {
-    const billIds = detectIrregularExpenses(transactions, { recurringTemplates }).billTransactionIds;
     const raw: Record<string, number> = {};
     getTransactionsForPeriod(transactions, month, year)
       .filter(t => isFixedTransaction(t, recurringTemplates, billIds))
       .forEach(t => { raw[t.category] = (raw[t.category] || 0) + t.amount; });
     return rollUp(raw, taxonomy.categories, taxonomy.parentOverrides);
-  }, [transactions, recurringTemplates, month, year, taxonomy]);
+  }, [transactions, recurringTemplates, billIds, month, year, taxonomy]);
   const fixedFor = (item: BudgetStatus): number => fixedByRow[item.category] || 0;
   const fixedTotal = budgetStatuses.reduce((s, b) => s + Math.min(fixedFor(b), b.effectiveBudget), 0);
   const pace = budgetStatuses.reduce((s, b) => s + expectedByToday(b, fixedFor(b), elapsedPct), 0);
@@ -264,6 +281,30 @@ export default function Dashboard({ onQuickAdd, onNavigate }: DashboardProps) {
     [isCurrent, transactions, budgets, recurringTemplates, taxonomy],
   );
   const forecast = projection ? projection.totals.projected : null;
+
+  // The budget as weekly allowances. Bills come off the top: those posted,
+  // and the recurring ones still due between tomorrow and the month's end.
+  const weekly = useMemo(() => {
+    const monthStart = format(new Date(year, month, 1), 'yyyy-MM-dd');
+    const monthEnd = format(new Date(year, month, daysInMonth), 'yyyy-MM-dd');
+    const from = isCurrent ? format(addDays(new Date(year, month, dayOfMonth), 1), 'yyyy-MM-dd') : monthStart;
+    const billsDue = isCurrent || isFuture
+      ? recurringTemplates.reduce((s, t) => s + templateOccurrences(t, from, monthEnd).length * t.amount, 0)
+      : 0;
+    return buildWeeklyBudget({
+      year,
+      month,
+      budget: budgetTotal,
+      transactions: getTransactionsForPeriod(transactions, month, year).map(t => ({
+        date: t.date, amount: t.amount, fixed: isFixedTransaction(t, recurringTemplates, billIds),
+      })),
+      billsDue,
+      today: isCurrent ? dayOfMonth : isFuture ? 0 : daysInMonth + 1,
+    });
+  }, [transactions, recurringTemplates, billIds, budgetTotal, month, year, daysInMonth, dayOfMonth, isCurrent, isFuture]);
+  const thisWeek = weekly.current === null ? null : weekly.weeks[weekly.current];
+  const thisWeekLeft = thisWeek ? thisWeek.allowance - thisWeek.spent : 0;
+  const thisWeekDaysLeft = thisWeek ? thisWeek.end - dayOfMonth + 1 : 0;
 
   const investmentsValue = getInvestmentsValue(investments);
   const goalsValue = savings_goals.reduce((s, g) => s + g.currentAmount, 0);
@@ -309,6 +350,12 @@ export default function Dashboard({ onQuickAdd, onNavigate }: DashboardProps) {
     signals.push(diff > 0
       ? { key: 'fcst', tag: 'FCST', tone: 'negative', go: 'analytics', text: <>Month-end forecast {formatCurrency(forecast)}, which is {formatCurrency(diff)} over the {formatCurrency(budgetTotal)} budget.</> }
       : { key: 'fcst', tag: 'FCST', tone: 'positive', go: 'analytics', text: <>Month-end forecast {formatCurrency(forecast)}, {formatCurrency(-diff)} under budget.</> });
+  }
+  if (thisWeek && thisWeekLeft < 0) {
+    signals.push({
+      key: 'week', tag: 'WEEK', tone: 'negative',
+      text: <>This week is {formatCurrency(-thisWeekLeft)} over its {formatCurrency(thisWeek.allowance)} allowance; the rest of the month&apos;s weeks shrink to cover it.</>,
+    });
   }
   budgetStatuses.filter(b => b.actual > b.effectiveBudget).forEach(b => signals.push({
     key: `over-${b.category}`, tag: 'OVER', tone: 'negative', go: 'budget',
@@ -567,8 +614,94 @@ export default function Dashboard({ onQuickAdd, onNavigate }: DashboardProps) {
           )}
         </Panel>
 
+        {/* Weeks */}
+        <Panel
+          title="Weeks"
+          meta={budgetTotal > 0 ? `${compactMoney(weekly.discretionaryBudget)} AFTER ${compactMoney(weekly.bills)} BILLS` : undefined}
+          className="col-span-12 md:col-span-7 xl:col-span-5"
+        >
+          {budgetTotal === 0 ? (
+            <p className="font-sans text-sm text-ink-muted p-3">Set budgets to split them into weekly allowances.</p>
+          ) : (
+            <>
+              {thisWeek && (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-line border-b border-line">
+                  <div className="bg-surface px-2.5 py-1.5">
+                    <p className="label-micro">This week</p>
+                    <Money value={thisWeek.allowance} size="lg" className="block mt-0.5" />
+                  </div>
+                  <div className="bg-surface px-2.5 py-1.5">
+                    <p className="label-micro">Left</p>
+                    <Money value={thisWeekLeft} size="lg" className={`block mt-0.5 ${thisWeekLeft < 0 ? 'text-negative' : ''}`} />
+                  </div>
+                  <div className="bg-surface px-2.5 py-1.5" title="What is left this week, spread over its remaining days, today included">
+                    <p className="label-micro">Per day · {thisWeekDaysLeft}d</p>
+                    <Money value={Math.max(0, thisWeekLeft) / thisWeekDaysLeft} size="lg" className="block mt-0.5" />
+                  </div>
+                  <div className="bg-surface px-2.5 py-1.5" title="Earlier weeks against an even split: banked if positive, overspent if negative">
+                    <p className="label-micro">Carried in</p>
+                    <p className={`text-xl font-medium mt-0.5 ${toneFor(-weekly.carryIn)}`}>{signedMoney(weekly.carryIn)}</p>
+                  </div>
+                </div>
+              )}
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="label-micro text-left">
+                      <th scope="col" className="font-medium h-[22px] px-2.5 border-b border-line">Week</th>
+                      <th scope="col" className="font-medium px-2.5 border-b border-line text-right" title="An even share of what was left when the week began">Allow</th>
+                      <th scope="col" className="font-medium px-2.5 border-b border-line text-right">Spent</th>
+                      <th scope="col" className="font-medium px-2.5 border-b border-line text-right">Left</th>
+                      <th scope="col" className="font-medium px-2.5 border-b border-line w-[24%]">Progress</th>
+                      <th scope="col" className="border-b border-line w-12"><span className="sr-only">Status</span></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {weekly.weeks.map(w => {
+                      const flag = weekFlag(w, dayOfMonth);
+                      const isNow = w.status === 'current';
+                      const mon = format(new Date(year, month, 1), 'MMM').toUpperCase();
+                      return (
+                        <tr
+                          key={w.start}
+                          className={`hover:bg-surface-hover ${isNow ? 'bg-surface-sunk' : ''}`}
+                          title={w.bills > 0 ? `${formatCurrency(w.bills)} of bills posted this week, not counted against it` : undefined}
+                        >
+                          <td className={`h-row px-2.5 border-b border-line whitespace-nowrap ${isNow ? 'text-accent-ink' : w.status === 'upcoming' ? 'text-ink-muted' : 'text-ink-secondary'}`}>
+                            {isNow ? '▸ ' : ''}{mon} {String(w.start).padStart(2, '0')}–{String(w.end).padStart(2, '0')}
+                          </td>
+                          <td className="px-2.5 border-b border-line text-right"><Money value={w.allowance} size="sm" className="text-ink-muted" /></td>
+                          <td className="px-2.5 border-b border-line text-right">
+                            {w.status === 'upcoming' ? <span className="text-ink-muted">—</span> : <Money value={w.spent} size="sm" />}
+                          </td>
+                          <td className="px-2.5 border-b border-line text-right">
+                            {w.status === 'upcoming'
+                              ? <span className="text-ink-muted">—</span>
+                              : <Money value={w.allowance - w.spent} size="sm" className={w.allowance - w.spent < 0 ? 'text-negative' : ''} />}
+                          </td>
+                          <td className="px-2.5 border-b border-line">
+                            {w.status !== 'upcoming' && (
+                              <Meter
+                                value={w.spent}
+                                max={w.allowance}
+                                tone={flag?.tone === 'caution' ? 'caution' : flag?.tone === 'negative' ? 'negative' : 'accent'}
+                                marker={isNow ? ((dayOfMonth - w.start + 1) / w.days) * 100 : undefined}
+                              />
+                            )}
+                          </td>
+                          <td className={`px-2.5 border-b border-line text-[10px] tracking-[0.06em] ${flag ? TAG_TONES[flag.tone] : ''}`}>{flag?.label}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </Panel>
+
         {/* Signals */}
-        <Panel title="Signals" meta={`${signals.length} ACTIVE`} className="col-span-12 md:col-span-7 xl:col-span-5">
+        <Panel title="Signals" meta={`${signals.length} ACTIVE`} className="col-span-12 xl:col-span-6">
           {signals.length === 0 ? (
             <p className="font-sans text-sm text-ink-muted p-3">Nothing needs your attention.</p>
           ) : (
@@ -601,7 +734,7 @@ export default function Dashboard({ onQuickAdd, onNavigate }: DashboardProps) {
           title="Ledger"
           meta={`LAST ${recent.length} · ${monthTx.length} IN ${format(new Date(year, month, 1), 'MMM').toUpperCase()}`}
           actions={onNavigate && <Button size="sm" variant="ghost" onClick={() => onNavigate('transactions')}>View all</Button>}
-          className="col-span-12 xl:col-span-6"
+          className="col-span-12"
         >
           {recent.length === 0 ? (
             <p className="font-sans text-sm text-ink-muted p-3">

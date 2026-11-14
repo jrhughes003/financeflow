@@ -23,13 +23,35 @@ interface BudgetRowProps {
   carry?: Money;
   /** Absent when this category has no rollover-adjusted status for the month. */
   effectiveBudget?: Money;
+  /** This month's limit: the base amount plus any one-month adjustment. */
+  monthAmount?: Money;
   onEdit: (budget: Budget) => void;
   onDelete: (budget: Budget) => void;
   getCategory: ReturnType<typeof useGetCategory>;
 }
 
-function BudgetRow({ budget, spending, carry = 0, effectiveBudget, onEdit, onDelete, getCategory }: BudgetRowProps) {
+/** One editable month-adjustment line: `YYYY-MM` and a signed delta. */
+interface AdjustmentLine { month: string; delta: string }
+
+const toLines = (adj: Budget['monthAdjustments']): AdjustmentLine[] =>
+  Object.entries(adj || {}).sort(([a], [b]) => a.localeCompare(b)).map(([month, delta]) => ({ month, delta: String(delta) }));
+
+/** Blank or zero lines are dropped; two lines for one month add together. */
+function fromLines(lines: AdjustmentLine[]): Budget['monthAdjustments'] {
+  const out: Record<string, number> = {};
+  for (const l of lines) {
+    const d = parseFloat(l.delta);
+    if (!/^\d{4}-\d{2}$/.test(l.month) || !d) continue;
+    out[l.month] = Math.round(((out[l.month] || 0) + d) * 100) / 100;
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
+function BudgetRow({ budget, spending, carry = 0, effectiveBudget, monthAmount, onEdit, onDelete, getCategory }: BudgetRowProps) {
   const [editing, setEditing] = useState(false);
+  const [adjustments, setAdjustments] = useState<AdjustmentLine[]>(() => toLines(budget.monthAdjustments));
+  const thisMonth = monthAmount ?? budget.amount;
+  const adjustment = Math.round((thisMonth - budget.amount) * 100) / 100;
   // The two number fields start as the stored numbers and become input strings
   // once edited, which is why save() re-parses them.
   const [form, setForm] = useState<{ amount: number | string; flex: number | string; rollover: boolean }>(
@@ -37,14 +59,20 @@ function BudgetRow({ budget, spending, carry = 0, effectiveBudget, onEdit, onDel
   );
   const cat = getCategory(budget.category);
   // Measure usage against the rollover-adjusted limit when rollover is on.
-  const limit = budget.rollover ? (effectiveBudget ?? budget.amount) : budget.amount;
+  const limit = budget.rollover ? (effectiveBudget ?? thisMonth) : thisMonth;
   const pct = limit > 0 ? Math.min((spending / limit) * 100, 120) : 0;
   const status = pct > 100 + (budget.flex || 0) ? 'danger' : pct >= 80 ? 'warning' : 'good';
   const tone = status === 'danger' ? 'negative' : status === 'warning' ? 'caution' : 'positive';
   const toneText = status === 'danger' ? 'text-negative' : status === 'warning' ? 'text-caution' : 'text-ink';
 
   const save = () => {
-    onEdit({ ...budget, amount: parseFloat(String(form.amount)) || 0, flex: parseFloat(String(form.flex)) || 0, rollover: form.rollover });
+    const { monthAdjustments: _old, ...rest } = budget;
+    const monthAdjustments = fromLines(adjustments);
+    onEdit({
+      ...rest,
+      amount: parseFloat(String(form.amount)) || 0, flex: parseFloat(String(form.flex)) || 0, rollover: form.rollover,
+      ...(monthAdjustments ? { monthAdjustments } : {}),
+    });
     setEditing(false);
   };
 
@@ -54,16 +82,23 @@ function BudgetRow({ budget, spending, carry = 0, effectiveBudget, onEdit, onDel
         <Td className="text-ink-secondary"><CategoryMark color={cat.color} name={cat.name} /></Td>
         <Td numeric><MoneyFigure value={spending} size="sm" /></Td>
         <Td numeric>
-          {budget.amount > 0
-            ? <MoneyFigure value={budget.amount} size="sm" className="text-ink-muted" />
+          {thisMonth > 0
+            ? <>
+                <MoneyFigure value={thisMonth} size="sm" className="text-ink-muted" />
+                {adjustment !== 0 && (
+                  <span className="block text-caption text-accent-ink" title={`Base ${formatCurrency(budget.amount)}`}>
+                    {adjustment > 0 ? '+' : '−'}{formatCurrency(Math.abs(adjustment))} this month
+                  </span>
+                )}
+              </>
             : <span className="text-caption text-ink-muted">No limit set</span>}
         </Td>
-        <Td numeric className={budget.amount > 0 ? toneText : 'text-ink-muted'}>
-          {budget.amount > 0 ? `${pct.toFixed(0)}% used` : 'Track only'}
+        <Td numeric className={thisMonth > 0 ? toneText : 'text-ink-muted'}>
+          {thisMonth > 0 ? `${pct.toFixed(0)}% used` : 'Track only'}
         </Td>
         <Td className="w-[22%] min-w-[96px]">
           {/* Capped at the limit so the flex band shows amber, not the meter's automatic red. */}
-          {budget.amount > 0 && <Meter value={Math.min(spending, limit)} max={limit} tone={tone} />}
+          {thisMonth > 0 && <Meter value={Math.min(spending, limit)} max={limit} tone={tone} />}
         </Td>
         <Td numeric className="hidden md:table-cell text-ink-muted">{budget.flex ? `${budget.flex}% flex` : '—'}</Td>
         <Td numeric className="hidden md:table-cell">
@@ -101,10 +136,31 @@ function BudgetRow({ budget, spending, carry = 0, effectiveBudget, onEdit, onDel
                 Roll over unused budget
               </label>
               <div className="flex gap-1.5 ml-auto">
+                <Button size="sm" icon={Plus} onClick={() => setAdjustments(a => [...a, { month: '', delta: '' }])}>Adjust a month</Button>
                 <Button size="sm" variant="primary" icon={Check} onClick={save}>Save</Button>
                 <Button size="sm" icon={X} onClick={() => setEditing(false)}>Cancel</Button>
               </div>
             </div>
+            {adjustments.length > 0 && (
+              <div className="mt-1.5 flex flex-col gap-1">
+                <p className="label-micro">One-month adjustments (added to the budget for that month only)</p>
+                {adjustments.map((a, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <input
+                      type="month" value={a.month} aria-label="Month"
+                      onChange={e => setAdjustments(list => list.map((x, j) => j === i ? { ...x, month: e.target.value } : x))}
+                      className={`${INPUT} w-40`}
+                    />
+                    <input
+                      type="number" value={a.delta} aria-label="Change for that month" placeholder="+350 or -100"
+                      onChange={e => setAdjustments(list => list.map((x, j) => j === i ? { ...x, delta: e.target.value } : x))}
+                      className={`${INPUT} w-32`}
+                    />
+                    <IconButton icon={X} label="Remove adjustment" onClick={() => setAdjustments(list => list.filter((_, j) => j !== i))} />
+                  </div>
+                ))}
+              </div>
+            )}
           </td>
         </tr>
       )}
@@ -308,6 +364,7 @@ export default function BudgetManager() {
                     spending={spending[b.category] || 0}
                     carry={statusByCategory[b.category]?.carry || 0}
                     effectiveBudget={statusByCategory[b.category]?.effectiveBudget}
+                    monthAmount={statusByCategory[b.category]?.budget}
                     getCategory={getCategory}
                     onEdit={payload => dispatch({ type: 'SET_BUDGET', payload })}
                     onDelete={budget => removeItem({ type: 'budget', item: budget, label: getCategory(budget.category)?.name })}

@@ -299,9 +299,37 @@ export function getAllCategories(customCategories: Category[] = []): Category[] 
 
 /**
  * Auto-categorize a transaction based on merchant name keywords.
- * Returns the category id or 'products' (catch-all) if no match found.
+ * Returns the category id, or fallbackCategoryId() if no match found. Retired
+ * categories are followed to their replacement.
  */
 export function autoCategorize(merchantName: string, customCategories: Category[] = []): string {
+  return resolveCategoryId(rawAutoCategorize(merchantName, customCategories), customCategories);
+}
+
+/**
+ * Follow `replacedBy` from a retired category to the one that took its place.
+ *
+ * Bounded by the number of categories, so a cycle someone wrote by hand ends
+ * on a stable id instead of hanging. An id with no definition, or a pointer
+ * to one, is returned as it stands.
+ */
+export function resolveCategoryId(id: string, customCategories: Category[] = []): string {
+  const byId = new Map(getAllCategories(customCategories).map(c => [c.id, c]));
+  let current = id;
+  for (let i = 0; i < byId.size; i++) {
+    const next = byId.get(current)?.replacedBy;
+    if (!next || next === current || !byId.has(next)) return current;
+    current = next;
+  }
+  return current;
+}
+
+/** The "nothing matched" answer for this ledger — the catch-all, after any replacement. */
+export function fallbackCategoryId(customCategories: Category[] = []): string {
+  return resolveCategoryId(FALLBACK_CATEGORY_ID, customCategories);
+}
+
+function rawAutoCategorize(merchantName: string, customCategories: Category[]): string {
   if (!merchantName) return FALLBACK_CATEGORY_ID;
 
   // The merchant table first, because it matches on the whole name and so can

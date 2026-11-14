@@ -7,7 +7,12 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import {
   Panel, PanelGrid, IconButton, Money, Badge, CategoryMark, Table, Th, Td, Tr,
 } from './ui';
-import { getBudgetStatus, getMonthlyTrend, getConsistentlyOverBudget, formatCurrency } from '../utils/calculations';
+import {
+  getBudgetStatus, getMonthlyTrend, getConsistentlyOverBudget, formatCurrency,
+  getOutsideBudgetSpending, monthsOfHistory, budgetAmountFor, isOutsideBudget,
+} from '../utils/calculations';
+import { rollUp } from '../utils/categoryTree';
+import { getTripStatuses } from '../utils/trips';
 import { useGetCategory } from '../context/FinancialContext';
 import type { BudgetStatusName } from '../types/analysis';
 
@@ -32,7 +37,26 @@ export default function BudgetComparison() {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
   const statuses = getBudgetStatus(budgets, transactions, month, year, taxonomy);
-  const trend = getMonthlyTrend(transactions, 6);
+  // Back to the first transaction, so the history the categories were
+  // migrated across is all visible here — not just the last six months.
+  // Rolled up to group level, the level budgets are set at.
+  const trend = getMonthlyTrend(transactions, Math.max(6, monthsOfHistory(transactions))).map((p) => {
+    const raw: Record<string, number> = {};
+    for (const [k, v] of Object.entries(p)) {
+      if (!['month', 'year', 'label', 'total'].includes(k) && typeof v === 'number') raw[k] = v;
+    }
+    return { ...p, ...rollUp(raw, taxonomy.categories, taxonomy.parentOverrides) };
+  });
+  // Spending deliberately kept out of monthly budgets (travel): shown on its
+  // own line, never added to the regular-spending total.
+  const outside = getOutsideBudgetSpending(transactions, month, year, taxonomy);
+  const budgetedIds = new Set(budgets.map(b => b.category));
+  const outsideIds = [...new Set([
+    ...taxonomy.categories.filter(c => c.outsideBudget && !c.retired && !budgetedIds.has(c.id)).map(c => c.id),
+    ...Object.keys(outside).filter(id => !budgetedIds.has(id)),
+  ])].filter(id => isOutsideBudget(id, taxonomy));
+  const outsideTotal = outsideIds.reduce((s, id) => s + (outside[id] || 0), 0);
+  const trips = getTripStatuses(state.settings?.trips, transactions, state.settings?.lifePlan);
 
   // Sort
   const sorted = [...statuses].sort((a, b) => {
@@ -97,7 +121,7 @@ export default function BudgetComparison() {
         <Panel title="Budget vs actual" meta={format(new Date(year, month, 1), 'MMM yyyy').toUpperCase()} className="col-span-12">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-line">
             <div className="bg-surface px-2.5 py-1.5">
-              <p className="label-micro">Spent this month</p>
+              <p className="label-micro">Regular spending</p>
               <Money value={totalActual} size="lg" className="block mt-0.5" />
             </div>
             <div className="bg-surface px-2.5 py-1.5">
@@ -120,7 +144,52 @@ export default function BudgetComparison() {
               )}
             </div>
           </div>
+          {outsideIds.length > 0 && (
+            <div className="border-t border-line">
+              {outsideIds.map((id) => {
+                const cat = getCategory(id);
+                return (
+                  <div key={id} className="flex items-center justify-between h-row px-2.5 border-b border-line last:border-b-0">
+                    <span className="flex items-center gap-2 text-sm text-ink-secondary">
+                      <CategoryMark color={cat.color} name={cat.name} />
+                      <span className="text-caption text-ink-muted">outside monthly budget</span>
+                    </span>
+                    <Money value={outside[id] || 0} size="sm" />
+                  </div>
+                );
+              })}
+              {outsideIds.length > 1 && (
+                <div className="flex items-center justify-between h-row px-2.5 text-caption text-ink-muted">
+                  <span>Outside budget, total</span><Money value={outsideTotal} size="sm" />
+                </div>
+              )}
+            </div>
+          )}
         </Panel>
+
+        {/* Trips: counted against the trip's budget, not a month's */}
+        {trips.length > 0 && (
+          <Panel title="Trips" meta={`${trips.length} TRIP${trips.length === 1 ? '' : 'S'}`} className="col-span-12">
+            <Table>
+              <thead>
+                <tr><Th>Trip</Th><Th>Dates</Th><Th numeric>Spent (your share)</Th><Th numeric>Trip budget</Th><Th numeric>Remaining</Th></tr>
+              </thead>
+              <tbody>
+                {trips.map(t => (
+                  <Tr key={t.trip.id}>
+                    <Td className="text-ink">{t.trip.name} <span className="text-caption text-ink-muted">#{t.trip.tag}</span></Td>
+                    <Td className="text-caption text-ink-muted">{t.firstDate ? `${t.firstDate} – ${t.lastDate}` : 'nothing tagged yet'}</Td>
+                    <Td numeric><Money value={t.spent} size="sm" /></Td>
+                    <Td numeric className="text-ink-secondary">
+                      {t.budget === null ? '—' : <>{formatCurrency(t.budget)}{t.budgetSource === 'lifePlan' && <span className="text-caption text-ink-muted"> (Plan Ahead)</span>}</>}
+                    </Td>
+                    <Td numeric>{t.budget === null ? '—' : <Money value={t.budget - t.spent} size="sm" signed colour />}</Td>
+                  </Tr>
+                ))}
+              </tbody>
+            </Table>
+          </Panel>
+        )}
 
         {/* Bar chart */}
         {chartData.length > 0 && (
@@ -221,7 +290,7 @@ export default function BudgetComparison() {
         </Panel>
 
         {/* Monthly trend table */}
-        <Panel title="6-Month Spending Trend by Category" meta="RED = OVER BUDGET" className="col-span-12">
+        <Panel title="Spending Trend by Category" meta="RED = OVER BUDGET" className="col-span-12" bodyClassName="overflow-x-auto">
           <Table>
             <thead>
               <tr>
@@ -239,12 +308,25 @@ export default function BudgetComparison() {
                       // A trend row carries `label` beside the category totals, so its
                       // index signature admits a string; a category key is always a number.
                       const amt = (m[b.category] as number) || 0;
-                      const over = amt > b.amount && b.amount > 0;
+                      const limit = budgetAmountFor(b, m.month, m.year);
+                      const over = amt > limit && limit > 0;
                       return (
                         <Td key={m.label} numeric className={over ? 'text-negative font-semibold' : 'text-ink-secondary'}>
                           {amt > 0 ? formatCurrency(amt) : '—'}
                         </Td>
                       );
+                    })}
+                  </Tr>
+                );
+              })}
+              {outsideIds.map((id) => {
+                const cat = getCategory(id);
+                return (
+                  <Tr key={`outside-${id}`}>
+                    <Td className="text-ink-muted"><CategoryMark color={cat.color} name={`${cat.name} (outside budget)`} /></Td>
+                    {trend.map(m => {
+                      const amt = (m[id] as number) || 0;
+                      return <Td key={m.label} numeric className="text-ink-muted">{amt > 0 ? formatCurrency(amt) : '—'}</Td>;
                     })}
                   </Tr>
                 );

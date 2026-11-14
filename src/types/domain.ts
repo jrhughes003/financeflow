@@ -93,6 +93,30 @@ export interface Budget {
   flex: number;
   /** Carry a single month of unused room — or overage — into the next. */
   rollover: boolean;
+  /**
+   * One-month changes to the limit, keyed `YYYY-MM`: `{ "2026-12": 350 }`
+   * raises December by $350 and leaves every other month alone.
+   *
+   * A delta rather than a replacement amount, so editing the base budget
+   * later still flows into an adjusted month instead of being silently
+   * overridden by a stale absolute figure.
+   */
+  monthAdjustments?: Record<string, Money>;
+}
+
+/**
+ * A trip: spending tagged with `tag` is counted against the trip's own budget
+ * rather than a monthly one.
+ */
+export interface Trip {
+  id: string;
+  name: string;
+  /** Transactions carrying this tag belong to the trip. */
+  tag: string;
+  /** Explicit budget. Takes precedence over a linked life-plan event. */
+  budget?: Money;
+  /** A Plan Ahead one-off whose cost is the trip budget. */
+  lifePlanEventId?: string;
 }
 
 /**
@@ -241,6 +265,20 @@ export interface Category {
    * into the catch-all.
    */
   retired?: boolean;
+  /**
+   * Where new transactions go instead of a retired category.
+   *
+   * The keyword lists and the merchant table still answer with old ids, and
+   * a suggestion that lands in a category nobody can pick is worse than no
+   * suggestion. Stored transactions keep their id; only new suggestions are
+   * redirected.
+   */
+  replacedBy?: string;
+  /**
+   * Spending here is real but is not monthly spending — travel, for one. It is
+   * shown on its own line and left out of budget totals and weekly allowances.
+   */
+  outsideBudget?: boolean;
 }
 
 /** A dated item on the short-term cash plan. Never enters the ledger. */

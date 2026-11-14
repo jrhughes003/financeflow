@@ -4,7 +4,7 @@ import React, { useState, useEffect, useId, useRef, useMemo } from 'react';
 import { X, Zap, Plus, Sparkles } from 'lucide-react';
 import { format } from 'date-fns';
 import { useFinancial, useTaxonomy } from '../context/FinancialContext';
-import { getAllCategories, autoCategorize } from '../utils/categorization';
+import { getAllCategories, autoCategorize, fallbackCategoryId, resolveCategoryId, FALLBACK_CATEGORY_ID } from '../utils/categorization';
 import { selectableByGroup, selectable } from '../utils/categoryTree';
 import { runAi, taxonomy, aiSupported } from '../ai/ai';
 import { train, classify } from '../utils/ml/categorizer';
@@ -168,7 +168,7 @@ export default function TransactionEntry({ isModal = false, onClose, onSaved, ed
       // 1) a learned correction wins, 2) then the keyword matcher.
       const learned = hints[hintKey(val)];
       const suggested = learned || autoCategorize(val, customCategories);
-      setSuggestion(suggested && suggested !== 'products' ? suggested : '');
+      setSuggestion(suggested && suggested !== fallbackCategoryId(customCategories) ? suggested : '');
     } else {
       setSuggestion('');
     }
@@ -188,7 +188,7 @@ export default function TransactionEntry({ isModal = false, onClose, onSaved, ed
     const chosenByUser = !!form.category;
     handleMerchantChange(entry.name);
     if (chosenByUser) return;
-    setForm(f => ({ ...f, category: entry.category, subcategory: entry.subcategory }));
+    setForm(f => ({ ...f, category: resolveCategoryId(entry.category, customCategories), subcategory: entry.subcategory }));
     // The table has answered, so the "auto-categorize as…" offer that
     // handleMerchantChange may have just raised has nothing left to add.
     setSuggestion('');
@@ -209,10 +209,10 @@ export default function TransactionEntry({ isModal = false, onClose, onSaved, ed
   const categorizeOnBlur = async () => {
     if (isSavings) return;
     if (form.category || suggestion || form.merchant.trim().length < 3) return;
-    if (autoCategorize(form.merchant, customCategories) !== 'products') return; // keywords handled it
+    if (autoCategorize(form.merchant, customCategories) !== fallbackCategoryId(customCategories)) return; // keywords handled it
 
     const local = classify(localModel, form.merchant.trim());
-    if (local?.confident && local.category !== 'products') {
+    if (local?.confident && local.category !== FALLBACK_CATEGORY_ID && local.category !== fallbackCategoryId(customCategories)) {
       setSuggestion(local.category);
       return;
     }
@@ -222,7 +222,7 @@ export default function TransactionEntry({ isModal = false, onClose, onSaved, ed
     if (!res.ok) return;
     // Same as above: the reply is `unknown`, and only its category is used.
     const suggested = (res.data as { category?: string } | undefined)?.category;
-    if (suggested && suggested !== 'products') {
+    if (suggested && suggested !== FALLBACK_CATEGORY_ID && suggested !== fallbackCategoryId(customCategories)) {
       setSuggestion(suggested);
     }
   };

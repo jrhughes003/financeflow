@@ -4,7 +4,7 @@
 import type {
   CashPlan,
   Budget, Category, Debt, Goal, Income, Investment,
-  RecurringTemplate, Transaction,
+  RecurringTemplate, Transaction, Trip,
 } from './domain';
 import type { LifePlan } from './lifeplan';
 
@@ -47,6 +47,13 @@ export interface Settings {
    * became a transaction would put money in the ledger that was never spent.
    */
   cashPlan?: CashPlan;
+  /**
+   * Which category scheme the ledger's history has been migrated to. Absent
+   * means the original one. A migration checks this so it runs exactly once.
+   */
+  categoryVersion?: number;
+  /** Trips whose tagged spending counts against a trip budget. */
+  trips?: Trip[];
 }
 
 export interface AppState {

@@ -5,7 +5,7 @@ import { useFinancial } from '../context/FinancialContext';
 import EmptyState from './EmptyState';
 import { Money, CategoryMark, Badge, Button, Panel } from './ui';
 import { useUndoableDelete } from '../hooks/useUndoableDelete';
-import { CATEGORIES, getAllCategories } from '../utils/categorization';
+import { CATEGORIES, getAllCategories, resolveCategoryId } from '../utils/categorization';
 import { selectable } from '../utils/categoryTree';
 import { useGetCategory } from '../context/FinancialContext';
 import { exportToCSV, importFromCSV } from '../utils/exportUtils';
@@ -125,7 +125,9 @@ export default function TransactionHistory() {
     if (!file) return;
     try {
       const txs = await importFromCSV(file, tagCounts(state.transactions).keys());
-      dispatch({ type: 'IMPORT_TRANSACTIONS', payload: txs });
+      // The importer maps to the built-in ids; follow any the ledger retired.
+      const custom = state.customCategories || [];
+      dispatch({ type: 'IMPORT_TRANSACTIONS', payload: txs.map(t => ({ ...t, category: resolveCategoryId(t.category, custom) })) });
     } catch { alert('Failed to import CSV. Check format.'); }
     e.target.value = '';
   };

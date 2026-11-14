@@ -14,8 +14,10 @@ export type BudgetStatusName = 'good' | 'warning' | 'danger';
 
 export interface BudgetStatus {
   category: string;
-  /** The limit as entered. */
+  /** The limit for this month: as entered, plus any one-month adjustment. */
   budget: Money;
+  /** This month's adjustment to the entered limit (0 when none). */
+  adjustment: Money;
   /** Last month's unused room, or overage as a negative. Zero if rollover is off. */
   carry: Money;
   /** budget + carry, floored at zero — what usage is actually measured against. */

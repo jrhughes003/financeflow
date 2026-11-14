@@ -3,7 +3,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { addDays, format } from 'date-fns';
 import { useFinancial, useGetCategory, useTaxonomy } from '../context/FinancialContext';
 import {
-  getTotalIncome, getTransactionsForPeriod, getBudgetStatus, getSavingsRate,
+  getTotalIncome, getTransactionsForPeriod, getBudgetStatus, getSavingsRate, isOutsideBudget,
   detectAnomalies, formatCurrency,
 } from '../utils/calculations';
 import { getOwedSummary } from '../utils/reimbursements';
@@ -268,11 +268,18 @@ export default function Dashboard({ onQuickAdd, onNavigate }: DashboardProps) {
   const owed = getOwedSummary(transactions);
   const monthTx = getTransactionsForPeriod(transactions, month, year);
 
-  const cumulative = useMemo(() => cumulativeByDay(transactions, month, year), [transactions, month, year]);
+  // Spending kept out of monthly budgets (travel) is not part of the month's
+  // pace, chart or allowances: a big flight would otherwise read as the
+  // month blowing its budget on the day it was booked.
+  const inBudget = useCallback(
+    (t: Transaction) => !isOutsideBudget(t.category, taxonomy),
+    [taxonomy],
+  );
+  const cumulative = useMemo(() => cumulativeByDay(transactions, month, year, inBudget), [transactions, month, year, inBudget]);
   const previous = useMemo(
-    () => cumulativeByDay(transactions, prevDate.getMonth(), prevDate.getFullYear()),
+    () => cumulativeByDay(transactions, prevDate.getMonth(), prevDate.getFullYear(), inBudget),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [transactions, month, year],
+    [transactions, month, year, inBudget],
   );
   const actual = cumulative.slice(0, dayOfMonth);
   const spent = cumulative[daysInMonth - 1] ?? 0;
@@ -321,13 +328,13 @@ export default function Dashboard({ onQuickAdd, onNavigate }: DashboardProps) {
       year,
       month,
       budget: budgetTotal,
-      transactions: getTransactionsForPeriod(transactions, month, year).map(t => ({
+      transactions: getTransactionsForPeriod(transactions, month, year).filter(inBudget).map(t => ({
         date: t.date, amount: t.amount, fixed: isFixedTransaction(t, recurringTemplates, billIds),
       })),
       billsDue,
       today: isCurrent ? dayOfMonth : isFuture ? 0 : daysInMonth + 1,
     });
-  }, [transactions, recurringTemplates, billIds, projection, budgetTotal, month, year, daysInMonth, dayOfMonth, isCurrent, isFuture]);
+  }, [transactions, recurringTemplates, billIds, projection, budgetTotal, month, year, daysInMonth, dayOfMonth, isCurrent, isFuture, inBudget]);
   const thisWeek = weekly.current === null ? null : weekly.weeks[weekly.current];
   const thisWeekLeft = thisWeek ? thisWeek.allowance - thisWeek.spent : 0;
   const thisWeekDaysLeft = thisWeek ? thisWeek.end - dayOfMonth + 1 : 0;
@@ -337,8 +344,8 @@ export default function Dashboard({ onQuickAdd, onNavigate }: DashboardProps) {
   // the line is everyday spending against what the budget leaves after bills,
   // which is the same pool the weekly allowances share.
   const isEveryday = useCallback(
-    (t: Transaction) => !isFixedTransaction(t, recurringTemplates, billIds),
-    [recurringTemplates, billIds],
+    (t: Transaction) => inBudget(t) && !isFixedTransaction(t, recurringTemplates, billIds),
+    [recurringTemplates, billIds, inBudget],
   );
   const everydayCumulative = useMemo(
     () => cumulativeByDay(transactions, month, year, isEveryday),

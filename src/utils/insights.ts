@@ -16,7 +16,7 @@ import {
   type WeekdayProfile,
 } from './forecast/monthPace';
 import {
-  getTransactionsForPeriod, getBudgetStatus, getConsistentlyOverBudget,
+  getTransactionsForPeriod, getBudgetStatus, getConsistentlyOverBudget, isOutsideBudget,
   getTotalIncome, getGoalProgress, toMonthlyAmount, landsInMonth, type Taxonomy,
 } from './calculations';
 import { advanceDate, detectRecurringCandidates } from './recurring';
@@ -577,7 +577,7 @@ function billsInRange(bills: PeriodicBill[], start: IsoDate, end: IsoDate) {
  * weighting pace more as the month progresses (early-month pace is noisy).
  */
 export function projectMonthEnd({
-  transactions, budgets = [], recurringTemplates = [], today = new Date(),
+  transactions: allTransactions, budgets = [], recurringTemplates = [], today = new Date(),
   lookback = INSIGHT_LOOKBACK_MONTHS, taxonomy,
 }: {
   transactions: Transaction[];
@@ -588,6 +588,11 @@ export function projectMonthEnd({
   /** Which categories roll into which budget. See calculations.ts. */
   taxonomy: Taxonomy;
 }) {
+  // A projection measured against the monthly budget only covers spending
+  // the budget covers. Outside-budget categories (travel) and templates
+  // charging into them are left out, history included.
+  const transactions = allTransactions.filter(t => !isOutsideBudget(t.category, taxonomy));
+  recurringTemplates = recurringTemplates.filter(t => !isOutsideBudget(t.category, taxonomy));
   const month = today.getMonth();
   const year = today.getFullYear();
   const { start, end, days } = monthBounds(month, year);

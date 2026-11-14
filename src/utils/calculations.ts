@@ -16,7 +16,7 @@ import type {
   Budget, Category, Debt, EffectiveTransaction, Goal, Income, IncomeFrequency,
   Investment, Money, Transaction,
 } from '../types/domain';
-import { rollUp, effectiveOverrides, type ParentOverrides } from './categoryTree';
+import { rollUp, effectiveOverrides, groupOf, type ParentOverrides } from './categoryTree';
 import { getAllCategories } from './categorization';
 import type {
   Anomaly, AnomalyOptions, BudgetHealth, BudgetStatus, BudgetStatusName,
@@ -236,7 +236,59 @@ export function getRolloverCarry(
   // error month over month.
   const prevSpending = groupSpending(transactions, prev.getMonth(), prev.getFullYear(), taxonomy);
   const prevActual = prevSpending[budget.category] || 0;
-  return roundCents(budget.amount - prevActual);
+  return roundCents(budgetAmountFor(budget, prev.getMonth(), prev.getFullYear()) - prevActual);
+}
+
+/** `YYYY-MM` for a zero-based month. */
+export function monthKey(month: number, year: number): string {
+  return `${year}-${String(month + 1).padStart(2, '0')}`;
+}
+
+/** A budget's limit for one month: the base amount plus that month's adjustment. */
+export function budgetAmountFor(budget: Budget, month: number, year: number): Money {
+  const adj = Number(budget.monthAdjustments?.[monthKey(month, year)]) || 0;
+  return roundCents(Math.max(0, (Number(budget.amount) || 0) + adj));
+}
+
+/**
+ * Is this category's spending kept out of monthly budgets?
+ *
+ * Decided at group level, so a child of an outside-budget group is outside
+ * too. A budget set directly against such a category still counts it — the
+ * flag describes the default, and a budget is an explicit statement.
+ */
+export function isOutsideBudget(categoryId: string, taxonomy: Taxonomy): boolean {
+  const group = groupOf(categoryId, taxonomy.categories, taxonomy.parentOverrides);
+  return !!taxonomy.categories.find(c => c.id === group)?.outsideBudget;
+}
+
+/** Spending for a month in outside-budget groups, keyed by group id. */
+export function getOutsideBudgetSpending(
+  transactions: Transaction[],
+  month: number,
+  year: number,
+  taxonomy: Taxonomy,
+): SpendingByCategory {
+  const grouped = groupSpending(transactions, month, year, taxonomy);
+  const out: SpendingByCategory = {};
+  for (const [id, v] of Object.entries(grouped)) if (isOutsideBudget(id, taxonomy)) out[id] = v;
+  return out;
+}
+
+/**
+ * Months from the earliest transaction through `now`, inclusive — so a trend
+ * can show the whole history instead of a fixed window that stops reaching
+ * the start of it. At least one.
+ */
+export function monthsOfHistory(transactions: Transaction[], now: Date = new Date()): number {
+  let first: string | null = null;
+  for (const t of transactions) {
+    const d = (t.date || '').slice(0, 7);
+    if (d && (first === null || d < first)) first = d;
+  }
+  if (!first) return 1;
+  const [y, m] = first.split('-').map(Number);
+  return Math.max(1, (now.getFullYear() - y) * 12 + (now.getMonth() - (m - 1)) + 1);
 }
 
 // Budget status for each category. When a budget has rollover enabled, the prior
@@ -254,8 +306,9 @@ export function getBudgetStatus(
     const actual = spending[b.category] || 0;
     const flex = b.flex || 0; // percentage of acceptable overage
     const carry = getRolloverCarry(b, transactions, month, year, taxonomy);
+    const amount = budgetAmountFor(b, month, year);
     // Effective limit can't go below zero (a large prior overage zeroes it out).
-    const effectiveBudget = roundCents(Math.max(0, b.amount + carry));
+    const effectiveBudget = roundCents(Math.max(0, amount + carry));
     const flexLimit = effectiveBudget * (1 + flex / 100);
     const percentUsed = effectiveBudget > 0 ? (actual / effectiveBudget) * 100 : 0;
     let status: BudgetStatusName = 'good';
@@ -263,7 +316,8 @@ export function getBudgetStatus(
     else if (percentUsed >= 80) status = 'warning';
     return {
       category: b.category,
-      budget: b.amount,
+      budget: amount,
+      adjustment: roundCents(amount - (Number(b.amount) || 0)),
       carry,
       effectiveBudget,
       actual,

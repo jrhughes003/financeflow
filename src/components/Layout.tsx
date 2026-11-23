@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Menu, X } from 'lucide-react';
 import { format } from 'date-fns';
 import DemoBanner from './DemoBanner';
@@ -111,6 +111,11 @@ export default function Layout({
 }) {
   const [navOpen, setNavOpen] = useState(false);
   const current = NAV_ITEMS.find(n => n.id === currentPage);
+
+  // A new page starts at its top. The scroll container outlives navigation,
+  // so without this the dashboard opened halfway down, wherever Settings was.
+  const mainRef = useRef<HTMLElement | null>(null);
+  useEffect(() => { mainRef.current?.scrollTo?.({ top: 0 }); }, [currentPage]);
 
   const handleNav = (id: PageId): void => {
     setCurrentPage(id);
@@ -225,7 +230,7 @@ export default function Layout({
           {/* Renders only in the deployed demo build; null everywhere else. */}
           <DemoBanner />
 
-          <main className="flex-1 overflow-y-auto p-2 bg-canvas">
+          <main ref={mainRef} className="flex-1 overflow-y-auto p-2 bg-canvas">
             {children}
           </main>
 

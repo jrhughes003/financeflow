@@ -24,7 +24,8 @@ import Settings from './components/Settings';
 import OwedManager from './components/OwedManager';
 import ErrorBoundary from './components/ErrorBoundary';
 import { exportToJSON } from './utils/exportUtils';
-import type { PageId } from './types/navigation';
+import { PAGE_IDS, type PageId } from './types/navigation';
+import { usePersistentState } from './hooks/usePersistentState';
 
 // Chart-heavy pages are split out: Recharts and the life-plan engine are most
 // of the bundle, and none of these is the first screen anyone sees.
@@ -41,7 +42,10 @@ function PageFallback() {
 }
 
 function AppContent() {
-  const [currentPage, setCurrentPage] = useState<PageId>('dashboard');
+  // Reopens where you left off. A stored id from a page that no longer exists
+  // falls back to the dashboard rather than a blank screen.
+  const [storedPage, setCurrentPage] = usePersistentState<PageId>('page', 'dashboard');
+  const currentPage: PageId = (PAGE_IDS as readonly string[]).includes(storedPage) ? storedPage : 'dashboard';
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [showPalette, setShowPalette] = useState(false);
   const { toast } = useToast();

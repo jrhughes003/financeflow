@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, Edit2, Check, X, Tag, Wallet } from 'lucide-react';
+import { Plus, Trash2, Edit2, Check, X, Tag, Wallet, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useFinancial, useGetCategory, useTaxonomy } from '../context/FinancialContext';
 import EmptyState from './EmptyState';
 import { useUndoableDelete } from '../hooks/useUndoableDelete';
 import { CATEGORIES, getAllCategories } from '../utils/categorization';
 import { groups as groupsOf, childrenOf, selectable } from '../utils/categoryTree';
 import { getSpendingByCategory, getMonthlyTrend, getBudgetStatus, formatCurrency } from '../utils/calculations';
-import { format } from 'date-fns';
+import { format, addMonths, startOfMonth } from 'date-fns';
 import { Panel, PanelGrid, Button, IconButton, Money as MoneyFigure, Meter, CategoryMark, Table, Th, Td, Tr } from './ui';
 import type { Budget, Money } from '../types/domain';
 
@@ -18,6 +18,8 @@ const INPUT = 'h-7 px-2 bg-surface border border-line-strong rounded-control tex
 const COLS = 8;
 
 interface BudgetRowProps {
+  /** How the row names the month on show: "this month", "in Dec 2026". */
+  periodLabel?: string;
   budget: Budget;
   spending: Money;
   carry?: Money;
@@ -47,7 +49,7 @@ function fromLines(lines: AdjustmentLine[]): Budget['monthAdjustments'] {
   return Object.keys(out).length ? out : undefined;
 }
 
-function BudgetRow({ budget, spending, carry = 0, effectiveBudget, monthAmount, onEdit, onDelete, getCategory }: BudgetRowProps) {
+function BudgetRow({ budget, spending, carry = 0, effectiveBudget, monthAmount, onEdit, onDelete, getCategory, periodLabel = 'this month' }: BudgetRowProps) {
   const [editing, setEditing] = useState(false);
   const [adjustments, setAdjustments] = useState<AdjustmentLine[]>(() => toLines(budget.monthAdjustments));
   const thisMonth = monthAmount ?? budget.amount;
@@ -87,7 +89,7 @@ function BudgetRow({ budget, spending, carry = 0, effectiveBudget, monthAmount, 
                 <MoneyFigure value={thisMonth} size="sm" className="text-ink-muted" />
                 {adjustment !== 0 && (
                   <span className="block text-caption text-accent-ink" title={`Base ${formatCurrency(budget.amount)}`}>
-                    {adjustment > 0 ? '+' : '−'}{formatCurrency(Math.abs(adjustment))} this month
+                    {adjustment > 0 ? '+' : '−'}{formatCurrency(Math.abs(adjustment))} {periodLabel}
                   </span>
                 )}
               </>
@@ -103,7 +105,7 @@ function BudgetRow({ budget, spending, carry = 0, effectiveBudget, monthAmount, 
         <Td numeric className="hidden md:table-cell text-ink-muted">{budget.flex ? `${budget.flex}% flex` : '—'}</Td>
         <Td numeric className="hidden md:table-cell">
           {budget.rollover ? (
-            <span className="text-caption text-accent-ink" title={`Effective limit ${formatCurrency(limit)} this month`}>
+            <span className="text-caption text-accent-ink" title={`Effective limit ${formatCurrency(limit)} ${periodLabel}`}>
               {carry >= 0 ? `+${formatCurrency(carry)} rolled over` : `${formatCurrency(carry)} carried`}
             </span>
           ) : <span className="text-ink-muted">—</span>}
@@ -180,9 +182,16 @@ export default function BudgetManager() {
   const childCount = (id: string) =>
     childrenOf(id, selectable(allCategories), taxonomy.parentOverrides).length;
 
+  // The month on show. Defaults to this one; stepping back reviews a closed
+  // month, stepping forward shows next month's limits with any one-month
+  // adjustments already applied.
   const now = new Date();
-  const month = now.getMonth();
-  const year = now.getFullYear();
+  const [viewMonth, setViewMonth] = useState(() => startOfMonth(now));
+  const month = viewMonth.getMonth();
+  const year = viewMonth.getFullYear();
+  const isCurrent = month === now.getMonth() && year === now.getFullYear();
+  const isFuture = viewMonth > now;
+  const periodLabel = isCurrent ? 'this month' : `in ${format(viewMonth, 'MMM yyyy')}`;
   const spending = getSpendingByCategory(transactions, month, year);
   const trend = getMonthlyTrend(transactions, 3);
   // Rollover-aware status per category (carry + effective limit for this month).
@@ -327,6 +336,21 @@ export default function BudgetManager() {
         </Panel>
       )}
 
+      {/* Period bar */}
+      <div className="flex flex-wrap items-center gap-3 text-caption text-ink-muted">
+        <div className="flex items-center border border-line-strong bg-surface">
+          <IconButton icon={ChevronLeft} label="Previous month" onClick={() => setViewMonth(m => addMonths(m, -1))} className="rounded-none" />
+          <span className="px-2.5 h-6 leading-6 border-x border-line-strong text-sm font-medium text-ink tracking-[0.06em] min-w-[96px] text-center">{format(viewMonth, 'MMM yyyy').toUpperCase()}</span>
+          <IconButton icon={ChevronRight} label="Next month" onClick={() => setViewMonth(m => addMonths(m, 1))} className="rounded-none" />
+        </div>
+        <span>{isCurrent ? 'CURRENT MONTH' : isFuture ? 'UPCOMING · SPENDING SO FAR IS ZERO; LIMITS INCLUDE ONE-MONTH ADJUSTMENTS' : 'CLOSED MONTH'}</span>
+        {!isCurrent && (
+          <button onClick={() => setViewMonth(startOfMonth(now))} className="text-accent-ink hover:underline">
+            BACK TO {format(now, 'MMM yyyy').toUpperCase()}
+          </button>
+        )}
+      </div>
+
       <PanelGrid className="grid-flow-row-dense">
         {/* Budget table */}
         <Panel
@@ -366,6 +390,7 @@ export default function BudgetManager() {
                     effectiveBudget={statusByCategory[b.category]?.effectiveBudget}
                     monthAmount={statusByCategory[b.category]?.budget}
                     getCategory={getCategory}
+                    periodLabel={periodLabel}
                     onEdit={payload => dispatch({ type: 'SET_BUDGET', payload })}
                     onDelete={budget => removeItem({ type: 'budget', item: budget, label: getCategory(budget.category)?.name })}
                   />

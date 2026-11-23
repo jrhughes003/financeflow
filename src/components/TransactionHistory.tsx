@@ -14,6 +14,8 @@ import { formatCurrency } from '../utils/calculations';
 import { PAGE_SIZE } from '../utils/constants';
 import { runAi, taxonomy, aiSupported } from '../ai/ai';
 import TransactionEntry from './TransactionEntry';
+import ImportPreview from './ImportPreview';
+import { useToast } from '../context/ToastContext';
 import { getOwedStatus } from '../utils/reimbursements';
 import type { IsoDate, Transaction } from '../types/domain';
 
@@ -59,6 +61,9 @@ export default function TransactionHistory() {
   const allCategories = getAllCategories(customCategories);
   const aiEnabled = aiSupported && state.settings?.aiEnabled;
   const uid = useId();
+  const { toast } = useToast();
+  // A parsed CSV waiting for review. Nothing reaches the ledger until confirmed.
+  const [pendingImport, setPendingImport] = useState<{ fileName: string; rows: Transaction[] } | null>(null);
 
   const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
@@ -127,8 +132,15 @@ export default function TransactionHistory() {
       const txs = await importFromCSV(file, tagCounts(state.transactions).keys());
       // The importer maps to the built-in ids; follow any the ledger retired.
       const custom = state.customCategories || [];
-      dispatch({ type: 'IMPORT_TRANSACTIONS', payload: txs.map(t => ({ ...t, category: resolveCategoryId(t.category, custom) })) });
-    } catch { alert('Failed to import CSV. Check format.'); }
+      if (txs.length === 0) {
+        toast(`${file.name} has no rows with an amount to import.`, { type: 'error', duration: 8000 });
+      } else {
+        setPendingImport({ fileName: file.name, rows: txs.map(t => ({ ...t, category: resolveCategoryId(t.category, custom) })) });
+      }
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      toast(`Couldn't import ${file.name}: ${reason}`, { type: 'error', duration: 12000 });
+    }
     e.target.value = '';
   };
 
@@ -185,6 +197,22 @@ export default function TransactionHistory() {
             </div>
           </div>
         </div>
+      )}
+
+      {pendingImport && (
+        <ImportPreview
+          fileName={pendingImport.fileName}
+          rows={pendingImport.rows}
+          existing={transactions}
+          customCategories={customCategories}
+          onClose={() => setPendingImport(null)}
+          onConfirm={rows => {
+            dispatch({ type: 'IMPORT_TRANSACTIONS', payload: rows });
+            setPendingImport(null);
+            const skipped = pendingImport.rows.length - rows.length;
+            toast(`Imported ${rows.length} transaction${rows.length === 1 ? '' : 's'}${skipped ? `, skipped ${skipped}` : ''}.`);
+          }}
+        />
       )}
 
       <Panel

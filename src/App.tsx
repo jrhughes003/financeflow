@@ -12,6 +12,7 @@ import Layout, { type StatusItem } from './components/Layout';
 import CommandPalette from './components/CommandPalette';
 import Dashboard from './components/Dashboard';
 import AccountsPage from './components/AccountsPage';
+import RemindersBanner from './components/RemindersBanner';
 import TransactionEntry from './components/TransactionEntry';
 import TransactionHistory from './components/TransactionHistory';
 import BudgetManager from './components/BudgetManager';
@@ -158,6 +159,7 @@ function AppContent() {
         {/* Scoped to the page area so a failure leaves the nav usable, and
             reset by navigation so one bad page doesn't trap the session. */}
         <ErrorBoundary resetKey={currentPage} onExport={() => exportToJSON(state)}>
+          {currentPage !== 'settings' && <RemindersBanner onNavigate={setCurrentPage} />}
           <Suspense fallback={<PageFallback />}>
             {pages[currentPage] || pages.dashboard}
           </Suspense>

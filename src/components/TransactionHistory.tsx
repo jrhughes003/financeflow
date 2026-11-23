@@ -364,42 +364,6 @@ export default function TransactionHistory() {
           )}
         </div>
 
-        {/* Bulk changes for the ticked rows */}
-        {selected.size > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5 px-2.5 py-1.5 border-b border-accent bg-accent-tint">
-            <span className="text-caption text-accent-ink font-medium mr-1">{selected.size} selected</span>
-            {selected.size < filtered.length && (
-              <button type="button" onClick={selectAllFiltered} className="text-caption text-accent-ink underline underline-offset-2 mr-1">Select all {filtered.length}</button>
-            )}
-            <select value={bulkCategory} onChange={e => setBulkCategory(e.target.value)} className={`${INPUT} w-44 h-6`} aria-label="Category for selected">
-              <option value="">Set category…</option>
-              {selectable(allCategories).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
-            <Button size="sm" onClick={bulkSetCategory} disabled={!bulkCategory}>Apply</Button>
-            <input
-              type="text"
-              value={bulkTag}
-              onChange={e => setBulkTag(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') bulkAddTag(); }}
-              placeholder="Add tag…"
-              list={`${uid}-tags`}
-              className={`${INPUT} w-28 h-6`}
-              aria-label="Tag to add to selected"
-            />
-            <Button size="sm" onClick={bulkAddTag} disabled={!bulkTag.trim()}>Tag</Button>
-            {selectedTags.length > 0 && (
-              <select value="" onChange={e => { if (e.target.value) bulkRemoveTag(e.target.value); }} className={`${INPUT} w-32 h-6`} aria-label="Remove a tag from selected">
-                <option value="">Remove tag…</option>
-                {selectedTags.map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
-            )}
-            <Button size="sm" onClick={() => bulkOneOff(true)}>Mark one-off</Button>
-            <Button size="sm" onClick={() => bulkOneOff(false)}>Count in budgets</Button>
-            <Button size="sm" variant="danger" icon={Trash2} onClick={bulkDelete}>Delete</Button>
-            <button type="button" onClick={() => setSelected(new Set())} className="ml-auto text-caption text-accent-ink underline underline-offset-2">Clear selection</button>
-          </div>
-        )}
-
         {/* Filters: one compact strip under the command row */}
         {showFilters && (
           <div className="flex flex-wrap items-end gap-x-2.5 gap-y-1.5 px-2.5 py-1.5 border-b border-line bg-surface-sunk">
@@ -563,6 +527,43 @@ export default function TransactionHistory() {
             </tbody>
           </table>
         </div>
+
+        {/* Bulk changes for the ticked rows. Under the table and sticky, so
+            ticking a row never moves the rows under the pointer. */}
+        {selected.size > 0 && (
+          <div className="sticky bottom-0 z-10 flex flex-wrap items-center gap-1.5 px-2.5 py-1.5 border-t border-accent bg-accent-tint shadow-overlay">
+            <span className="text-caption text-accent-ink font-medium mr-1">{selected.size} selected</span>
+            {selected.size < filtered.length && (
+              <button type="button" onClick={selectAllFiltered} className="text-caption text-accent-ink underline underline-offset-2 mr-1">Select all {filtered.length}</button>
+            )}
+            <select value={bulkCategory} onChange={e => setBulkCategory(e.target.value)} className={`${INPUT} w-44 h-6`} aria-label="Category for selected">
+              <option value="">Set category…</option>
+              {selectable(allCategories).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+            <Button size="sm" onClick={bulkSetCategory} disabled={!bulkCategory}>Apply</Button>
+            <input
+              type="text"
+              value={bulkTag}
+              onChange={e => setBulkTag(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') bulkAddTag(); }}
+              placeholder="Add tag…"
+              list={`${uid}-tags`}
+              className={`${INPUT} w-28 h-6`}
+              aria-label="Tag to add to selected"
+            />
+            <Button size="sm" onClick={bulkAddTag} disabled={!bulkTag.trim()}>Tag</Button>
+            {selectedTags.length > 0 && (
+              <select value="" onChange={e => { if (e.target.value) bulkRemoveTag(e.target.value); }} className={`${INPUT} w-32 h-6`} aria-label="Remove a tag from selected">
+                <option value="">Remove tag…</option>
+                {selectedTags.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            )}
+            <Button size="sm" onClick={() => bulkOneOff(true)}>Mark one-off</Button>
+            <Button size="sm" onClick={() => bulkOneOff(false)}>Count in budgets</Button>
+            <Button size="sm" variant="danger" icon={Trash2} onClick={bulkDelete}>Delete</Button>
+            <button type="button" onClick={() => setSelected(new Set())} className="ml-auto text-caption text-accent-ink underline underline-offset-2">Clear selection</button>
+          </div>
+        )}
 
         {/* Pagination & total */}
         <div className="h-bar px-2.5 flex items-center justify-between gap-2 bg-surface-sunk">

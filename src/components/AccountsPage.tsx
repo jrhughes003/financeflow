@@ -47,7 +47,7 @@ function BalanceRow({ name, balance, asOf, tone, onUpdate }: {
   return (
     <div className="flex flex-wrap items-center gap-2 h-auto min-h-row px-2.5 py-1 border-b border-line last:border-b-0">
       <span className="flex-1 min-w-[8rem] text-ink truncate">{name}</span>
-      <span className="text-caption text-ink-muted w-28 text-right">{asOf !== undefined ? `as of ${fmtAsOf(asOf)}` : ''}</span>
+      <span className="text-caption text-ink-muted w-36 text-right whitespace-nowrap">{asOf !== undefined ? `as of ${fmtAsOf(asOf)}` : ''}</span>
       <Money value={tone === 'owe' ? -balance : balance} size="sm" className={`w-28 text-right ${tone === 'owe' ? 'text-negative' : 'text-ink'}`} />
       <form
         className="flex items-center gap-1"

@@ -34,7 +34,17 @@ export default function SplitDialog({ transaction, onClose }: { transaction: Tra
   const allocated = parts.reduce((s, p) => s + Math.round(p.amount * 100), 0) / 100;
   const remaining = Math.round((total - allocated) * 100) / 100;
 
-  const setDraft = (i: number, patch: Partial<Draft>) => setDrafts(list => list.map((d, j) => (j === i ? { ...d, ...patch } : d)));
+  // Typing an amount into any later part takes it from part 1, so the parts
+  // keep adding up to the charge without any arithmetic.
+  const setDraft = (i: number, patch: Partial<Draft>) => setDrafts(list => {
+    const next = list.map((d, j) => (j === i ? { ...d, ...patch } : d));
+    if (i > 0 && patch.amount !== undefined) {
+      const others = next.slice(1).reduce((s, d) => s + Math.round((parseFloat(d.amount) || 0) * 100), 0);
+      const first = Math.round(total * 100) - others;
+      if (first >= 0) next[0] = { ...next[0], amount: String(first / 100) };
+    }
+    return next;
+  });
 
   // The first part absorbs whatever is left, so typing the smaller parts is enough.
   const balanceFirst = () => setDraft(0, { amount: String(Math.round(((parseFloat(drafts[0].amount) || 0) + remaining) * 100) / 100) });
@@ -100,7 +110,9 @@ export default function SplitDialog({ transaction, onClose }: { transaction: Tra
               <div className="flex flex-wrap items-center gap-2">
                 <Button size="sm" icon={Plus} onClick={() => setDrafts(list => [...list, { category: '', amount: '' }])}>Add part</Button>
                 <span className={`text-caption ${remaining === 0 ? 'text-positive' : 'text-caution'}`}>
-                  {remaining === 0 ? 'Adds up to the charge.' : <>Left to assign: <Money value={remaining} size="caption" /></>}
+                  {remaining === 0 ? 'Adds up to the charge.' : remaining > 0
+                    ? <>Left to assign: <Money value={remaining} size="caption" /></>
+                    : <>Over the charge by <Money value={-remaining} size="caption" /></>}
                 </span>
                 {remaining !== 0 && <Button size="sm" variant="ghost" onClick={balanceFirst}>Put the rest in part 1</Button>}
               </div>

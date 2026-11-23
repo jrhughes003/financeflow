@@ -160,3 +160,24 @@ describe('postTemplate', () => {
     expect(updated.nextDate).toBe('2026-06-05');
   });
 });
+
+describe('upcomingOccurrences', () => {
+  it('lists each posting in the window, in date order, skipping paused templates', async () => {
+    const { upcomingOccurrences } = await import('./recurring');
+    const templates = [
+      { id: 'a', merchant: 'Gym', amount: 40, category: 'health', frequency: 'biweekly' as const, nextDate: '2026-11-25' },
+      { id: 'b', merchant: 'Rent', amount: 1650, category: 'housing', frequency: 'monthly' as const, nextDate: '2026-12-01' },
+      { id: 'c', merchant: 'Paused', amount: 9, category: 'subscriptions', frequency: 'monthly' as const, nextDate: '2026-11-30', active: false },
+    ];
+    const out = upcomingOccurrences(templates, '2026-11-23', '2026-12-31');
+    expect(out.map(o => `${o.date} ${o.template.merchant}`)).toEqual([
+      '2026-11-25 Gym', '2026-12-01 Rent', '2026-12-09 Gym', '2026-12-23 Gym',
+    ]);
+  });
+
+  it('keeps an overdue posting rather than skipping it', async () => {
+    const { upcomingOccurrences } = await import('./recurring');
+    const out = upcomingOccurrences([{ id: 'a', merchant: 'Late', amount: 1, category: 'x', frequency: 'monthly', nextDate: '2026-11-10' }], '2026-11-23', '2026-11-30');
+    expect(out.map(o => o.date)).toEqual(['2026-11-10']);
+  });
+});

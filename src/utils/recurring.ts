@@ -212,3 +212,31 @@ export function postTemplate(
   };
   return { transaction: tx, template: updatedTemplate };
 }
+
+/** One future posting of a template. */
+export interface Occurrence {
+  date: IsoDate;
+  template: RecurringTemplate;
+}
+
+/**
+ * Every posting of the active templates from `from` up to and including `to`,
+ * in date order. A template already overdue shows on its due date, before
+ * `from`, so it is not silently skipped.
+ */
+export function upcomingOccurrences(templates: RecurringTemplate[], from: IsoDate, to: IsoDate): Occurrence[] {
+  const out: Occurrence[] = [];
+  for (const t of templates) {
+    if (t.active === false || !t.nextDate) continue;
+    let date = t.nextDate;
+    // A cap, so a malformed date can never spin this forever.
+    for (let i = 0; i < 400 && date <= to; i++) {
+      out.push({ date, template: t });
+      const next = advanceDate(date, t.frequency || 'monthly');
+      if (next <= date) break;
+      date = next;
+    }
+  }
+  return out.sort((a, b) => a.date.localeCompare(b.date) || a.template.merchant.localeCompare(b.template.merchant))
+    .filter(o => o.date <= to && (o.date >= from || o.date === o.template.nextDate));
+}

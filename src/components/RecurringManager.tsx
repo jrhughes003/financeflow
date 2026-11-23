@@ -1,11 +1,13 @@
 import React, { useMemo } from 'react';
 import { Plus, Trash2, Check, Power } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, addDays, parseISO, startOfWeek } from 'date-fns';
 import { useFinancial, useGetCategory } from '../context/FinancialContext';
 import { useUndoableDelete } from '../hooks/useUndoableDelete';
-import { detectRecurringCandidates, isTemplateDue, postTemplate } from '../utils/recurring';
+import { detectRecurringCandidates, isTemplateDue, postTemplate, upcomingOccurrences } from '../utils/recurring';
 import type { RecurringCandidate } from '../utils/recurring';
-import { toMonthlyAmount } from '../utils/calculations';
+import { toMonthlyAmount, formatCurrency } from '../utils/calculations';
+
+const formatCurrencyShort = (n: number): string => formatCurrency(Number(n) || 0).replace(/\.00$/, '');
 import {
   Panel, PanelGrid, KeyValue, Money, Button, IconButton, Badge, CategoryMark, Table, Th, Td, Tr,
 } from './ui';
@@ -31,6 +33,22 @@ export default function RecurringManager() {
   );
 
   const dueTemplates = recurringTemplates.filter(t => isTemplateDue(t, today));
+
+  // The next 60 days of charges, grouped by week, so a heavy week (rent and
+  // the car insurance together) is visible before it lands.
+  const upcomingWeeks = useMemo(() => {
+    const until = format(addDays(new Date(), 60), 'yyyy-MM-dd');
+    const weeks = new Map<string, { start: string; items: ReturnType<typeof upcomingOccurrences>; total: number }>();
+    for (const o of upcomingOccurrences(recurringTemplates, today, until)) {
+      const start = format(startOfWeek(parseISO(o.date < today ? today : o.date), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+      const w = weeks.get(start) ?? { start, items: [], total: 0 };
+      w.items.push(o);
+      w.total += Number(o.template.amount) || 0;
+      weeks.set(start, w);
+    }
+    return [...weeks.values()];
+  }, [recurringTemplates, today]);
+  const heaviest = Math.max(0, ...upcomingWeeks.map(w => w.total));
 
   // What the tracked charges add up to in a month, whatever their cadence.
   const monthlyRecurring = recurringTemplates
@@ -146,6 +164,43 @@ export default function RecurringManager() {
             </Table>
           )}
         </Panel>
+
+        {/* The next 60 days */}
+        {upcomingWeeks.length > 0 && (
+          <Panel title="Next 60 days" meta={`${upcomingWeeks.reduce((n, w) => n + w.items.length, 0)} CHARGES`} className="col-span-12">
+            <Table>
+              <thead>
+                <tr>
+                  <Th>Week of</Th>
+                  <Th>Charges</Th>
+                  <Th numeric>Total</Th>
+                  <Th className="w-[22%] min-w-[96px]"><span className="sr-only">Relative size</span></Th>
+                </tr>
+              </thead>
+              <tbody>
+                {upcomingWeeks.map(w => (
+                  <Tr key={w.start}>
+                    <Td className="whitespace-nowrap text-ink-secondary">{format(parseISO(w.start), 'd MMM')}</Td>
+                    <Td className="text-caption text-ink-secondary">
+                      {w.items.map((o, i) => (
+                        <span key={`${o.template.id}-${o.date}`} className={o.date < today ? 'text-negative' : ''}>
+                          {i > 0 && ' · '}{format(parseISO(o.date), 'EEE d')} {o.template.merchant} <span className="money">{formatCurrencyShort(o.template.amount)}</span>
+                          {o.date < today && ' (overdue)'}
+                        </span>
+                      ))}
+                    </Td>
+                    <Td numeric><Money value={w.total} size="sm" /></Td>
+                    <Td>
+                      <div className="h-1.5 bg-surface-sunk">
+                        <div className={`h-full ${w.total >= heaviest * 0.999 && upcomingWeeks.length > 1 ? 'bg-caution' : 'bg-accent'}`} style={{ width: `${heaviest > 0 ? (w.total / heaviest) * 100 : 0}%` }} />
+                      </div>
+                    </Td>
+                  </Tr>
+                ))}
+              </tbody>
+            </Table>
+          </Panel>
+        )}
 
         {/* Detected candidates */}
         <Panel

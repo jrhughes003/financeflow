@@ -8,7 +8,8 @@ import { groups as groupsOf, childrenOf, selectable } from '../utils/categoryTre
 import { getSpendingByCategory, getMonthlyTrend, getBudgetStatus, formatCurrency } from '../utils/calculations';
 import { format, addMonths, startOfMonth } from 'date-fns';
 import { Panel, PanelGrid, Button, IconButton, Money as MoneyFigure, Meter, CategoryMark, Table, Th, Td, Tr } from './ui';
-import type { Budget, Money } from '../types/domain';
+import type { Budget, Money, Transaction } from '../types/domain';
+import type { Taxonomy } from '../utils/calculations';
 
 const PRESET_COLORS = ['var(--c-data-2)','var(--c-positive)','var(--c-data-1)','var(--c-data-5)','var(--c-caution)','var(--c-data-7)','var(--c-data-6)','var(--c-data-3)','var(--c-negative)','var(--c-data-6)'];
 
@@ -167,6 +168,59 @@ function BudgetRow({ budget, spending, carry = 0, effectiveBudget, monthAmount, 
         </tr>
       )}
     </>
+  );
+}
+
+/**
+ * Six months of each budget at a glance: what was spent against the limit
+ * that month, coloured the way the main table colours today. Answers "is this
+ * limit realistic?" without leaving the page.
+ */
+function BudgetHistory({ budgets, transactions, endMonth, taxonomy, getCategory }: {
+  budgets: Budget[];
+  transactions: Transaction[];
+  endMonth: Date;
+  taxonomy: Taxonomy;
+  getCategory: (id: string) => { name: string; color: string };
+}) {
+  const months = Array.from({ length: 6 }, (_, i) => addMonths(endMonth, i - 5));
+  const statuses = months.map(m => Object.fromEntries(
+    getBudgetStatus(budgets, transactions, m.getMonth(), m.getFullYear(), taxonomy).map(st => [st.category, st]),
+  ));
+  return (
+    <Table>
+      <thead>
+        <tr>
+          <Th>Category</Th>
+          {months.map(m => <Th key={m.toISOString()} numeric>{format(m, 'MMM')}</Th>)}
+          <Th numeric>Avg</Th>
+        </tr>
+      </thead>
+      <tbody>
+        {budgets.map(b => {
+          const cat = getCategory(b.category);
+          const cells = statuses.map(st => st[b.category]);
+          const avg = cells.reduce((sum, c) => sum + (c?.actual || 0), 0) / cells.length;
+          return (
+            <Tr key={b.id}>
+              <Td className="text-ink-secondary"><CategoryMark color={cat.color} name={cat.name} /></Td>
+              {cells.map((c, i) => {
+                const tone = !c || c.effectiveBudget <= 0 ? 'text-ink-secondary'
+                  : c.status === 'danger' ? 'text-negative' : c.status === 'warning' ? 'text-caution' : 'text-ink';
+                return (
+                  <Td key={i} numeric className={tone}>
+                    <span title={c ? `${formatCurrency(c.actual)} of ${formatCurrency(c.effectiveBudget)}` : ''}>
+                      {c ? formatCurrency(c.actual).replace(/\.\d\d$/, '') : '—'}
+                    </span>
+                  </Td>
+                );
+              })}
+              <Td numeric className="text-ink-muted">{formatCurrency(avg).replace(/\.\d\d$/, '')}</Td>
+            </Tr>
+          );
+        })}
+      </tbody>
+    </Table>
   );
 }
 
@@ -385,7 +439,9 @@ export default function BudgetManager() {
                   <BudgetRow
                     key={b.id}
                     budget={b}
-                    spending={spending[b.category] || 0}
+                    // The grouped figure, the same one the dashboard shows: a
+                    // budget on a group counts every category filed under it.
+                    spending={statusByCategory[b.category]?.actual ?? spending[b.category] ?? 0}
                     carry={statusByCategory[b.category]?.carry || 0}
                     effectiveBudget={statusByCategory[b.category]?.effectiveBudget}
                     monthAmount={statusByCategory[b.category]?.budget}
@@ -399,6 +455,12 @@ export default function BudgetManager() {
             </Table>
           )}
         </Panel>
+
+        {budgets.length > 0 && (
+          <Panel title="Last 6 months" meta="SPENT / LIMIT" className={`col-span-12 ${hasSide ? 'xl:col-span-8' : ''}`}>
+            <BudgetHistory budgets={budgets} transactions={transactions} endMonth={viewMonth} taxonomy={taxonomy} getCategory={getCategory} />
+          </Panel>
+        )}
 
         {hasSide && (
           <div className="col-span-12 xl:col-span-4 flex flex-col gap-px bg-line">

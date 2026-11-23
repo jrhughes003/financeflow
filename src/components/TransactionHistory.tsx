@@ -270,7 +270,7 @@ export default function TransactionHistory() {
 
       {/* Confirm delete */}
       {deleteId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[color-mix(in_srgb,var(--c-canvas)_72%,transparent)] px-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[color-mix(in_srgb,var(--c-canvas)_88%,transparent)] px-4">
           <div className="bg-surface border border-line max-w-sm w-full shadow-overlay">
             <div className="h-bar flex items-center px-2.5 bg-surface-sunk border-b border-line">
               <p className="text-micro uppercase font-semibold text-ink">Delete this transaction?</p>

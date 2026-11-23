@@ -162,7 +162,7 @@ export default function CommandPalette({ open, onClose, onNavigate, onQuickAdd }
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-[12vh] px-4" role="dialog" aria-modal="true" aria-label="Command palette">
-      <div className="fixed inset-0 bg-[color-mix(in_srgb,var(--c-canvas)_72%,transparent)]" onClick={onClose} />
+      <div className="fixed inset-0 bg-[color-mix(in_srgb,var(--c-canvas)_88%,transparent)]" onClick={onClose} />
       <div className="relative w-full max-w-xl bg-surface border border-line-strong shadow-overlay overflow-hidden font-mono">
         <div className="h-bar flex items-center gap-2.5 px-2.5 bg-surface-sunk border-b border-line">
           <span className="text-micro uppercase font-semibold text-ink">Command</span>

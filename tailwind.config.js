@@ -51,8 +51,8 @@ export default {
       // Terminal density: the body is 12–13px mono, and the largest figure on
       // a screen leads by weight rather than size.
       fontSize: {
-        micro: ['10.5px', { lineHeight: '1.2', letterSpacing: '0.08em' }],
-        caption: ['11px', { lineHeight: '1.35' }],
+        micro: ['11px', { lineHeight: '1.2', letterSpacing: '0.08em' }],
+        caption: ['11.5px', { lineHeight: '1.35' }],
         sm: ['12px', { lineHeight: '1.4' }],
         base: ['13px', { lineHeight: '1.45' }],
         lg: ['14px', { lineHeight: '1.4', letterSpacing: '-0.005em' }],

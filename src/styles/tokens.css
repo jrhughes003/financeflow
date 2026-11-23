@@ -125,8 +125,10 @@
   --c-surface-hover: #1b2027;
 
   --c-ink:           rgb(255 255 255 / 0.92);
-  --c-ink-secondary: #a9b2be;
-  --c-ink-muted:     #8a94a1;
+  /* Raised a step for legibility: at the 10.5–11px sizes this theme uses for
+     dates, labels and table metadata, the old pair read as disabled. */
+  --c-ink-secondary: #bcc4ce;
+  --c-ink-muted:     #9ba5b1;
   --c-ink-inverse:   #071013;  /* text on the cyan fill and the bright ramp */
 
   --c-line:          #232830;

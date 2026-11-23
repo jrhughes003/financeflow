@@ -5,6 +5,7 @@ import { useFinancial, useGetCategory } from '../context/FinancialContext';
 import { useUndoableDelete } from '../hooks/useUndoableDelete';
 import { detectRecurringCandidates, isTemplateDue, postTemplate, upcomingOccurrences } from '../utils/recurring';
 import type { RecurringCandidate } from '../utils/recurring';
+import { subscriptionAudit } from '../utils/subscriptions';
 import { toMonthlyAmount, formatCurrency } from '../utils/calculations';
 
 const formatCurrencyShort = (n: number): string => formatCurrency(Number(n) || 0).replace(/\.00$/, '');
@@ -49,6 +50,16 @@ export default function RecurringManager() {
     return [...weeks.values()];
   }, [recurringTemplates, today]);
   const heaviest = Math.max(0, ...upcomingWeeks.map(w => w.total));
+
+  const audit = useMemo(() => subscriptionAudit(recurringTemplates, transactions), [recurringTemplates, transactions]);
+  const notes = state.settings?.subscriptionNotes || {};
+  const saveNote = (key: string, text: string) => {
+    const trimmed = text.trim();
+    if ((notes[key] || '') === trimmed) return;
+    const next = { ...notes };
+    if (trimmed) next[key] = trimmed; else delete next[key];
+    dispatch({ type: 'UPDATE_SETTINGS', payload: { subscriptionNotes: next } });
+  };
 
   // What the tracked charges add up to in a month, whatever their cadence.
   const monthlyRecurring = recurringTemplates
@@ -164,6 +175,61 @@ export default function RecurringManager() {
             </Table>
           )}
         </Panel>
+
+        {/* Subscription audit */}
+        {audit.length > 0 && (
+          <Panel
+            title="Subscription audit"
+            meta={`${formatCurrencyShort(audit.reduce((s, r) => s + r.annual, 0))} / YEAR`}
+            className="col-span-12"
+          >
+            <p className="font-sans text-caption text-ink-muted px-2.5 py-1.5 border-b border-line">
+              Every active recurring charge by what it costs a year. Price changes are measured from your own ledger over the last year. Leave yourself a note ("still using?", "cancel after the season") and pause anything you&apos;ve cancelled.
+            </p>
+            <Table>
+              <thead>
+                <tr>
+                  <Th>Merchant</Th>
+                  <Th numeric>Per year</Th>
+                  <Th numeric>Price change</Th>
+                  <Th className="hidden md:table-cell">Last charged</Th>
+                  <Th>Note</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {audit.map(r => (
+                  <Tr key={r.template.id}>
+                    <Td className="max-w-0 w-[28%] min-w-[9rem]">
+                      <CategoryMark color={getCategory(r.template.category).color} name={r.template.merchant} className="text-ink" />
+                    </Td>
+                    <Td numeric><Money value={r.annual} size="sm" /></Td>
+                    <Td numeric className={r.priceChangePct === null ? 'text-ink-muted' : r.priceChangePct > 0 ? 'text-negative' : 'text-positive'}>
+                      {r.priceChangePct === null ? '—' : (
+                        <span title={r.firstSeen && r.lastCharged ? `${formatCurrency(r.firstSeen.amount)} on ${r.firstSeen.date} → ${formatCurrency(r.lastCharged.amount)} on ${r.lastCharged.date}` : ''}>
+                          {r.priceChangePct > 0 ? '+' : ''}{r.priceChangePct}%
+                        </span>
+                      )}
+                    </Td>
+                    <Td className="hidden md:table-cell text-ink-secondary whitespace-nowrap">
+                      {r.lastCharged ? `${r.lastCharged.date} · ${r.daysSinceCharged}d ago` : <span className="text-ink-muted">not in ledger yet</span>}
+                    </Td>
+                    <Td>
+                      <input
+                        type="text"
+                        defaultValue={notes[r.key] || ''}
+                        onBlur={e => saveNote(r.key, e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                        placeholder="Add a note…"
+                        aria-label={`Note for ${r.template.merchant}`}
+                        className="w-full h-6 px-1.5 bg-transparent border border-transparent hover:border-line focus:border-accent rounded-control text-caption text-ink placeholder:text-ink-muted focus:outline-none"
+                      />
+                    </Td>
+                  </Tr>
+                ))}
+              </tbody>
+            </Table>
+          </Panel>
+        )}
 
         {/* The next 60 days */}
         {upcomingWeeks.length > 0 && (

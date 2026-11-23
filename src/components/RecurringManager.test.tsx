@@ -42,7 +42,8 @@ describe('RecurringManager', () => {
   it('renders with an active template rather than throwing', () => {
     seed([template()]);
     expect(() => renderPage()).not.toThrow();
-    expect(screen.getByText('Spotify')).toBeInTheDocument();
+    // Listed in the templates table and again in the subscription audit.
+    expect(screen.getAllByText('Spotify').length).toBeGreaterThanOrEqual(1);
   });
 
   // The crash was in the monthly total, so the total is what to assert on:

@@ -4,6 +4,7 @@ import { Button, IconButton, Table, Th, Td, Tr } from '../ui';
 import { formatCurrency } from '../../utils/calculations';
 import { estimateAccountValue } from '../../utils/accounts';
 import { BUCKETS, newId } from '../../utils/lifeplan/snapshot';
+import { annualTakeHome, incomeDrift } from '../../utils/lifeplan/incomeLink';
 import type {
   AccountMapping, LifePlan, PersonId, PlanAssumptions, PlanIncome, PlanLiving, PlanPerson,
 } from '../../types/lifeplan';
@@ -30,6 +31,50 @@ interface PlanSetupProps {
   snapshot: PlanSnapshot;
 }
 
+/**
+ * Ties a plan salary to an Income page source, and says when that source has
+ * changed since. Gross and take-home differ, so the link carries a note of
+ * the take-home figure rather than copying it.
+ */
+function IncomeLinkRow({ inc, incomes, onChange }: {
+  inc: PlanIncome;
+  incomes: AppState['incomes'];
+  onChange: (patch: FieldPatch) => void;
+}) {
+  if (incomes.length === 0) return null;
+  const drift = incomeDrift(inc, incomes);
+  const linked = incomes.find(i => i.id === inc.linkedIncomeId);
+  return (
+    <div className="flex flex-wrap items-center gap-2 px-2.5 pb-2 -mt-1 text-caption">
+      <label className="inline-flex items-center gap-1.5 text-ink-secondary">
+        Same job as on the Income page:
+        <select
+          value={inc.linkedIncomeId ?? ''}
+          onChange={e => {
+            const src = incomes.find(i => i.id === e.target.value);
+            onChange({ linkedIncomeId: src?.id, linkedAnnualAtSync: src ? annualTakeHome(src) : undefined });
+          }}
+          className="h-6 px-1 bg-surface border border-line-strong rounded-control text-caption text-ink"
+        >
+          <option value="">Not linked</option>
+          {incomes.map(i => <option key={i.id} value={i.id}>{i.name || i.source || 'Income'} · {formatCurrency(annualTakeHome(i))}/yr take-home</option>)}
+        </select>
+      </label>
+      {linked && !drift && <span className="text-ink-muted">In step with the Income page.</span>}
+      {drift && (
+        <span className="inline-flex flex-wrap items-center gap-1.5 px-1.5 py-0.5 border border-caution text-caution">
+          {drift.source.name || 'This income'} went from {formatCurrency(drift.was)} to {formatCurrency(drift.now)}/yr take-home
+          ({drift.ratio > 1 ? '+' : ''}{((drift.ratio - 1) * 100).toFixed(1)}%) since this was set.
+          <Button size="sm" onClick={() => onChange({ annual: drift.suggestedAnnual, linkedAnnualAtSync: drift.now })}>
+            Set gross to {formatCurrency(drift.suggestedAnnual)}
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => onChange({ linkedAnnualAtSync: drift.now })}>It's already right</Button>
+        </span>
+      )}
+    </div>
+  );
+}
+
 export default function PlanSetup({ plan, setPlan, state, snapshot }: PlanSetupProps) {
   const update = (patch: Partial<LifePlan>) => setPlan({ ...plan, ...patch });
   const setPerson = (id: PersonId, patch: FieldPatch) => update({ people: plan.people.map(p => (p.id === id ? { ...p, ...patch } as PlanPerson : p)) });
@@ -37,6 +82,7 @@ export default function PlanSetup({ plan, setPlan, state, snapshot }: PlanSetupP
   const setAssumptions = (patch: FieldPatch) => update({ assumptions: { ...plan.assumptions, ...patch } as PlanAssumptions });
   const setIncome = (id: string, patch: FieldPatch) => update({ incomes: plan.incomes.map(i => (i.id === id ? { ...i, ...patch } as PlanIncome : i)) });
   const people = plan.people.filter(p => p.id === 'me' || p.enabled);
+  const recurringIncomes = state.incomes.filter(i => i.frequency !== 'once');
 
   const addIncome = () => update({
     incomes: [...plan.incomes, {
@@ -108,6 +154,7 @@ export default function PlanSetup({ plan, setPlan, state, snapshot }: PlanSetupP
                 <NumberField label="RRSP contribution" value={inc.rrspPct} onChange={v => setIncome(inc.id, { rrspPct: v })} suffix="% of pay" step="0.5" />
                 <NumberField label="Employer match" value={inc.employerMatchPct} onChange={v => setIncome(inc.id, { employerMatchPct: v })} suffix="% of pay" step="0.5" />
               </div>
+              <IncomeLinkRow inc={inc} incomes={recurringIncomes} onChange={patch => setIncome(inc.id, patch)} />
             </div>
           ))
         )}

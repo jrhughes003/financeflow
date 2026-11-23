@@ -45,6 +45,10 @@ export interface PlanIncome {
   employerMatchPct?: number;
   start?: YearMonth;
   end?: YearMonth;
+  /** The Income page source this salary corresponds to, if linked. */
+  linkedIncomeId?: string;
+  /** That source's take-home pay per year when this figure was last brought up to date. */
+  linkedAnnualAtSync?: Money;
 }
 
 export interface PlanLiving {

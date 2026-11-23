@@ -28,6 +28,9 @@ const EMPTY_STATE = makeState({ settings: { currency: 'USD' } });
 type MockDb = { [K in keyof DatabaseBridge]: Mock };
 
 /** The context never touches the AI bridge; this is here to satisfy the type. */
+// Bridges these tests never call, present only to satisfy the type.
+const UNUSED_BRIDGE = {} as never;
+
 const AI_STUB: AiBridge = {
   status: vi.fn().mockResolvedValue({ encryptionAvailable: false, hasKey: false }),
   setKey: vi.fn().mockResolvedValue({ ok: true, data: undefined }),
@@ -67,7 +70,7 @@ function ui(): RenderResult {
  * `captured` that never gets set.
  */
 async function renderElectron(db: MockDb) {
-  window.api = { isElectron: true, db, ai: AI_STUB };
+  window.api = { isElectron: true, db, ai: AI_STUB, backup: UNUSED_BRIDGE, files: UNUSED_BRIDGE };
   vi.resetModules();
 
   const React = (await import('react')).default;

@@ -1,8 +1,10 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Download, Upload, Trash2, KeyRound, Wand2 } from 'lucide-react';
+import { Download, Upload, Trash2, KeyRound, Wand2, FileSpreadsheet } from 'lucide-react';
 import { useFinancial } from '../context/FinancialContext';
 import { aiSupported, getAiStatus, setAiKey, clearAiKey } from '../ai/ai';
-import { exportToJSON, importFromJSON } from '../utils/exportUtils';
+import { exportToJSON, importFromJSON, allDataFiles, downloadAllDataFiles } from '../utils/exportUtils';
+import { electronApi } from '../storage/storage';
+import AutoBackupPanel from './AutoBackupPanel';
 import generateDemoData from '../utils/demoData';
 import AiAuditPanel from './AiAuditPanel';
 import CategoryGrouping from './CategoryGrouping';
@@ -72,6 +74,16 @@ export default function Settings() {
       .then(data => { dispatch({ type: 'LOAD_DATA', payload: data }); setMsg({ type: 'ok', text: 'Backup restored.' }); })
       .catch(err => setMsg({ type: 'err', text: err.message }))
       .finally(() => { if (fileRef.current) fileRef.current.value = ''; });
+  };
+
+  // Every collection as a CSV: the data stays usable even without this app.
+  const exportEverything = async () => {
+    const files = allDataFiles(state);
+    const api = electronApi();
+    if (!api) { downloadAllDataFiles(files); return; }
+    const res = await api.files.saveToFolder(files);
+    if (res.ok) setMsg({ type: 'ok', text: `Exported ${res.written.length} files to ${res.dir}.` });
+    else if (res.error !== 'cancelled') setMsg({ type: 'err', text: res.error });
   };
 
   const theme = settings.theme ?? DEFAULT_THEME;
@@ -166,13 +178,16 @@ export default function Settings() {
 
       {/* Backup & restore */}
       <Panel bordered title="Backup & Restore" meta="JSON">
-        <p className="font-sans text-sm text-ink-muted px-2.5 py-2">Export a full JSON backup, or restore one (also the way to move data from the web app into the desktop app).</p>
-        <div className="flex gap-1.5 px-2.5 pb-2.5">
+        <p className="font-sans text-sm text-ink-muted px-2.5 py-2">Export a full JSON backup, or restore one (also the way to move data from the web app into the desktop app). "Export everything" writes each kind of record as its own CSV, to open in Excel or anywhere else.</p>
+        <div className="flex flex-wrap gap-1.5 px-2.5 pb-2.5">
           <Button icon={Download} onClick={() => exportToJSON(state)}>Export backup</Button>
+          <Button icon={FileSpreadsheet} onClick={exportEverything}>Export everything (CSV)</Button>
           <Button icon={Upload} onClick={() => fileRef.current?.click()}>Restore backup</Button>
           <input ref={fileRef} type="file" accept="application/json,.json" onChange={handleImport} className="hidden" />
         </div>
       </Panel>
+
+      <AutoBackupPanel />
 
       <CategoryGrouping />
 

@@ -12,6 +12,16 @@ contextBridge.exposeInMainWorld('api', {
     isInitialized: () => ipcRenderer.invoke('db:isInitialized'),
     markInitialized: () => ipcRenderer.invoke('db:markInitialized'),
   },
+  backup: {
+    status: () => ipcRenderer.invoke('backup:status'),
+    runNow: () => ipcRenderer.invoke('backup:runNow'),
+    configure: (cfg) => ipcRenderer.invoke('backup:configure', cfg),
+    chooseDir: () => ipcRenderer.invoke('backup:chooseDir'),
+    openDir: () => ipcRenderer.invoke('backup:openDir'),
+  },
+  files: {
+    saveToFolder: (files) => ipcRenderer.invoke('files:saveToFolder', files),
+  },
   ai: {
     status: () => ipcRenderer.invoke('ai:status'),
     setKey: (key) => ipcRenderer.invoke('ai:setKey', key),

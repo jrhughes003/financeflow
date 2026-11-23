@@ -69,8 +69,8 @@ describe('importFromCSV — file shape', () => {
   it('rejects a file with no recognisable Description or Amount column', async () => {
     // The one loud failure in the parser: without these two there is nothing
     // to import, so it refuses rather than producing a file of 'Unknown' rows.
-    await expect(importFromCSV(csvFile('Foo,Bar\n1,2\n'))).rejects.toThrow(/required columns/);
-    await expect(importFromCSV(csvFile('Date,Description\n2026-02-03,Metro\n'))).rejects.toThrow(/required columns/);
+    await expect(importFromCSV(csvFile('Foo,Bar\n1,2\n'))).rejects.toThrow(/description column and an amount column/);
+    await expect(importFromCSV(csvFile('Date,Description\n2026-02-03,Metro\n'))).rejects.toThrow(/description column and an amount column/);
   });
 });
 
@@ -360,5 +360,23 @@ describe('exportToCSV / exportToJSON', () => {
     // refunded charge, a placeholder) exports fine and never comes back.
     exportToCSV([makeTransaction({ id: 'a', merchant: 'Refunded', amount: 0 })]);
     expect(await importFromCSV(csvFile(await readBlob(onlyDownload().blob)))).toEqual([]);
+  });
+});
+
+describe('rowsToCsv / allDataFiles', () => {
+  it('quotes awkward cells and unions keys across rows', async () => {
+    const { rowsToCsv } = await import('./exportUtils');
+    const csv = rowsToCsv([{ a: 'x,y', b: ['t1', 't2'] }, { a: 'he said "hi"', c: { n: 1 } }]);
+    expect(csv.split('\n')[0]).toBe('a,b,c');
+    expect(csv).toContain('"x,y",t1;t2,');
+    expect(csv).toContain('"he said ""hi""",,"{""n"":1}"');
+  });
+
+  it('produces a file for every collection plus settings', async () => {
+    const { allDataFiles } = await import('./exportUtils');
+    const { asAppState } = await import('../types/state');
+    const files = allDataFiles(asAppState({ transactions: [{ id: '1', date: '2026-01-01', merchant: 'A', amount: 1, category: 'x' }] }), new Date(2026, 0, 2));
+    expect(files.map(f => f.name)).toContain('financeflow-2026-01-02-transactions.csv');
+    expect(files).toHaveLength(9);
   });
 });

@@ -21,6 +21,9 @@ type StorageModule = typeof import('./storage');
 type MockDb = { [K in keyof DatabaseBridge]: Mock };
 
 /** Storage never touches the AI bridge; this only exists to satisfy the type. */
+// Bridges these tests never call, present only to satisfy the type.
+const UNUSED_BRIDGE = {} as never;
+
 const AI_STUB: AiBridge = {
   status: vi.fn(),
   setKey: vi.fn(),
@@ -46,7 +49,7 @@ const makeDb = (over: Partial<MockDb> = {}): MockDb => ({
 
 /** Load storage with an Electron bridge in place. */
 async function loadElectron(db: MockDb): Promise<StorageModule> {
-  window.api = { isElectron: true, db, ai: AI_STUB };
+  window.api = { isElectron: true, db, ai: AI_STUB, backup: UNUSED_BRIDGE, files: UNUSED_BRIDGE };
   vi.resetModules();
   return import('./storage');
 }

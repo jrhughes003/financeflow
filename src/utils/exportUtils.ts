@@ -35,6 +35,54 @@ export function exportToCSV(transactions: Transaction[], filename = 'transaction
   downloadFile(csv, filename, 'text/csv;charset=utf-8;');
 }
 
+/** One CSV cell: quoted when it needs to be, objects as JSON. */
+function csvCell(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  const text = Array.isArray(value) && value.every(v => typeof v !== 'object')
+    ? value.join(';')
+    : typeof value === 'object' ? JSON.stringify(value) : String(value);
+  return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+/**
+ * Rows as CSV, with a column for every key any row has.
+ *
+ * Generic on purpose: the point of "export everything" is that nothing is
+ * left behind, including fields a later version adds that this file has never
+ * heard of.
+ */
+export function rowsToCsv(rows: object[]): string {
+  const keys: string[] = [];
+  for (const row of rows) for (const k of Object.keys(row)) if (!keys.includes(k)) keys.push(k);
+  if (keys.length === 0) return '';
+  const lines = rows.map(r => keys.map(k => csvCell((r as Record<string, unknown>)[k])).join(','));
+  return [keys.join(','), ...lines].join('\n');
+}
+
+/** Every collection as its own CSV, plus settings as JSON. Nothing is left in the app only. */
+export function allDataFiles(state: AppState, date = new Date()): { name: string; content: string }[] {
+  const stamp = format(date, 'yyyy-MM-dd');
+  const collections: [string, object[]][] = [
+    ['transactions', state.transactions],
+    ['budgets', state.budgets],
+    ['income', state.incomes],
+    ['goals', state.savings_goals],
+    ['accounts-and-investments', state.investments],
+    ['debts', state.debts],
+    ['recurring', state.recurringTemplates],
+    ['categories', state.customCategories],
+  ];
+  return [
+    ...collections.map(([name, rows]) => ({ name: `financeflow-${stamp}-${name}.csv`, content: rowsToCsv(rows) })),
+    { name: `financeflow-${stamp}-settings.json`, content: JSON.stringify(state.settings ?? {}, null, 2) },
+  ];
+}
+
+/** Browser fallback: one download per file. */
+export function downloadAllDataFiles(files: { name: string; content: string }[]): void {
+  for (const f of files) downloadFile(f.content, f.name, f.name.endsWith('.json') ? 'application/json' : 'text/csv;charset=utf-8;');
+}
+
 // Export full data backup as JSON
 export function exportToJSON(data: AppState, filename = 'financeflow_backup.json'): void {
   const json = JSON.stringify(data, null, 2);
@@ -229,7 +277,7 @@ export function importFromCSV(file: File, existingTags: Iterable<string> = []): 
         const accountIdx = idx(['account','method','card','bank']);
 
         if (amtIdx === -1 || descIdx === -1) {
-          reject(new Error('Could not find required columns (Description and Amount). See format guide below.'));
+          reject(new Error(`it needs a description column and an amount column, and the header row has: ${parseRow(firstLine, delimiter).join(', ') || 'nothing'}`));
           return;
         }
 

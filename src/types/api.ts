@@ -1,6 +1,6 @@
 // The Electron bridge, as electron/preload.cjs actually exposes it.
 //
-// Eight methods, all promise-returning, and nothing else — no ipcRenderer
+// A handful of methods, all promise-returning, and nothing else — no ipcRenderer
 // object, no Node globals. Mirroring it here rather than hand-writing a .d.ts
 // next to the .cjs means the mirror can drift, so electron/ipc-contract.test.js
 // compares this list against the channels both sides of the bridge register.
@@ -81,10 +81,39 @@ export interface AiBridge {
   clearAuditLog(): Promise<true>;
 }
 
+/** What Settings shows about automatic backups. */
+export interface BackupStatus {
+  dir: string;
+  defaultDir: string;
+  keep: number;
+  /** ISO timestamp of the last backup this app created, if any. */
+  lastAt: string | null;
+  /** Newest first. */
+  files: { name: string; size: number }[];
+  lastError: string | null;
+}
+
+export interface BackupBridge {
+  status(): Promise<BackupStatus>;
+  /** Takes a fresh backup now, replacing today's if there is one. */
+  runNow(): Promise<BackupStatus & { ok: boolean; error: string | null }>;
+  configure(cfg: { keep?: number; resetDir?: boolean }): Promise<BackupStatus>;
+  /** Opens a native folder picker; resolves with the status either way. */
+  chooseDir(): Promise<BackupStatus>;
+  openDir(): Promise<true>;
+}
+
+export interface FilesBridge {
+  /** Asks for a folder, writes each file into it by basename, and opens it. */
+  saveToFolder(files: { name: string; content: string }[]): Promise<{ ok: true; dir: string; written: string[] } | { ok: false; error: string }>;
+}
+
 export interface FinanceFlowApi {
   /** Present and true only under Electron; the storage layer switches on it. */
   isElectron: true;
   db: DatabaseBridge;
+  backup: BackupBridge;
+  files: FilesBridge;
   ai: AiBridge;
 }
 
@@ -92,6 +121,8 @@ export interface FinanceFlowApi {
 export const IPC_CHANNELS = [
   'db:loadAll', 'db:saveAll', 'db:isInitialized', 'db:markInitialized',
   'ai:status', 'ai:setKey', 'ai:clearKey', 'ai:run', 'ai:auditLog', 'ai:clearAuditLog',
+  'backup:status', 'backup:runNow', 'backup:configure', 'backup:chooseDir', 'backup:openDir',
+  'files:saveToFolder',
 ] as const;
 
 export type IpcChannel = (typeof IPC_CHANNELS)[number];

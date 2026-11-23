@@ -3,7 +3,8 @@
 // filesystem or the database directly — it calls window.api.db.* (see preload.cjs).
 
 const path = require('node:path');
-const { app, BrowserWindow, ipcMain, session, shell } = require('electron');
+const fs = require('node:fs');
+const { app, BrowserWindow, ipcMain, session, shell, dialog } = require('electron');
 const { getDb, closeDb } = require('./db/index.cjs');
 const { loadAll, saveAll, getMeta, setMeta } = require('./db/repository.cjs');
 const { buildPayload } = require('./ai/payload.cjs');
@@ -11,6 +12,7 @@ const { createClient, runFeature } = require('./ai/client.cjs');
 const { executeTool } = require('./ai/aggregates.cjs');
 const auditLog = require('./ai/auditLog.cjs');
 const secureStore = require('./ai/secureStore.cjs');
+const backup = require('./backup.cjs');
 
 const isDev = !app.isPackaged;
 
@@ -126,6 +128,82 @@ ipcMain.handle('db:markInitialized', () => {
   return true;
 });
 
+// --- Automatic backups ------------------------------------------------------
+// One SQLite backup a day, kept to the newest N. Settings live in the meta
+// table so they survive reinstalls along with the data they protect.
+
+const DEFAULT_BACKUP_DIR = () => path.join(app.getPath('userData'), 'backups');
+let lastBackupResult = null;
+
+function backupConfig() {
+  return backup.readConfig(key => getMeta(getDb(), key), DEFAULT_BACKUP_DIR());
+}
+
+async function backupNow(force = false) {
+  const { dir, keep } = backupConfig();
+  const result = await backup.runBackup(getDb(), { dir, keep, force });
+  lastBackupResult = result;
+  if (result.ok && result.created) setMeta(getDb(), backup.META_LAST, new Date().toISOString());
+  if (!result.ok) console.error('Backup failed:', result.error);
+  return result;
+}
+
+function backupStatus() {
+  const cfg = backupConfig();
+  const files = backup.listBackups(cfg.dir);
+  return {
+    dir: cfg.dir,
+    defaultDir: DEFAULT_BACKUP_DIR(),
+    keep: cfg.keep,
+    lastAt: cfg.last,
+    files: files.map(f => ({ name: f.name, size: f.size })),
+    lastError: lastBackupResult && !lastBackupResult.ok ? lastBackupResult.error : null,
+  };
+}
+
+ipcMain.handle('backup:status', () => backupStatus());
+ipcMain.handle('backup:runNow', async () => {
+  const result = await backupNow(true);
+  return { ...backupStatus(), ok: result.ok, error: result.ok ? null : result.error };
+});
+ipcMain.handle('backup:configure', (_evt, cfg) => {
+  if (cfg && typeof cfg.keep !== 'undefined') setMeta(getDb(), backup.META_KEEP, String(backup.clampKeep(cfg.keep)));
+  if (cfg && cfg.resetDir) setMeta(getDb(), backup.META_DIR, '');
+  return backupStatus();
+});
+// The folder is chosen in a native dialog here rather than typed in the
+// renderer, so a path never has to be trusted from the page.
+ipcMain.handle('backup:chooseDir', async () => {
+  const res = await dialog.showOpenDialog({ title: 'Choose a backup folder', properties: ['openDirectory', 'createDirectory'] });
+  if (!res.canceled && res.filePaths[0]) setMeta(getDb(), backup.META_DIR, res.filePaths[0]);
+  return backupStatus();
+});
+ipcMain.handle('backup:openDir', async () => {
+  const { dir } = backupConfig();
+  fs.mkdirSync(dir, { recursive: true });
+  await shell.openPath(dir);
+  return true;
+});
+
+// --- IPC: export to a folder --------------------------------------------------
+// "Export everything" writes one CSV per collection into a folder the user
+// picks. Names are reduced to a safe basename so the page cannot write
+// anywhere but inside that folder.
+ipcMain.handle('files:saveToFolder', async (_evt, files) => {
+  const res = await dialog.showOpenDialog({ title: 'Choose a folder for the export', properties: ['openDirectory', 'createDirectory'] });
+  if (res.canceled || !res.filePaths[0]) return { ok: false, error: 'cancelled' };
+  const target = res.filePaths[0];
+  const written = [];
+  for (const f of Array.isArray(files) ? files : []) {
+    const name = path.basename(String(f && f.name || '')).replace(/[^A-Za-z0-9._-]/g, '_');
+    if (!name || name.startsWith('.')) continue;
+    fs.writeFileSync(path.join(target, name), String(f.content ?? ''), 'utf8');
+    written.push(name);
+  }
+  shell.openPath(target);
+  return { ok: true, dir: target, written };
+});
+
 // --- IPC: AI ----------------------------------------------------------------
 // The API key lives only in the main process (encrypted at rest via safeStorage).
 // The renderer triggers features over IPC; main minimizes the payload, attaches
@@ -186,6 +264,11 @@ app.whenReady().then(() => {
   applyContentSecurityPolicy(); // before any window loads
   getDb(); // open + migrate up front so the first IPC call is fast
   createWindow();
+
+  // Today's backup, then a check every six hours so an app left open across
+  // midnight still takes the next day's. Neither blocks the window.
+  setTimeout(() => { backupNow(); }, 5_000);
+  setInterval(() => { backupNow(); }, 6 * 60 * 60 * 1000);
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

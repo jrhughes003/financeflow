@@ -12,7 +12,7 @@ import { owedFromSplit, getOwedStatus, buildOwed } from '../utils/reimbursements
 import { canonicaliseTags, tagCounts } from '../utils/tags';
 import { formatCurrency } from '../utils/calculations';
 import { Button, IconButton, Panel } from './ui';
-import type { MerchantEntry } from '../utils/merchants';
+import { merchantHistory, historyMatch, type MerchantEntry } from '../utils/merchants';
 import type { Category, IsoDate, Transaction, TransactionKind } from '../types/domain';
 
 /**
@@ -162,8 +162,35 @@ export default function TransactionEntry({ isModal = false, onClose, onSaved, ed
   const hints = state.settings?.merchantCategoryHints || {};
   const hintKey = (m: string | undefined): string => (m || '').toLowerCase().trim();
 
+  // This ledger's own merchants, each with the category it was last filed
+  // under. Offered first in the merchant list, and used to fill the category
+  // outright when the name is one already on record.
+  const history = useMemo(() => merchantHistory(state.transactions), [state.transactions]);
+
+  // True while the category on the form is one this form filled in, rather
+  // than one the user picked. Only an auto-filled category is ever replaced.
+  const [autoFilled, setAutoFilled] = useState(false);
+
   const handleMerchantChange = (val: string) => {
     setForm(f => ({ ...f, merchant: val }));
+    // A merchant already on record files where it was filed last time, or
+    // where a correction said it should — no "auto-categorize?" button to
+    // press for the coffee you buy every morning.
+    const known = historyMatch(history, val);
+    const learned = hints[hintKey(val)];
+    const knownCategory = learned || known?.category;
+    if (knownCategory && (!form.category || autoFilled)) {
+      const category = resolveCategoryId(knownCategory, customCategories);
+      setForm(f => ({ ...f, merchant: val, category, subcategory: known && known.category === knownCategory ? known.subcategory : '' }));
+      setAutoFilled(true);
+      setSuggestion('');
+      return;
+    }
+    if (autoFilled && !knownCategory) {
+      // The name no longer matches what filled the category, so neither should the category.
+      setForm(f => ({ ...f, merchant: val, category: '', subcategory: '' }));
+      setAutoFilled(false);
+    }
     if (val.length >= 3) {
       // 1) a learned correction wins, 2) then the keyword matcher.
       const learned = hints[hintKey(val)];
@@ -185,10 +212,15 @@ export default function TransactionEntry({ isModal = false, onClose, onSaved, ed
   // somebody made by hand, and overwriting that silently is the one thing this
   // must never do.
   const handleMerchantSelect = (entry: MerchantEntry) => {
-    const chosenByUser = !!form.category;
+    const chosenByUser = !!form.category && !autoFilled;
     handleMerchantChange(entry.name);
     if (chosenByUser) return;
+    // A merchant from this ledger already filled the category in
+    // handleMerchantChange, from the user's own history or a correction,
+    // and that beats the curated table's guess.
+    if (historyMatch(history, entry.name) || hints[hintKey(entry.name)]) return;
     setForm(f => ({ ...f, category: resolveCategoryId(entry.category, customCategories), subcategory: entry.subcategory }));
+    setAutoFilled(true);
     // The table has answered, so the "auto-categorize as…" offer that
     // handleMerchantChange may have just raised has nothing left to add.
     setSuggestion('');
@@ -310,6 +342,7 @@ export default function TransactionEntry({ isModal = false, onClose, onSaved, ed
     if (isModal && onClose) onClose();
     else {
       setForm(EMPTY_FORM);
+      setAutoFilled(false);
       setOwedEnabled(false);
       setOwedExact('');
       setOwedPeople('2');
@@ -317,6 +350,38 @@ export default function TransactionEntry({ isModal = false, onClose, onSaved, ed
   };
 
   const selectedCat = allCategories.find(c => c.id === form.category);
+
+  // The last few distinct purchases, one click from being entered again
+  // today: the coffee, the transit reload, the gas fill-up.
+  const recent = useMemo(() => {
+    if (editTransaction) return [];
+    const seen = new Set<string>();
+    const out: Transaction[] = [];
+    const sorted = [...state.transactions].filter(t => t.kind !== 'savings' && !t.owed).sort((a, b) => b.date.localeCompare(a.date));
+    for (const t of sorted) {
+      const key = `${t.merchant.toLowerCase().trim()}|${t.amount}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(t);
+      if (out.length >= 6) break;
+    }
+    return out;
+  }, [state.transactions, editTransaction]);
+
+  const repeat = (t: Transaction) => {
+    setForm(f => ({
+      ...f,
+      kind: 'expense',
+      merchant: t.merchant,
+      amount: String(t.amount),
+      category: t.category,
+      subcategory: t.subcategory || '',
+      tags: (t.tags || []).filter(tag => tag !== 'imported' && tag !== 'recurring').join(', '),
+    }));
+    setAutoFilled(false);
+    setSuggestion('');
+    setErrors({});
+  };
 
   const content = (
     <form onSubmit={handleSubmit} className="space-y-2.5">
@@ -355,6 +420,27 @@ export default function TransactionEntry({ isModal = false, onClose, onSaved, ed
               {label}
             </button>
           ))}
+        </div>
+      )}
+
+      {/* Again: one click refills a recent purchase, dated today */}
+      {recent.length > 0 && !isSavings && (
+        <div>
+          <span className="label-micro block mb-1">Add again</span>
+          <div className="flex flex-wrap gap-1">
+            {recent.map(t => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => repeat(t)}
+                title={`Fill in ${t.merchant}, ${formatCurrency(t.amount)}, dated today`}
+                className="inline-flex items-center gap-1 h-6 px-1.5 border border-line-strong rounded-control text-caption text-ink-secondary hover:text-ink hover:bg-surface-hover max-w-[11rem]"
+              >
+                <span className="truncate">{t.merchant}</span>
+                <span className="money text-ink-muted shrink-0">{formatCurrency(t.amount)}</span>
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
@@ -459,6 +545,7 @@ export default function TransactionEntry({ isModal = false, onClose, onSaved, ed
           onChange={handleMerchantChange}
           onSelect={handleMerchantSelect}
           onBlur={categorizeOnBlur}
+          history={history}
           className={`${FIELD} w-full ${errors.merchant ? 'border-negative' : 'border-line-strong'}`}
         />
         {errors.merchant && <p className="font-sans text-caption text-negative mt-1">{errors.merchant}</p>}
@@ -491,7 +578,7 @@ export default function TransactionEntry({ isModal = false, onClose, onSaved, ed
           <select
             id={`${uid}-category`}
             value={form.category}
-            onChange={e => setForm(f => ({ ...f, category: e.target.value, subcategory: '' }))}
+            onChange={e => { setForm(f => ({ ...f, category: e.target.value, subcategory: '' })); setAutoFilled(false); }}
             className={`${FIELD} flex-1 min-w-0 ${errors.category ? 'border-negative' : 'border-line-strong'}`}
           >
             <option value="">Select category...</option>
@@ -533,6 +620,9 @@ export default function TransactionEntry({ isModal = false, onClose, onSaved, ed
           </button>
         </div>
         {errors.category && <p className="font-sans text-caption text-negative mt-1">{errors.category}</p>}
+        {autoFilled && form.category && !errors.category && (
+          <p className="font-sans text-caption text-ink-muted mt-1">Filled in from this merchant's history. Change it if it's wrong and it'll remember.</p>
+        )}
 
         {/* Inline new category form */}
         {showNewCat && (

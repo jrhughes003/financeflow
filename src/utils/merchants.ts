@@ -72,12 +72,12 @@ export function lookupMerchant(name: string): MerchantEntry | null {
  * merely contains it. Substring-anywhere is deliberately excluded — it turns
  * three characters into a wall of unrelated names.
  */
-export function searchMerchants(query: string, limit = 8): MerchantSuggestion[] {
+export function searchMerchants(query: string, limit = 8, entries: MerchantEntry[] = ENTRIES): MerchantSuggestion[] {
   const q = normaliseMerchant(query);
   if (q.length < 2) return [];
 
   const out: MerchantSuggestion[] = [];
-  for (const entry of ENTRIES) {
+  for (const entry of entries) {
     const key = normaliseMerchant(entry.name);
     if (!key) continue;
     let rank = -1;
@@ -89,6 +89,63 @@ export function searchMerchants(query: string, limit = 8): MerchantSuggestion[] 
 
   out.sort((a, b) => a.rank - b.rank || a.name.length - b.name.length || a.name.localeCompare(b.name));
   return out.slice(0, limit);
+}
+
+/**
+ * The merchants this ledger has used, each with the category it was last
+ * filed under, most recent first.
+ *
+ * The curated table knows chains; it cannot know the corner café or the
+ * landlord. The ledger does, and the category the user last chose for a
+ * merchant is a better answer than any table row for it.
+ */
+export function merchantHistory(transactions: { merchant: string; category: string; subcategory?: string; date: string; kind?: string }[]): MerchantEntry[] {
+  const latest = new Map<string, { entry: MerchantEntry; date: string }>();
+  for (const t of transactions) {
+    if (t.kind === 'savings' || !t.merchant || !t.category) continue;
+    const key = normaliseMerchant(t.merchant);
+    if (!key) continue;
+    const seen = latest.get(key);
+    if (!seen || t.date > seen.date) {
+      latest.set(key, { entry: { name: t.merchant.trim(), category: t.category, subcategory: t.subcategory || '' }, date: t.date });
+    }
+  }
+  return [...latest.values()].sort((a, b) => b.date.localeCompare(a.date)).map(v => v.entry);
+}
+
+/** The ledger's own entry for this exact merchant, if it has one. */
+export function historyMatch(history: MerchantEntry[], name: string): MerchantEntry | null {
+  const key = normaliseMerchant(name);
+  if (!key) return null;
+  return history.find(e => normaliseMerchant(e.name) === key) ?? null;
+}
+
+/**
+ * Suggestions from the ledger first, then the curated table, without
+ * repeating a merchant both know.
+ */
+export function suggestMerchants(query: string, history: MerchantEntry[], limit = 8): MerchantSuggestion[] {
+  const own = searchMerchants(query, limit, history);
+  const seen = new Set(own.map(e => normaliseMerchant(e.name)));
+  const table = searchMerchants(query, limit).filter(e => !seen.has(normaliseMerchant(e.name)));
+  // A table row that matches better than everything in the ledger still goes
+  // after the ledger's rows: the user's own merchants are the likelier answer.
+  return [...own, ...table].slice(0, limit);
+}
+
+/**
+ * Would Enter or Tab here mean "finish this name"?
+ *
+ * Only when the top suggestion continues exactly what was typed and three or
+ * more characters are in: "Tim Hor" is an unfinished "Tim Hortons", while a
+ * name already typed in full, or two letters that could be anything, still
+ * belong to the form.
+ */
+export function completes(query: string, top: MerchantEntry | undefined): boolean {
+  if (!top) return false;
+  const q = normaliseMerchant(query);
+  const t = normaliseMerchant(top.name);
+  return q.length >= 3 && t.startsWith(q) && t !== q;
 }
 
 /**

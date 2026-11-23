@@ -15,7 +15,7 @@
 // so the form's existing <label htmlFor> still names it.
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { searchMerchants } from '../../utils/merchants';
+import { suggestMerchants, completes } from '../../utils/merchants';
 import type { MerchantEntry } from '../../utils/merchants';
 
 export interface MerchantComboboxProps {
@@ -30,10 +30,14 @@ export interface MerchantComboboxProps {
   onBlur?: () => void;
   placeholder?: string;
   className?: string;
+  /** Merchants from the user's own ledger, offered ahead of the curated table. */
+  history?: MerchantEntry[];
 }
 
+const NO_HISTORY: MerchantEntry[] = [];
+
 export default function MerchantCombobox({
-  id, value, onChange, onSelect, onBlur, placeholder, className = '',
+  id, value, onChange, onSelect, onBlur, placeholder, className = '', history = NO_HISTORY,
 }: MerchantComboboxProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const listRef = useRef<HTMLUListElement | null>(null);
@@ -52,8 +56,11 @@ export default function MerchantCombobox({
   // searchMerchants already requires two characters and is already ranked
   // best-first, so there is nothing to filter or sort here — only whether there
   // is anything to show.
-  const suggestions = useMemo(() => searchMerchants(value), [value]);
+  const suggestions = useMemo(() => suggestMerchants(value, history), [value, history]);
   const open = typing && suggestions.length > 0;
+  // With nothing active, Enter and Tab still finish an obviously unfinished
+  // name: "Tim Hor" with Tim Hortons on top. The row says so before it happens.
+  const willComplete = open && active < 0 && completes(value, suggestions[0]);
 
   const listboxId = `${id}-listbox`;
   const optionId = (index: number): string => `${id}-option-${index}`;
@@ -116,6 +123,12 @@ export default function MerchantCombobox({
         if (next >= suggestions.length) return 0;
         return next;
       });
+      return;
+    }
+    if ((e.key === 'Enter' || e.key === 'Tab') && willComplete) {
+      // Tab keeps its default too, so focus still moves on to the next field.
+      if (e.key === 'Enter') e.preventDefault();
+      select(suggestions[0]);
       return;
     }
     if (e.key === 'Enter' && open && active >= 0) {
@@ -182,6 +195,9 @@ export default function MerchantCombobox({
               ${index === active ? 'bg-accent-tint text-accent-ink' : 'text-ink-secondary'}`}
           >
             <span className="truncate min-w-0">{entry.name}</span>
+            {index === 0 && willComplete && (
+              <span className="text-micro uppercase text-accent-ink shrink-0" aria-hidden="true">Enter ↵</span>
+            )}
             {/* The subcategory, because it is already human-readable and it says
                 what accepting this row is about to fill in. */}
             {entry.subcategory && <span className="text-micro uppercase text-ink-muted shrink-0">{entry.subcategory}</span>}

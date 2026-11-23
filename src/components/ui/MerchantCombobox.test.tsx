@@ -149,6 +149,16 @@ describe('the suggestion list', () => {
     expect(combobox()).toHaveAttribute('aria-expanded', 'false');
   });
 
+  it('finishes an unfinished name on Enter, and says so first', () => {
+    render(<Harness />);
+    const top = searchMerchants('Tim Hor')[0];
+    if (!top) throw new Error('unreachable: the table should know Tim Hortons');
+    type('Tim Hor');
+    expect(options()[0].textContent).toContain('Enter');
+    press('Enter');
+    expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ name: top.name }));
+  });
+
   it('starts with no option active, so Enter still belongs to the form', () => {
     render(<Harness />);
     type(QUERY);

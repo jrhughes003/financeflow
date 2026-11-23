@@ -135,3 +135,32 @@ describe('the table does not fight the keyword matcher', () => {
     expect(referencedCategories().every(id => ids.has(id))).toBe(true);
   });
 });
+
+describe('merchant history and completion', () => {
+  it('keeps the latest category per merchant, newest first', async () => {
+    const { merchantHistory } = await import('./merchants');
+    const h = merchantHistory([
+      { merchant: 'Corner Cafe', category: 'dining', date: '2026-01-01' },
+      { merchant: 'corner cafe', category: 'coffee', subcategory: 'Coffee', date: '2026-02-01' },
+      { merchant: 'Landlord', category: 'housing', date: '2026-01-15' },
+      { merchant: 'Savings', category: 'savings', date: '2026-03-01', kind: 'savings' },
+    ]);
+    expect(h.map(e => [e.name, e.category])).toEqual([['corner cafe', 'coffee'], ['Landlord', 'housing']]);
+  });
+
+  it('puts the ledger ahead of the table without repeats', async () => {
+    const { suggestMerchants } = await import('./merchants');
+    const out = suggestMerchants('corn', [{ name: 'Corner Cafe', category: 'dining', subcategory: '' }]);
+    expect(out[0].name).toBe('Corner Cafe');
+    expect(new Set(out.map(e => e.name.toLowerCase())).size).toBe(out.length);
+  });
+
+  it('completes only an unfinished prefix of three or more characters', async () => {
+    const { completes } = await import('./merchants');
+    const top = { name: 'Tim Hortons', category: 'dining', subcategory: '' };
+    expect(completes('Tim Hor', top)).toBe(true);
+    expect(completes('Ti', top)).toBe(false);
+    expect(completes('Tim Hortons', top)).toBe(false);
+    expect(completes('Hortons', top)).toBe(false);
+  });
+});

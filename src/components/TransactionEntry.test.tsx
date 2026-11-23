@@ -156,7 +156,9 @@ describe('categorisation tier 1 — keywords', () => {
 describe('categorisation tier 2 — the local classifier', () => {
   it('categorises a merchant only this ledger knows about, without calling the AI', async () => {
     renderEntry(withAi({ transactions: learnedLedger }));
-    typeMerchant('Zyxo Mart'); // no keyword matches it; the ledger does
+    // Not a name on record, so nothing is filled outright; the classifier,
+    // trained on the ledger, is what recognises it.
+    typeMerchant('Zyxo Mart West');
     expect(suggestionButton()).not.toBeInTheDocument();
     await blurMerchant();
     expect(suggestionButton()).toHaveTextContent('Auto-categorize as "Groceries"');
@@ -242,13 +244,30 @@ describe('categorisation guards', () => {
 
   // A learned merchant→category hint fills the suggestion without any keyword
   // matching, which isolates the `suggestion` guard from the keyword one.
-  it('does not categorise when a suggestion is already on screen', async () => {
+  it('fills the category outright for a merchant already in the ledger', async () => {
+    renderEntry(withAi({ transactions: learnedLedger }));
+    typeMerchant('zyxo mart');
+    expect(category()).toHaveValue('groceries');
+    expect(suggestionButton()).not.toBeInTheDocument();
+    await blurMerchant();
+    expect(classify).not.toHaveBeenCalled();
+    expect(runAi).not.toHaveBeenCalled();
+  });
+
+  it('never replaces a category the user picked', () => {
+    renderEntry({ transactions: learnedLedger });
+    fireEvent.change(category(), { target: { value: 'dining_out' } });
+    typeMerchant('Zyxo Mart');
+    expect(category()).toHaveValue('dining_out');
+  });
+
+  it('does not categorise again when a learned correction already filled it', async () => {
     renderEntry(withAi({
       transactions: learnedLedger,
       settings: makeSettings({ aiEnabled: true, merchantCategoryHints: { blorptronix: 'transportation' } }),
     }));
     typeMerchant(UNSEEN);
-    expect(suggestionButton()).toHaveTextContent('Auto-categorize as "Transportation"');
+    expect(category()).toHaveValue('transportation');
     await blurMerchant();
     expect(classify).not.toHaveBeenCalled();
     expect(runAi).not.toHaveBeenCalled();

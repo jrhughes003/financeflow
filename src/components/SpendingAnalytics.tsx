@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import {
   PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer,
@@ -24,6 +24,8 @@ import HabitsPanel from './analytics/HabitsPanel';
 import PlanPanel from './analytics/PlanPanel';
 import TagsPanel from './analytics/TagsPanel';
 import { getSubcategoryBreakdown } from '../utils/habits';
+import { detectIrregularExpenses, isFixedTransaction } from '../utils/insights';
+import { usePersistentState } from '../hooks/usePersistentState';
 import { topCategoriesByTrend, withRestSlice, REST_SLICE_ID } from '../utils/categorySelection';
 
 // The section tabs read as a terminal's function-key row.
@@ -44,7 +46,7 @@ function SubHead({ children }: { children: React.ReactNode }) {
 
 export default function SpendingAnalytics() {
   const { state } = useFinancial();
-  const { transactions, budgets, customCategories = [], settings = {} } = state;
+  const { transactions, budgets, customCategories = [], settings = {}, recurringTemplates = [] } = state;
   const getCategory = useGetCategory();
   const taxonomy = useTaxonomy();
   const allCategories = getAllCategories(customCategories);
@@ -64,7 +66,19 @@ export default function SpendingAnalytics() {
   const health = getBudgetHealthScore(budgets, transactions, month, year, taxonomy);
   // Same month filter as everything else: timezone-safe, excludes exceptions and
   // savings transfers, and nets out repaid amounts on fronted purchases.
-  const dow = getSpendingByDayOfWeek(getTransactionsForPeriod(transactions, month, year));
+  //
+  // Bills can be left out, the same way the dashboard's spend chart allows:
+  // rent landing on a Sunday otherwise makes Sunday the "expensive day" and
+  // flattens every other bar into noise.
+  const [dowScope, setDowScope] = usePersistentState<'all' | 'everyday'>('dowScope', 'everyday');
+  const billIds = useMemo(
+    () => detectIrregularExpenses(transactions, { recurringTemplates }).billTransactionIds,
+    [transactions, recurringTemplates],
+  );
+  const monthTxs = getTransactionsForPeriod(transactions, month, year);
+  const dow = getSpendingByDayOfWeek(dowScope === 'everyday'
+    ? monthTxs.filter(t => !isFixedTransaction(t, recurringTemplates, billIds))
+    : monthTxs);
 
   // The nine largest categories, with the remainder gathered into one slice.
   // The rest-slice is not clickable: it stands for several categories, so
@@ -198,7 +212,29 @@ export default function SpendingAnalytics() {
         </Panel>
 
         {/* Spending by day of week */}
-        <Panel title="Spending by Day of Week" meta={monthLabel} className="col-span-12 lg:col-span-6" bodyClassName="p-3">
+        <Panel
+          title="Spending by Day of Week"
+          meta={monthLabel}
+          className="col-span-12 lg:col-span-6"
+          bodyClassName="p-3"
+          actions={(
+            <span className="flex border border-line-strong">
+              {([['all', 'All', 'Everything, bills included'],
+                ['everyday', 'Everyday', 'Leaves out bills and recurring charges']] as const)
+                .map(([val, label, hint]) => (
+                  <button
+                    key={val}
+                    onClick={() => setDowScope(val)}
+                    aria-pressed={dowScope === val}
+                    title={hint}
+                    className={`h-[18px] px-1.5 text-micro uppercase tracking-[0.06em] border-r border-line-strong last:border-r-0 transition-colors ${dowScope === val ? 'bg-accent-tint text-accent-ink' : 'text-ink-muted hover:text-ink'}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+            </span>
+          )}
+        >
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={dow} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
               <CartesianGrid {...chart.grid} />

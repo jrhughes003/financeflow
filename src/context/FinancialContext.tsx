@@ -56,6 +56,16 @@ function reducer(state: AppState, action: Action): AppState {
     case 'UPDATE_TRANSACTION':
       return { ...state, transactions: state.transactions.map(t => t.id === action.payload.id ? action.payload : t) };
 
+    case 'UPDATE_TRANSACTIONS': {
+      const byId = new Map(action.payload.map(t => [t.id, t]));
+      return { ...state, transactions: state.transactions.map(t => byId.get(t.id) ?? t) };
+    }
+
+    case 'DELETE_TRANSACTIONS': {
+      const ids = new Set(action.payload);
+      return { ...state, transactions: state.transactions.filter(t => !ids.has(t.id)) };
+    }
+
     case 'MARK_EXCEPTION':
       return { ...state, transactions: state.transactions.map(t => t.id === action.payload ? { ...t, isException: !t.isException } : t) };
 

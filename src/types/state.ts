@@ -7,6 +7,7 @@ import type {
   RecurringTemplate, Transaction, Trip,
 } from './domain';
 import type { LifePlan } from './lifeplan';
+import type { LedgerView } from './ledger';
 
 /**
  * Every field optional: settings accumulated over versions and nothing
@@ -54,6 +55,12 @@ export interface Settings {
   categoryVersion?: number;
   /** Trips whose tagged spending counts against a trip budget. */
   trips?: Trip[];
+  /** Ledger filter sets the user saved under a name. */
+  savedLedgerViews?: LedgerView[];
+  /** Reminder ids the user dismissed, each with the date it was dismissed for. */
+  dismissedReminders?: string[];
+  /** Merchant (normalised) → a note shown in the subscription audit. */
+  subscriptionNotes?: Record<string, string>;
 }
 
 export interface AppState {
@@ -100,6 +107,9 @@ export type Action =
   | { type: 'DELETE_TRANSACTION'; payload: string }
   | { type: 'MARK_EXCEPTION'; payload: string }
   | { type: 'IMPORT_TRANSACTIONS'; payload: Transaction[] }
+  /** Replaces each listed transaction by id, in one change and one undo. */
+  | { type: 'UPDATE_TRANSACTIONS'; payload: Transaction[] }
+  | { type: 'DELETE_TRANSACTIONS'; payload: string[] }
   | { type: 'SET_BUDGET'; payload: Budget }
   | { type: 'DELETE_BUDGET'; payload: string }
   | { type: 'ADD_INCOME'; payload: Income }

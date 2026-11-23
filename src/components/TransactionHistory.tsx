@@ -1,11 +1,11 @@
 import React, { useState, useMemo, useRef, useId } from 'react';
-import { Search, Filter, Download, Upload, Trash2, Edit2, ChevronUp, ChevronDown, Sparkles, CircleSlash } from 'lucide-react';
+import { Search, Filter, Download, Upload, Trash2, Edit2, ChevronUp, ChevronDown, Sparkles, CircleSlash, Bookmark, X } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { useFinancial } from '../context/FinancialContext';
 import EmptyState from './EmptyState';
 import { Money, CategoryMark, Badge, Button, Panel } from './ui';
 import { useUndoableDelete } from '../hooks/useUndoableDelete';
-import { CATEGORIES, getAllCategories, resolveCategoryId } from '../utils/categorization';
+import { CATEGORIES, getAllCategories, resolveCategoryId, fallbackCategoryId } from '../utils/categorization';
 import { selectable } from '../utils/categoryTree';
 import { useGetCategory } from '../context/FinancialContext';
 import { exportToCSV, importFromCSV } from '../utils/exportUtils';
@@ -18,9 +18,15 @@ import ImportPreview from './ImportPreview';
 import { useToast } from '../context/ToastContext';
 import { getOwedStatus } from '../utils/reimbursements';
 import type { IsoDate, Transaction } from '../types/domain';
+import { usePersistentState } from '../hooks/usePersistentState';
+import {
+  EMPTY_FILTERS, applyLedgerFilters, builtInViews, viewFilters, matchesView, savableFilters, activeFilterCount,
+  type LedgerFilters, type LedgerView,
+} from '../utils/ledgerFilters';
+import { canonicaliseTags } from '../utils/tags';
 
 /** The columns the table can sort on. Each one is a key of Transaction. */
-type SortField = 'date' | 'merchant' | 'category' | 'amount';
+type SortField = LedgerFilters['sortField'];
 
 /**
  * One row from the AI `extract` feature. Nothing validates what comes back,
@@ -65,16 +71,24 @@ export default function TransactionHistory() {
   // A parsed CSV waiting for review. Nothing reaches the ledger until confirmed.
   const [pendingImport, setPendingImport] = useState<{ fileName: string; rows: Transaction[] } | null>(null);
 
-  const [search, setSearch] = useState('');
-  const [filterCategory, setFilterCategory] = useState('');
-  const [filterDateFrom, setFilterDateFrom] = useState('');
-  const [filterDateTo, setFilterDateTo] = useState('');
-  const [filterMinAmt, setFilterMinAmt] = useState('');
-  const [filterMaxAmt, setFilterMaxAmt] = useState('');
-  const [showFilters, setShowFilters] = useState(false);
-  const [sortField, setSortField] = useState<SortField>('date');
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  // Remembered between visits and restarts: coming back to the ledger finds it
+  // as it was left, rather than reset to everything, newest first.
+  const [filters, setFilters] = usePersistentState<LedgerFilters>('ledgerFilters', EMPTY_FILTERS);
+  const [showFilters, setShowFilters] = usePersistentState('ledgerShowFilters', false);
   const [page, setPage] = useState(1);
+  const setF = (patch: Partial<LedgerFilters>) => { setFilters(f => ({ ...f, ...patch })); setPage(1); };
+  const { search, category: filterCategory, from: filterDateFrom, to: filterDateTo, min: filterMinAmt, max: filterMaxAmt, sortField, sortDir } = filters;
+
+  // Rows ticked for a bulk change.
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkCategory, setBulkCategory] = useState('');
+  const [bulkTag, setBulkTag] = useState('');
+
+  const savedViews: LedgerView[] = state.settings?.savedLedgerViews || [];
+  const views = useMemo(
+    () => builtInViews(new Date(), fallbackCategoryId(customCategories)),
+    [customCategories],
+  );
   const [editTx, setEditTx] = useState<Transaction | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
@@ -84,39 +98,15 @@ export default function TransactionHistory() {
   const [pasteBusy, setPasteBusy] = useState(false);
   const [pasteMsg, setPasteMsg] = useState('');
 
-  const filtered = useMemo(() => {
-    let list = [...transactions];
-    if (search) {
-      const q = search.toLowerCase();
-      list = list.filter(t =>
-        t.merchant.toLowerCase().includes(q) ||
-        (t.notes || '').toLowerCase().includes(q) ||
-        (t.tags || []).some(tag => tag.toLowerCase().includes(q))
-      );
-    }
-    if (filterCategory) list = list.filter(t => t.category === filterCategory);
-    if (filterDateFrom) list = list.filter(t => t.date >= filterDateFrom);
-    if (filterDateTo) list = list.filter(t => t.date <= filterDateTo);
-    if (filterMinAmt) list = list.filter(t => t.amount >= parseFloat(filterMinAmt));
-    if (filterMaxAmt) list = list.filter(t => t.amount <= parseFloat(filterMaxAmt));
-    list.sort((a, b) => {
-      let va: string | number = a[sortField], vb: string | number = b[sortField];
-      if (sortField === 'amount') { va = a.amount; vb = b.amount; }
-      if (sortField === 'date') { va = a.date; vb = b.date; }
-      if (va < vb) return sortDir === 'asc' ? -1 : 1;
-      if (va > vb) return sortDir === 'asc' ? 1 : -1;
-      return 0;
-    });
-    return list;
-  }, [transactions, search, filterCategory, filterDateFrom, filterDateTo, filterMinAmt, filterMaxAmt, sortField, sortDir]);
+  const filtered = useMemo(() => applyLedgerFilters(transactions, filters), [transactions, filters]);
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const total = filtered.reduce((s, t) => s + t.amount, 0);
 
   const handleSort = (field: SortField) => {
-    if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
-    else { setSortField(field); setSortDir('asc'); }
+    if (sortField === field) setFilters(f => ({ ...f, sortDir: f.sortDir === 'asc' ? 'desc' : 'asc' }));
+    else setFilters(f => ({ ...f, sortField: field, sortDir: 'asc' }));
   };
 
   const handleDelete = (id: string) => {
@@ -177,7 +167,90 @@ export default function TransactionHistory() {
     ? (sortDir === 'asc' ? <ChevronUp className="w-3 h-3 inline ml-0.5 -mt-px" /> : <ChevronDown className="w-3 h-3 inline ml-0.5 -mt-px" />)
     : null;
 
-  const clearFilters = () => { setFilterCategory(''); setFilterDateFrom(''); setFilterDateTo(''); setFilterMinAmt(''); setFilterMaxAmt(''); setSearch(''); setPage(1); };
+  const clearFilters = () => { setFilters(f => ({ ...EMPTY_FILTERS, sortField: f.sortField, sortDir: f.sortDir })); setPage(1); };
+
+  const applyView = (view: LedgerView) => { setFilters(f => viewFilters(view, f)); setPage(1); setSelected(new Set()); };
+
+  const saveView = () => {
+    const filtersToSave = savableFilters(filters);
+    if (Object.keys(filtersToSave).length === 0) { toast('Set some filters first, then save them as a view.', { type: 'error' }); return; }
+    const name = window.prompt('Name this view', '')?.trim();
+    if (!name) return;
+    const view: LedgerView = { id: `view_${Date.now()}`, name, filters: filtersToSave };
+    dispatch({ type: 'UPDATE_SETTINGS', payload: { savedLedgerViews: [...savedViews, view] } });
+    toast(`Saved view "${name}"`);
+  };
+
+  const deleteView = (view: LedgerView) => {
+    dispatch({ type: 'UPDATE_SETTINGS', payload: { savedLedgerViews: savedViews.filter(v => v.id !== view.id) } });
+    toast(`Removed view "${view.name}"`, {
+      type: 'neutral',
+      action: { label: 'Undo', onClick: () => dispatch({ type: 'UPDATE_SETTINGS', payload: { savedLedgerViews: savedViews } }) },
+    });
+  };
+
+  // --- Bulk changes. Each is one action and one undo. -------------------------
+  const selectedTxs = transactions.filter(t => selected.has(t.id));
+  const pageIds = paged.map(t => t.id);
+  const allOnPage = pageIds.length > 0 && pageIds.every(id => selected.has(id));
+  const toggleRow = (id: string) => setSelected(prev => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+  const togglePage = () => setSelected(prev => {
+    const next = new Set(prev);
+    if (allOnPage) pageIds.forEach(id => next.delete(id)); else pageIds.forEach(id => next.add(id));
+    return next;
+  });
+  const selectAllFiltered = () => setSelected(new Set(filtered.map(t => t.id)));
+
+  const bulkUpdate = (change: (t: Transaction) => Transaction, label: string) => {
+    const before = selectedTxs;
+    if (before.length === 0) return;
+    dispatch({ type: 'UPDATE_TRANSACTIONS', payload: before.map(change) });
+    toast(`${label} on ${before.length} transaction${before.length === 1 ? '' : 's'}`, {
+      type: 'neutral',
+      action: { label: 'Undo', onClick: () => dispatch({ type: 'UPDATE_TRANSACTIONS', payload: before }) },
+    });
+  };
+
+  const bulkSetCategory = () => {
+    if (!bulkCategory) return;
+    const name = allCategories.find(c => c.id === bulkCategory)?.name ?? bulkCategory;
+    bulkUpdate(t => (t.kind === 'savings' ? t : { ...t, category: bulkCategory, subcategory: '' }), `Category set to ${name}`);
+    setBulkCategory('');
+  };
+
+  const bulkAddTag = () => {
+    const raw = bulkTag.trim();
+    if (!raw) return;
+    const tag = canonicaliseTags([raw], tagCounts(transactions).keys())[0] ?? raw;
+    bulkUpdate(t => ({
+      ...t,
+      tags: (t.tags || []).some(x => x.toLowerCase() === tag.toLowerCase()) ? t.tags : [...(t.tags || []), tag],
+    }), `Tagged "${tag}"`);
+    setBulkTag('');
+  };
+
+  const bulkRemoveTag = (tag: string) => bulkUpdate(t => ({ ...t, tags: (t.tags || []).filter(x => x !== tag) }), `Removed "${tag}"`);
+
+  const bulkOneOff = (value: boolean) => bulkUpdate(t => ({ ...t, isException: value }), value ? 'Marked one-off' : 'Counted in budgets again');
+
+  const bulkDelete = () => {
+    const before = selectedTxs;
+    if (before.length === 0) return;
+    if (before.length > 1 && !window.confirm(`Delete ${before.length} transactions? You can undo this from the toast.`)) return;
+    dispatch({ type: 'DELETE_TRANSACTIONS', payload: before.map(t => t.id) });
+    setSelected(new Set());
+    toast(`Deleted ${before.length} transaction${before.length === 1 ? '' : 's'}`, {
+      type: 'neutral',
+      action: { label: 'Undo', onClick: () => dispatch({ type: 'IMPORT_TRANSACTIONS', payload: before }) },
+    });
+  };
+
+  const selectedTags = [...new Set(selectedTxs.flatMap(t => t.tags || []))].sort();
+  const filterCount = activeFilterCount(filters);
 
   return (
     <div className="space-y-2 animate-fade-in">
@@ -240,7 +313,7 @@ export default function TransactionHistory() {
               type="text"
               placeholder="Search merchant, notes, tags..."
               value={search}
-              onChange={e => { setSearch(e.target.value); setPage(1); }}
+              onChange={e => setF({ search: e.target.value })}
               className={`${INPUT} w-full pl-7`}
             />
           </div>
@@ -249,7 +322,7 @@ export default function TransactionHistory() {
             aria-pressed={showFilters}
             className={`${TOOL} ${showFilters ? 'border-accent text-accent-ink bg-accent-tint' : 'border-line-strong text-ink bg-surface hover:bg-surface-hover'}`}
           >
-            <Filter className="w-3.5 h-3.5" aria-hidden="true" /> Filters
+            <Filter className="w-3.5 h-3.5" aria-hidden="true" /> Filters{filterCount > 0 ? ` (${filterCount})` : ''}
           </button>
           <Button size="sm" icon={Download} onClick={() => exportToCSV(filtered)}>Export</Button>
           <label className={`${TOOL} border-line-strong text-ink bg-surface hover:bg-surface-hover cursor-pointer`}>
@@ -261,12 +334,74 @@ export default function TransactionHistory() {
           )}
         </div>
 
+        <datalist id={`${uid}-tags`}>{[...tagCounts(transactions).keys()].map(t => <option key={t} value={t} />)}</datalist>
+
+        {/* Views: one click to a filter set, built in or saved */}
+        <div className="flex flex-wrap items-center gap-1 px-2.5 py-1 border-b border-line">
+          <span className="label-micro mr-1">Views</span>
+          {[...views, ...savedViews].map(view => {
+            const active = matchesView(filters, view);
+            const saved = savedViews.includes(view);
+            return (
+              <span key={view.id} className={`inline-flex items-center h-6 border rounded-control text-caption ${active ? 'border-accent bg-accent-tint text-accent-ink' : 'border-line-strong text-ink-secondary hover:text-ink hover:bg-surface-hover'}`}>
+                <button type="button" onClick={() => (active ? clearFilters() : applyView(view))} aria-pressed={active} className="px-2 h-full">
+                  {view.name}
+                </button>
+                {saved && (
+                  <button type="button" onClick={() => deleteView(view)} aria-label={`Remove view ${view.name}`} title="Remove this view" className="pr-1.5 h-full text-ink-muted hover:text-negative">
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </span>
+            );
+          })}
+          {(filterCount > 0 || search) && (
+            <button type="button" onClick={clearFilters} className="ml-1 text-caption text-ink-muted hover:text-ink underline underline-offset-2">Show all</button>
+          )}
+        </div>
+
+        {/* Bulk changes for the ticked rows */}
+        {selected.size > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5 px-2.5 py-1.5 border-b border-accent bg-accent-tint">
+            <span className="text-caption text-accent-ink font-medium mr-1">{selected.size} selected</span>
+            {selected.size < filtered.length && (
+              <button type="button" onClick={selectAllFiltered} className="text-caption text-accent-ink underline underline-offset-2 mr-1">Select all {filtered.length}</button>
+            )}
+            <select value={bulkCategory} onChange={e => setBulkCategory(e.target.value)} className={`${INPUT} w-44 h-6`} aria-label="Category for selected">
+              <option value="">Set category…</option>
+              {selectable(allCategories).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+            <Button size="sm" onClick={bulkSetCategory} disabled={!bulkCategory}>Apply</Button>
+            <input
+              type="text"
+              value={bulkTag}
+              onChange={e => setBulkTag(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') bulkAddTag(); }}
+              placeholder="Add tag…"
+              list={`${uid}-tags`}
+              className={`${INPUT} w-28 h-6`}
+              aria-label="Tag to add to selected"
+            />
+            <Button size="sm" onClick={bulkAddTag} disabled={!bulkTag.trim()}>Tag</Button>
+            {selectedTags.length > 0 && (
+              <select value="" onChange={e => { if (e.target.value) bulkRemoveTag(e.target.value); }} className={`${INPUT} w-32 h-6`} aria-label="Remove a tag from selected">
+                <option value="">Remove tag…</option>
+                {selectedTags.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            )}
+            <Button size="sm" onClick={() => bulkOneOff(true)}>Mark one-off</Button>
+            <Button size="sm" onClick={() => bulkOneOff(false)}>Count in budgets</Button>
+            <Button size="sm" variant="danger" icon={Trash2} onClick={bulkDelete}>Delete</Button>
+            <button type="button" onClick={() => setSelected(new Set())} className="ml-auto text-caption text-accent-ink underline underline-offset-2">Clear selection</button>
+          </div>
+        )}
+
         {/* Filters: one compact strip under the command row */}
         {showFilters && (
           <div className="flex flex-wrap items-end gap-x-2.5 gap-y-1.5 px-2.5 py-1.5 border-b border-line bg-surface-sunk">
             <div>
               <label className="label-micro block mb-0.5" htmlFor={`${uid}-cat`}>Category</label>
-              <select id={`${uid}-cat`} value={filterCategory} onChange={e => { setFilterCategory(e.target.value); setPage(1); }} className={`${INPUT} w-44`}>
+              <select id={`${uid}-cat`} value={filterCategory} onChange={e => setF({ category: e.target.value })} className={`${INPUT} w-44`}>
                 <option value="">All categories</option>
                 {/* A filter lists what you can have recorded, minus the retired ones. */}
                 {selectable(allCategories).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -274,21 +409,30 @@ export default function TransactionHistory() {
             </div>
             <div>
               <label className="label-micro block mb-0.5" htmlFor={`${uid}-from`}>From Date</label>
-              <input id={`${uid}-from`} type="date" value={filterDateFrom} onChange={e => { setFilterDateFrom(e.target.value); setPage(1); }} className={`${INPUT} w-36`} />
+              <input id={`${uid}-from`} type="date" value={filterDateFrom} onChange={e => setF({ from: e.target.value })} className={`${INPUT} w-36`} />
             </div>
             <div>
               <label className="label-micro block mb-0.5" htmlFor={`${uid}-to`}>To Date</label>
-              <input id={`${uid}-to`} type="date" value={filterDateTo} onChange={e => { setFilterDateTo(e.target.value); setPage(1); }} className={`${INPUT} w-36`} />
+              <input id={`${uid}-to`} type="date" value={filterDateTo} onChange={e => setF({ to: e.target.value })} className={`${INPUT} w-36`} />
             </div>
             <div>
               <label className="label-micro block mb-0.5" htmlFor={`${uid}-min`}>Min Amount</label>
-              <input id={`${uid}-min`} type="number" placeholder="$0" value={filterMinAmt} onChange={e => { setFilterMinAmt(e.target.value); setPage(1); }} className={`${INPUT} w-24 text-right`} />
+              <input id={`${uid}-min`} type="number" placeholder="$0" value={filterMinAmt} onChange={e => setF({ min: e.target.value })} className={`${INPUT} w-24 text-right`} />
             </div>
             <div>
               <label className="label-micro block mb-0.5" htmlFor={`${uid}-max`}>Max Amount</label>
-              <input id={`${uid}-max`} type="number" placeholder="Any" value={filterMaxAmt} onChange={e => { setFilterMaxAmt(e.target.value); setPage(1); }} className={`${INPUT} w-24 text-right`} />
+              <input id={`${uid}-max`} type="number" placeholder="Any" value={filterMaxAmt} onChange={e => setF({ max: e.target.value })} className={`${INPUT} w-24 text-right`} />
             </div>
+            <div>
+              <label className="label-micro block mb-0.5" htmlFor={`${uid}-tag`}>Tag</label>
+              <input id={`${uid}-tag`} type="text" list={`${uid}-tags`} placeholder="Any" value={filters.tag} onChange={e => setF({ tag: e.target.value })} className={`${INPUT} w-28`} />
+            </div>
+            <label className="inline-flex items-center gap-1.5 h-7 text-caption text-ink-secondary">
+              <input type="checkbox" checked={filters.exceptionsOnly} onChange={e => setF({ exceptionsOnly: e.target.checked })} />
+              One-offs only
+            </label>
             <Button onClick={clearFilters}>Clear Filters</Button>
+            <Button icon={Bookmark} onClick={saveView}>Save as view</Button>
           </div>
         )}
 
@@ -318,6 +462,9 @@ export default function TransactionHistory() {
           <table className="w-full text-sm">
             <thead>
               <tr>
+                <th scope="col" className={`${TH} w-7 pr-0`}>
+                  <input type="checkbox" checked={allOnPage} onChange={togglePage} aria-label="Select every transaction on this page" />
+                </th>
                 {([['date', 'Date'], ['merchant', 'Merchant'], ['category', 'Category'], ['amount', 'Amount']] as const).map(([field, label]) => (
                   <th
                     key={field}
@@ -335,7 +482,7 @@ export default function TransactionHistory() {
             </thead>
             <tbody>
               {paged.length === 0 && (
-                <tr><td colSpan={6}>
+                <tr><td colSpan={7}>
                   {transactions.length === 0 ? (
                     <EmptyState
                       compact
@@ -353,7 +500,10 @@ export default function TransactionHistory() {
               {paged.map(t => {
                 const cat = getCategory(t.category);
                 return (
-                  <tr key={t.id} className={`hover:bg-surface-hover ${t.isException ? 'opacity-55' : ''}`}>
+                  <tr key={t.id} className={`hover:bg-surface-hover ${t.isException ? 'opacity-55' : ''} ${selected.has(t.id) ? 'bg-accent-tint' : ''}`}>
+                    <td className={`${TD} pr-0`}>
+                      <input type="checkbox" checked={selected.has(t.id)} onChange={() => toggleRow(t.id)} aria-label={`Select ${t.merchant} on ${t.date}`} />
+                    </td>
                     <td className={`${TD} text-ink-muted whitespace-nowrap text-caption`}>{format(parseISO(t.date), 'dd MMM yyyy').toUpperCase()}</td>
                     <td className={`${TD} max-w-0 w-full min-w-[10rem]`}>
                       <div className="flex items-center gap-1.5 min-w-0">

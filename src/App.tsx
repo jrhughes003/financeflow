@@ -45,7 +45,7 @@ function AppContent() {
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [showPalette, setShowPalette] = useState(false);
   const { toast } = useToast();
-  const { state } = useFinancial();
+  const { state, dispatch } = useFinancial();
 
   // The theme is one attribute on <html>; tokens.css does the rest. Re-applied
   // whenever the preference changes, and — for 'system' — whenever the OS
@@ -170,7 +170,9 @@ function AppContent() {
           // Only on a real save. This used to hang off onClose, which fires on
           // Cancel, the X and Escape too, so dismissing the form congratulated
           // you on adding a transaction that was never written.
-          onSaved={tx => toast(`Added ${tx.merchant}`)}
+          onSaved={tx => toast(`Added ${tx.merchant}`, {
+            action: { label: 'Undo', onClick: () => dispatch({ type: 'DELETE_TRANSACTION', payload: tx.id }) },
+          })}
         />
       )}
     </>

@@ -181,7 +181,19 @@ export default function TransactionHistory() {
 
   return (
     <div className="space-y-2 animate-fade-in">
-      {editTx && <TransactionEntry isModal editTransaction={editTx} onClose={() => setEditTx(null)} />}
+      {editTx && (
+        <TransactionEntry
+          isModal
+          editTransaction={editTx}
+          onClose={() => setEditTx(null)}
+          onSaved={() => {
+            const before = editTx;
+            toast(`Saved ${before.merchant}`, {
+              action: { label: 'Undo', onClick: () => dispatch({ type: 'UPDATE_TRANSACTION', payload: before }) },
+            });
+          }}
+        />
+      )}
 
       {/* Confirm delete */}
       {deleteId && (

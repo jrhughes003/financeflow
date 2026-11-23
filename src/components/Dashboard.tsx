@@ -13,7 +13,9 @@ import {
 } from '../utils/insights';
 import { rollUp } from '../utils/categoryTree';
 import { paydaysBetween } from '../utils/cashPlan';
-import { isTemplateDue } from '../utils/recurring';
+import { isTemplateDue, postTemplate } from '../utils/recurring';
+import { adjustMonth, bestDonor, coverable, monthKey } from '../utils/budgetMoves';
+import { useToast } from '../context/ToastContext';
 import { getFinancialHealth } from '../utils/healthScore';
 import { buildWeeklyBudget, type WeekSlice } from '../utils/weeklyBudget';
 import { compactMoney } from './ui/chartTheme';
@@ -192,6 +194,8 @@ interface Signal {
   tone: Tone;
   text: React.ReactNode;
   go?: PageId;
+  /** One-click fixes, shown under the text. */
+  actions?: { label: string; title?: string; run: () => void }[];
 }
 
 /**
@@ -235,7 +239,8 @@ function weekFlag(week: WeekSlice, today: number): { label: string; tone: Tone }
 }
 
 export default function Dashboard({ onQuickAdd, onNavigate }: DashboardProps) {
-  const { state } = useFinancial();
+  const { state, dispatch } = useFinancial();
+  const { toast } = useToast();
   const taxonomy = useTaxonomy();
   const getCategory = useGetCategory();
   const now = new Date();
@@ -420,10 +425,49 @@ export default function Dashboard({ onQuickAdd, onNavigate }: DashboardProps) {
       text: <>This week is {formatCurrency(-thisWeekLeft)} over its {formatCurrency(thisWeek.allowance)} allowance; the rest of the month&apos;s weeks shrink to cover it.</>,
     });
   }
-  budgetStatuses.filter(b => b.actual > b.effectiveBudget).forEach(b => signals.push({
-    key: `over-${b.category}`, tag: 'OVER', tone: 'negative', go: 'budget',
-    text: <>{getCategory(b.category).name} is {formatCurrency(b.actual - b.effectiveBudget)} over its {formatCurrency(b.effectiveBudget)} budget.</>,
-  }));
+  // Restores every budget as it was, for the undo on a budget move.
+  const restoreBudgets = (before: typeof budgets) => () => before.forEach(b => dispatch({ type: 'SET_BUDGET', payload: b }));
+  const adjKey = monthKey(month, year);
+  const monthName = format(new Date(year, month, 1), 'MMMM');
+  budgetStatuses.filter(b => b.actual > b.effectiveBudget).forEach(b => {
+    const over = Math.round((b.actual - b.effectiveBudget) * 100) / 100;
+    const name = getCategory(b.category).name;
+    const overBudget = budgets.find(x => x.category === b.category);
+    const donorStatus = bestDonor(budgetStatuses, b.category);
+    const donorBudget = donorStatus ? budgets.find(x => x.category === donorStatus.category) : undefined;
+    const give = donorStatus ? coverable(donorStatus, over) : 0;
+    const actions: NonNullable<Signal['actions']> = [];
+    if (overBudget && donorBudget && give > 0) {
+      const donorName = getCategory(donorBudget.category).name;
+      actions.push({
+        label: `Cover ${formatCurrency(give)} from ${donorName}`,
+        title: `Moves ${formatCurrency(give)} of the ${monthName} ${donorName} budget to ${name}, for ${monthName} only`,
+        run: () => {
+          dispatch({ type: 'SET_BUDGET', payload: adjustMonth(overBudget, adjKey, give) });
+          dispatch({ type: 'SET_BUDGET', payload: adjustMonth(donorBudget, adjKey, -give) });
+          toast(`Moved ${formatCurrency(give)} from ${donorName} to ${name} for ${monthName}`, {
+            type: 'neutral', action: { label: 'Undo', onClick: restoreBudgets([overBudget, donorBudget]) },
+          });
+        },
+      });
+    }
+    if (overBudget) {
+      actions.push({
+        label: `Raise ${monthName} by ${formatCurrency(over)}`,
+        title: `Adds ${formatCurrency(over)} to ${name} for ${monthName} only; other months keep ${formatCurrency(overBudget.amount)}`,
+        run: () => {
+          dispatch({ type: 'SET_BUDGET', payload: adjustMonth(overBudget, adjKey, over) });
+          toast(`${name} raised by ${formatCurrency(over)} for ${monthName}`, {
+            type: 'neutral', action: { label: 'Undo', onClick: restoreBudgets([overBudget]) },
+          });
+        },
+      });
+    }
+    signals.push({
+      key: `over-${b.category}`, tag: 'OVER', tone: 'negative', go: 'budget', actions,
+      text: <>{name} is {formatCurrency(over)} over its {formatCurrency(b.effectiveBudget)} budget.</>,
+    });
+  });
   (projection?.warnings ?? [])
     .filter(w => w.budget && !budgetStatuses.some(b => b.category === w.category && b.actual > b.effectiveBudget))
     .slice(0, 3)
@@ -437,6 +481,24 @@ export default function Dashboard({ onQuickAdd, onNavigate }: DashboardProps) {
   }));
   duplicates.slice(0, 2).forEach(d => signals.push({
     key: `dup-${d.key}`, tag: 'DUP?', tone: 'info', go: 'analytics',
+    actions: [
+      {
+        label: 'Delete the second',
+        title: `Deletes the ${format(new Date(`${d.second.date.slice(0, 10)}T00:00:00`), 'MMM d')} charge`,
+        run: () => {
+          const tx = transactions.find(t => t.id === d.second.id);
+          if (!tx) return;
+          dispatch({ type: 'DELETE_TRANSACTION', payload: tx.id });
+          toast(`Deleted the second ${d.merchant} charge`, {
+            type: 'neutral', action: { label: 'Undo', onClick: () => dispatch({ type: 'ADD_TRANSACTION', payload: tx }) },
+          });
+        },
+      },
+      {
+        label: 'Not a duplicate',
+        run: () => dispatch({ type: 'UPDATE_SETTINGS', payload: { dismissedDuplicates: [...dismissed, d.key] } }),
+      },
+    ],
     text: <>{d.merchant} {formatCurrency(d.amount)} charged twice{d.daysApart === 0 ? ' on the same day' : `, ${d.daysApart} day${d.daysApart > 1 ? 's' : ''} apart`} ({format(new Date(`${d.second.date.slice(0, 10)}T00:00:00`), 'MMM d')}).</>,
   }));
   if (owed.outstanding > 0) {
@@ -448,6 +510,18 @@ export default function Dashboard({ onQuickAdd, onNavigate }: DashboardProps) {
   if (dueCount > 0) {
     signals.push({
       key: 'due', tag: 'DUE', tone: 'caution', go: 'recurring',
+      actions: [{
+        label: dueCount > 1 ? `Post all ${dueCount}` : 'Post it',
+        run: () => {
+          const todayStr = format(today, 'yyyy-MM-dd');
+          recurringTemplates.filter(t => isTemplateDue(t, todayStr)).forEach(t => {
+            const { transaction, template } = postTemplate(t, todayStr);
+            dispatch({ type: 'ADD_TRANSACTION', payload: transaction });
+            dispatch({ type: 'UPDATE_RECURRING_TEMPLATE', payload: template });
+          });
+          toast(`Posted ${dueCount} recurring charge${dueCount > 1 ? 's' : ''}`);
+        },
+      }],
       text: <>{dueCount} recurring charge{dueCount > 1 ? 's are' : ' is'} due to post.</>,
     });
   }
@@ -802,6 +876,20 @@ export default function Dashboard({ onQuickAdd, onNavigate }: DashboardProps) {
                       </button>
                     ) : (
                       <div className="flex items-start gap-2.5 px-2.5 py-1.5">{body}</div>
+                    )}
+                    {s.actions && s.actions.length > 0 && (
+                      <div className="flex flex-wrap gap-1 pl-[4.25rem] pr-2.5 pb-1.5 -mt-0.5">
+                        {s.actions.map(a => (
+                          <button
+                            key={a.label}
+                            onClick={a.run}
+                            title={a.title}
+                            className="h-[20px] px-1.5 border border-line-strong rounded-control text-micro uppercase tracking-[0.05em] text-ink-secondary hover:text-ink hover:bg-surface-hover"
+                          >
+                            {a.label}
+                          </button>
+                        ))}
+                      </div>
                     )}
                   </li>
                 );

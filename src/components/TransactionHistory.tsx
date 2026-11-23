@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useId } from 'react';
-import { Search, Filter, Download, Upload, Trash2, Edit2, ChevronUp, ChevronDown, Sparkles, CircleSlash, Bookmark, X } from 'lucide-react';
+import { Search, Filter, Download, Upload, Trash2, Edit2, ChevronUp, ChevronDown, Sparkles, CircleSlash, Bookmark, X, Scissors } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { useFinancial } from '../context/FinancialContext';
 import EmptyState from './EmptyState';
@@ -15,6 +15,7 @@ import { PAGE_SIZE } from '../utils/constants';
 import { runAi, taxonomy, aiSupported } from '../ai/ai';
 import TransactionEntry from './TransactionEntry';
 import ImportPreview from './ImportPreview';
+import SplitDialog from './SplitDialog';
 import { useToast } from '../context/ToastContext';
 import { getOwedStatus } from '../utils/reimbursements';
 import type { IsoDate, Transaction } from '../types/domain';
@@ -90,6 +91,7 @@ export default function TransactionHistory() {
     [customCategories],
   );
   const [editTx, setEditTx] = useState<Transaction | null>(null);
+  const [splitTx, setSplitTx] = useState<Transaction | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   // AI receipt / statement paste
@@ -267,6 +269,8 @@ export default function TransactionHistory() {
           }}
         />
       )}
+
+      {splitTx && <SplitDialog transaction={splitTx} onClose={() => setSplitTx(null)} />}
 
       {/* Confirm delete */}
       {deleteId && (
@@ -477,7 +481,7 @@ export default function TransactionHistory() {
                   </th>
                 ))}
                 <th scope="col" className={`${TH} text-left`}>Tags</th>
-                <th scope="col" className={`${TH} text-right w-[84px]`}><span className="sr-only">Actions</span></th>
+                <th scope="col" className={`${TH} text-right w-[108px]`}><span className="sr-only">Actions</span></th>
               </tr>
             </thead>
             <tbody>
@@ -510,6 +514,11 @@ export default function TransactionHistory() {
                         <span className="text-ink truncate">{t.merchant}</span>
                         {t.subcategory && <span className="text-ink-muted text-caption truncate">· {t.subcategory}</span>}
                         {t.isException && <span className="text-ink-muted text-caption whitespace-nowrap">· one-off</span>}
+                        {t.splitGroupId && (
+                          <button onClick={() => setSplitTx(t)} className="text-accent-ink text-caption whitespace-nowrap hover:underline" title="Part of a split purchase. Click to see or change the split">
+                            · split
+                          </button>
+                        )}
                         <OwedBadge t={t} />
                       </div>
                     </td>
@@ -543,6 +552,7 @@ export default function TransactionHistory() {
                         >
                           <CircleSlash className="w-3.5 h-3.5" />
                         </button>
+                        <button onClick={() => setSplitTx(t)} aria-label={`Split ${t.merchant}`} title="Split across categories" className={`${ROW_ACTION} text-ink-muted hover:text-ink hover:bg-surface-hover`}><Scissors className="w-3.5 h-3.5" /></button>
                         <button onClick={() => setEditTx(t)} aria-label={`Edit ${t.merchant}`} title="Edit" className={`${ROW_ACTION} text-ink-muted hover:text-ink hover:bg-surface-hover`}><Edit2 className="w-3.5 h-3.5" /></button>
                         <button onClick={() => setDeleteId(t.id)} aria-label={`Delete ${t.merchant}`} title="Delete" className={`${ROW_ACTION} text-ink-muted hover:text-negative hover:bg-negative-tint`}><Trash2 className="w-3.5 h-3.5" /></button>
                       </div>

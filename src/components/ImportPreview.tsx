@@ -12,6 +12,7 @@ import { X } from 'lucide-react';
 import Modal from './ui/Modal';
 import { Button, IconButton, Money, Badge } from './ui';
 import { findDuplicates } from '../utils/importDedupe';
+import { foldSplits } from '../utils/splits';
 import { getAllCategories } from '../utils/categorization';
 import { selectable } from '../utils/categoryTree';
 import type { Category, Transaction } from '../types/domain';
@@ -33,7 +34,9 @@ const fmtDate = (d: string): string => {
 };
 
 export default function ImportPreview({ fileName, rows, existing, customCategories, onConfirm, onClose }: Props) {
-  const matches = useMemo(() => findDuplicates(rows, existing), [rows, existing]);
+  // A split purchase is several ledger rows but one bank charge, so the ledger
+  // is compared with its splits folded back together.
+  const matches = useMemo(() => findDuplicates(rows, foldSplits(existing)), [rows, existing]);
   const [included, setIncluded] = useState<boolean[]>(() => matches.map(m => !m));
   const [categories, setCategories] = useState<string[]>(() => rows.map(r => r.category));
   const [onlyDuplicates, setOnlyDuplicates] = useState(false);

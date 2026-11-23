@@ -71,6 +71,12 @@ export interface Transaction {
   goalId?: string;
   recurringTemplateId?: string;
   owed?: OwedRecord;
+  /**
+   * Shared by the parts of one purchase split across categories. Each part
+   * is an ordinary transaction; this only ties them together for display,
+   * merging back, and matching the bank's single charge on import.
+   */
+  splitGroupId?: string;
 }
 
 /**

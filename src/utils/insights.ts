@@ -1091,6 +1091,8 @@ export function detectDuplicateCharges(
       const a = sorted[i - 1], b = sorted[i];
       const daysApart = daysBetween(a.date.slice(0, 10), b.date.slice(0, 10));
       if (daysApart > windowDays || (habitual && daysApart > 0)) continue;
+      // Two equal parts of one split purchase are one charge, not two.
+      if (a.splitGroupId && a.splitGroupId === b.splitGroupId) continue;
       const key = [a.id, b.id].sort().join('|');
       if (dismissedSet.has(key)) continue;
       out.push({ key, merchant: b.merchant, amount: b.amount, category: b.category, first: a, second: b, daysApart });

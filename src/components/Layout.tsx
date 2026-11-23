@@ -55,6 +55,7 @@ const NAV: NavSection[] = [
   {
     label: 'Wealth & Planning',
     items: [
+      { id: 'accounts',    code: 'ACC', label: 'Accounts' },
       { id: 'income',      code: 'INC', label: 'Income' },
       { id: 'investments', code: 'INV', label: 'Investments' },
       { id: 'debts',       code: 'DBT', label: 'Debts' },

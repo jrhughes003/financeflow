@@ -40,6 +40,7 @@ const PAGES: { id: PageId; label: string; code: string; keywords: string }[] = [
   { id: 'comparison', label: 'Comparison', code: 'CMP', keywords: 'budget vs actual variance' },
   { id: 'analytics', label: 'Analytics', code: 'ANL', keywords: 'insights trends forecast habits savings' },
   { id: 'goals', label: 'Goals', code: 'GOL', keywords: 'savings targets progress' },
+  { id: 'accounts', label: 'Accounts', code: 'ACC', keywords: 'bank chequing checking savings credit card balance' },
   { id: 'income', label: 'Income', code: 'INC', keywords: 'salary earnings pay' },
   { id: 'investments', label: 'Investments', code: 'INV', keywords: 'portfolio accounts advisor tfsa rrsp' },
   { id: 'debts', label: 'Debts', code: 'DBT', keywords: 'loans credit card payoff avalanche snowball' },

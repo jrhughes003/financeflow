@@ -15,6 +15,7 @@ export const PAGE_IDS = [
   'comparison',
   'analytics',
   'reports',
+  'accounts',
   'income',
   'investments',
   'debts', 'cashflow',

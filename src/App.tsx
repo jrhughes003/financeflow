@@ -11,6 +11,7 @@ import { applyTheme, watchSystemTheme, DEFAULT_THEME } from './utils/theme';
 import Layout, { type StatusItem } from './components/Layout';
 import CommandPalette from './components/CommandPalette';
 import Dashboard from './components/Dashboard';
+import AccountsPage from './components/AccountsPage';
 import TransactionEntry from './components/TransactionEntry';
 import TransactionHistory from './components/TransactionHistory';
 import BudgetManager from './components/BudgetManager';
@@ -133,6 +134,7 @@ function AppContent() {
     comparison:   <BudgetComparison />,
     analytics:    <SpendingAnalytics />,
     goals:        <GoalsManager />,
+    accounts:     <AccountsPage onNavigate={setCurrentPage} />,
     income:       <IncomeManager />,
     investments:  <InvestmentTracker />,
     debts:        <DebtTracker />,

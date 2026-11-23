@@ -55,7 +55,7 @@ export default function PositionPanel({
               <Badge tone="caution" className="shrink-0 mt-px">No cash</Badge>
               <p className="font-sans text-caption text-caution">
                 This is just your card balance until you add a chequing account — add one on the
-                Investments screen with type Cash.
+                Accounts page.
               </p>
             </div>
           )}
@@ -110,7 +110,7 @@ export default function PositionPanel({
           <Badge tone={p.undatedAccounts.length > 0 ? 'caution' : 'neutral'} className="shrink-0 mt-px">As of</Badge>
           <p className="font-sans text-caption text-ink-muted">
             {p.undatedAccounts.length > 0
-              ? <>No date on {p.undatedAccounts.join(', ')} — update the balance on the Investments screen and it will be stamped.</>
+              ? <>No date on {p.undatedAccounts.join(', ')} — update the balance on the Accounts page and it will be stamped.</>
               : <>Balances last confirmed {format(parseISO(p.oldestAsOf!), 'd MMM yyyy')}. Card balances are typed, not synced, so they are only as current as your last update.</>}
           </p>
         </div>
